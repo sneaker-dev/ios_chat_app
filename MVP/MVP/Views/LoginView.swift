@@ -190,7 +190,7 @@ struct LoginView: View {
                     isLoading = false
                     switch e {
                     case .serverError(let msg): errorMessage = msg
-                    default: errorMessage = e.localizedDescription ?? "Something went wrong"
+                    default: errorMessage = e.localizedDescription
                     }
                 }
             } catch {
