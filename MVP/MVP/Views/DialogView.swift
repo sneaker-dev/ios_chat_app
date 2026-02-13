@@ -74,7 +74,6 @@ struct DialogView: View {
         }
         .onAppear {
             loadChatHistory()
-            playGreetingIfNeeded()
             setupTTSCallbacks()
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
