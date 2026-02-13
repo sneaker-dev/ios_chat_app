@@ -573,6 +573,17 @@ struct DialogView: View {
                     .tint(.appPrimary)
                 }
 
+                Section("Avatar") {
+                    Button {
+                        showSettings = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            NotificationCenter.default.post(name: .changeAvatar, object: nil)
+                        }
+                    } label: {
+                        Label("Change Avatar", systemImage: "person.crop.circle")
+                    }
+                }
+
                 Section("Chat") {
                     Button(role: .destructive) { clearChatHistory() } label: {
                         Label("Clear Chat History", systemImage: "trash")

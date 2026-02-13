@@ -123,7 +123,8 @@ struct RootView: View {
                 LoginView()
                     .transition(.opacity)
                     .onReceive(NotificationCenter.default.publisher(for: .userDidLogin)) { _ in
-                        withAnimation { navigateAfterLogin() }
+                        // After login: always show avatar selection (matching Android)
+                        withAnimation { currentScreen = .avatarSelection }
                     }
 
             case .avatarSelection:
@@ -139,33 +140,30 @@ struct RootView: View {
                     .onReceive(NotificationCenter.default.publisher(for: .userDidLogout)) { _ in
                         withAnimation { currentScreen = .login }
                     }
+                    .onReceive(NotificationCenter.default.publisher(for: .changeAvatar)) { _ in
+                        // Settings → Change Avatar → go back to avatar selection
+                        withAnimation { currentScreen = .avatarSelection }
+                    }
             }
         }
         .tint(.appPrimary)
         .accentColor(.appPrimary)
     }
 
-    /// After splash: check if logged in
+    /// After splash: check if logged in and has previously selected avatar
     private func navigateAfterSplash() {
         if AuthService.shared.isLoggedIn {
-            if KeychainService.shared.hasSeenAvatarSelection() {
-                selectedAvatar = KeychainService.shared.getSelectedAvatar() ?? .female
+            if KeychainService.shared.hasSeenAvatarSelection(),
+               let saved = KeychainService.shared.getSelectedAvatar() {
+                // Returning user who already picked avatar → go straight to dialog
+                selectedAvatar = saved
                 currentScreen = .dialog
             } else {
+                // Logged in but never selected avatar → show selection
                 currentScreen = .avatarSelection
             }
         } else {
             currentScreen = .login
-        }
-    }
-
-    /// After login: always show avatar selection (matching Android: first login → avatar)
-    private func navigateAfterLogin() {
-        if KeychainService.shared.hasSeenAvatarSelection() {
-            selectedAvatar = KeychainService.shared.getSelectedAvatar() ?? .female
-            currentScreen = .dialog
-        } else {
-            currentScreen = .avatarSelection
         }
     }
 }
