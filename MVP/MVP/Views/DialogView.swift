@@ -75,6 +75,8 @@ struct DialogView: View {
                 Image("LoginBackground")
                     .resizable()
                     .scaledToFill()
+                    .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                    .clipped()
             } else {
                 LinearGradient(
                     colors: [Color(hex: 0x1A1A2E), Color(hex: 0x0F0F1E)],

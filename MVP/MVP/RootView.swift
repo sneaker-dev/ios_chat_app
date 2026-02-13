@@ -2,8 +2,8 @@
 //  RootView.swift
 //  MVP
 //
-//  Simplified flow: Splash → Login → Dialog (no avatar selection, no settings page)
-//  Default avatar: uses stored preference or female
+//  Full flow: Splash → Login → AvatarSelection → Dialog (matching Android)
+//  Avatar selection shown on first login; skipped if already selected
 
 import SwiftUI
 import UIKit
@@ -55,7 +55,13 @@ struct SplashView: View {
     var body: some View {
         ZStack {
             if UIImage(named: "LoginBackground") != nil {
-                Image("LoginBackground").resizable().scaledToFill().ignoresSafeArea().allowsHitTesting(false)
+                Image("LoginBackground")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                    .clipped()
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
             } else {
                 LinearGradient(colors: [Color(hex: 0x1A1A2E), Color(hex: 0x0F0F1E)], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
             }
@@ -87,39 +93,76 @@ struct SplashView: View {
     }
 }
 
-// MARK: - Root View (Simplified: Splash → Login → Dialog)
+// MARK: - Root View (Splash → Login → AvatarSelection → Dialog)
+
+enum AppScreen {
+    case splash
+    case login
+    case avatarSelection
+    case dialog
+}
 
 struct RootView: View {
-    @State private var showSplash = true
-    @State private var isLoggedIn = AuthService.shared.isLoggedIn
-
-    /// Use stored avatar or default to female
-    private var activeAvatar: AvatarType {
-        KeychainService.shared.getSelectedAvatar() ?? .female
-    }
+    @State private var currentScreen: AppScreen = .splash
+    @State private var selectedAvatar: AvatarType = KeychainService.shared.getSelectedAvatar() ?? .female
 
     var body: some View {
         Group {
-            if showSplash {
-                SplashView { showSplash = false }
-                    .transition(.opacity)
-            } else if !isLoggedIn {
+            switch currentScreen {
+            case .splash:
+                SplashView {
+                    withAnimation { navigateAfterSplash() }
+                }
+                .transition(.opacity)
+
+            case .login:
                 LoginView()
                     .transition(.opacity)
                     .onReceive(NotificationCenter.default.publisher(for: .userDidLogin)) { _ in
-                        withAnimation { isLoggedIn = true }
+                        withAnimation { navigateAfterLogin() }
                     }
-            } else {
-                DialogView(avatarType: activeAvatar)
+
+            case .avatarSelection:
+                AvatarSelectionView { avatar in
+                    selectedAvatar = avatar
+                    withAnimation { currentScreen = .dialog }
+                }
+                .transition(.opacity)
+
+            case .dialog:
+                DialogView(avatarType: selectedAvatar)
                     .transition(.opacity)
                     .onReceive(NotificationCenter.default.publisher(for: .userDidLogout)) { _ in
-                        withAnimation { isLoggedIn = false }
+                        withAnimation { currentScreen = .login }
                     }
             }
         }
-        .onAppear { isLoggedIn = AuthService.shared.isLoggedIn }
         .tint(.appPrimary)
         .accentColor(.appPrimary)
+    }
+
+    /// After splash: check if logged in
+    private func navigateAfterSplash() {
+        if AuthService.shared.isLoggedIn {
+            if KeychainService.shared.hasSeenAvatarSelection() {
+                selectedAvatar = KeychainService.shared.getSelectedAvatar() ?? .female
+                currentScreen = .dialog
+            } else {
+                currentScreen = .avatarSelection
+            }
+        } else {
+            currentScreen = .login
+        }
+    }
+
+    /// After login: always show avatar selection (matching Android: first login → avatar)
+    private func navigateAfterLogin() {
+        if KeychainService.shared.hasSeenAvatarSelection() {
+            selectedAvatar = KeychainService.shared.getSelectedAvatar() ?? .female
+            currentScreen = .dialog
+        } else {
+            currentScreen = .avatarSelection
+        }
     }
 }
 

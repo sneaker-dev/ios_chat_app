@@ -43,6 +43,10 @@ final class KeychainService {
         load(key: hasSeenAvatarSelectionKey) != nil
     }
 
+    func markAvatarAsSelected() {
+        save(key: hasSeenAvatarSelectionKey, value: "1")
+    }
+
     /// Clears auth only; keeps avatar so user doesn't have to re-pick after next login.
     func clearAll() {
         removeToken()
