@@ -135,16 +135,8 @@ struct DialogView: View {
                         .padding(.top, 6)
                         .padding(.bottom, keyboardUp ? 6 : max(windowBottom - 22, 6))
                         .frame(maxWidth: .infinity)
-                        .background(Color.black.opacity(0.6).allowsHitTesting(false))
                 }
                 .frame(height: bottomH)
-                .background(
-                    LinearGradient(
-                        colors: [Color.black.opacity(0.0), Color.black.opacity(0.4), Color.black.opacity(0.6)],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                    .allowsHitTesting(false)
-                )
             }
             .padding(.bottom, keyboardUp ? keyboardHeight : 0)
         }
