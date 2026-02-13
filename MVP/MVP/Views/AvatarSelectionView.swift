@@ -26,6 +26,7 @@ struct AvatarSelectionView: View {
                         .scaledToFill()
                         .frame(width: screenW, height: screenH)
                         .clipped()
+                        .position(x: screenW / 2, y: screenH / 2)
                         .allowsHitTesting(false)
                 } else {
                     LinearGradient(

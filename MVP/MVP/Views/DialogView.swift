@@ -70,13 +70,14 @@ struct DialogView: View {
     // MARK: - Background
 
     private var backgroundLayer: some View {
-        ZStack {
+        GeometryReader { _ in
             if UIImage(named: "LoginBackground") != nil {
                 Image("LoginBackground")
                     .resizable()
                     .scaledToFill()
                     .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
                     .clipped()
+                    .position(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height / 2)
             } else {
                 LinearGradient(
                     colors: [Color(hex: 0x1A1A2E), Color(hex: 0x0F0F1E)],
@@ -99,9 +100,10 @@ struct DialogView: View {
         let chatH = screenH * 0.62
 
         return ZStack(alignment: .top) {
-            // LAYER 2: Avatar (full area behind content)
+            // LAYER 2: Avatar (full area behind content, centered)
             AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
-                .frame(width: geo.size.width)
+                .frame(width: geo.size.width, height: geo.size.height + safeTop + safeBottom)
+                .clipped()
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 

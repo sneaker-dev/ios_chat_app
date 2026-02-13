@@ -18,14 +18,18 @@ struct LoginView: View {
 
     var body: some View {
         GeometryReader { geo in
+            let screenW = UIScreen.main.bounds.width
+            let screenH = UIScreen.main.bounds.height
+
             ZStack {
                 // Background image (fill entire screen including safe areas)
                 if UIImage(named: "LoginBackground") != nil {
                     Image("LoginBackground")
                         .resizable()
                         .scaledToFill()
-                        .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                        .frame(width: screenW, height: screenH)
                         .clipped()
+                        .position(x: screenW / 2, y: screenH / 2)
                         .allowsHitTesting(false)
                 } else {
                     Color(hex: 0x1A1A2E)

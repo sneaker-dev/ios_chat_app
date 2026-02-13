@@ -52,14 +52,18 @@ struct SplashView: View {
     @State private var scaleAnim: CGFloat = 0.5
     @State private var pulseScale: CGFloat = 0.8
 
+    private let screenW = UIScreen.main.bounds.width
+    private let screenH = UIScreen.main.bounds.height
+
     var body: some View {
         ZStack {
             if UIImage(named: "LoginBackground") != nil {
                 Image("LoginBackground")
                     .resizable()
                     .scaledToFill()
-                    .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                    .frame(width: screenW, height: screenH)
                     .clipped()
+                    .position(x: screenW / 2, y: screenH / 2)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
             } else {
