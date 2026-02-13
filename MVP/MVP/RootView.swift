@@ -2,20 +2,18 @@
 //  RootView.swift
 //  MVP
 //
-//  v2.0: Exact Android parity - color palette, splash, navigation, theme
+//  Simplified flow: Splash → Login → Dialog (no avatar selection, no settings page)
+//  Default avatar: uses stored preference or female
 
 import SwiftUI
 import UIKit
 import Combine
 
-// MARK: - App Theme (exact Android Color.kt match)
+// MARK: - App Theme (Android Color.kt / Theme.kt)
 
 extension Color {
-    /// Brand primary: #E55C38 (same in light and dark on Android)
     static let appPrimary = Color(red: 0xE5/255, green: 0x5C/255, blue: 0x38/255)
     static let appPrimaryPressed = Color(red: 0xCF/255, green: 0x4F/255, blue: 0x2F/255)
-
-    /// Dynamic colors matching Android Theme.kt
     static let appBackground = Color(UIColor { tc in
         tc.userInterfaceStyle == .dark
             ? UIColor(red: 0x12/255, green: 0x12/255, blue: 0x12/255, alpha: 1)
@@ -34,25 +32,19 @@ extension Color {
             ? UIColor(red: 0xCC/255, green: 0xCC/255, blue: 0xCC/255, alpha: 1)
             : UIColor(red: 0x66/255, green: 0x66/255, blue: 0x66/255, alpha: 1)
     })
-
-    // Chat bubbles (exact Android match)
-    static let userBubble = Color.white.opacity(0.85)       // Android: Color.White.copy(alpha = 0.85f)
-    static let userBubbleText = Color(red: 0, green: 0, blue: 0) // Android: Color.Black
-    static let aiBubble = appPrimary.opacity(0.90)           // Android: primary.copy(alpha = 0.90f)
-    static let aiBubbleText = Color.white                    // Android: Color.White
-
-    // Top bar overlay
-    static let topBarDark = Color.black.opacity(0.3)         // Android: Color.Black.copy(alpha = 0.3f)
-    static let topBarLight = Color.white.opacity(0.3)        // Android: Color.White.copy(alpha = 0.3f)
-
-    // Tap to Speak dark red gradient (Android ButtonColorOption.DarkRed)
-    static let speakNormal1 = Color(red: 0xB7/255, green: 0x1C/255, blue: 0x1C/255) // #B71C1C
-    static let speakNormal2 = Color(red: 0xD3/255, green: 0x2F/255, blue: 0x2F/255) // #D32F2F
-    static let speakActive1 = Color(red: 0xD3/255, green: 0x2F/255, blue: 0x2F/255) // #D32F2F
-    static let speakActive2 = Color(red: 0xE5/255, green: 0x73/255, blue: 0x73/255) // #E57373
+    // Chat bubbles
+    static let userBubble = Color.white.opacity(0.85)
+    static let userBubbleText = Color.black
+    static let aiBubble = appPrimary.opacity(0.90)
+    static let aiBubbleText = Color.white
+    // Speak button gradient (Android DarkRed)
+    static let speakNormal1 = Color(red: 0xB7/255, green: 0x1C/255, blue: 0x1C/255)
+    static let speakNormal2 = Color(red: 0xD3/255, green: 0x2F/255, blue: 0x2F/255)
+    static let speakActive1 = Color(red: 0xD3/255, green: 0x2F/255, blue: 0x2F/255)
+    static let speakActive2 = Color(red: 0xE5/255, green: 0x73/255, blue: 0x73/255)
 }
 
-// MARK: - Splash Screen (exact Android SplashScreen.kt match)
+// MARK: - Splash Screen (Android SplashScreen.kt)
 
 struct SplashView: View {
     var onFinished: () -> Void
@@ -62,103 +54,49 @@ struct SplashView: View {
 
     var body: some View {
         ZStack {
-            // Background image (same as Android: R.drawable.background)
             if UIImage(named: "LoginBackground") != nil {
-                Image("LoginBackground")
-                    .resizable()
-                    .scaledToFill()
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
+                Image("LoginBackground").resizable().scaledToFill().ignoresSafeArea().allowsHitTesting(false)
             } else {
-                LinearGradient(
-                    colors: [Color(red: 0x1A/255, green: 0x1A/255, blue: 0x2E/255),
-                             Color(red: 0x0F/255, green: 0x0F/255, blue: 0x1E/255)],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                LinearGradient(colors: [Color(hex: 0x1A1A2E), Color(hex: 0x0F0F1E)], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
             }
+            Color.black.opacity(0.6).ignoresSafeArea().allowsHitTesting(false)
 
-            // Android: Color.Black.copy(alpha = 0.6f)
-            Color.black.opacity(0.6)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-
-            // Center content
             VStack(spacing: 24) {
-                // Android: app_name, 48.sp, ExtraBold
-                Text("Inango Chat")
-                    .font(.system(size: 48, weight: .heavy))
-                    .foregroundColor(.white)
-                    .tracking(3)
-
-                // Android: app_tagline, 18.sp, Medium
-                Text("Your AI Voice Assistant")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(.white.opacity(0.9))
-                    .tracking(1)
-
+                Text("Inango Chat").font(.system(size: 48, weight: .heavy)).foregroundColor(.white).tracking(3)
+                Text("Your AI Voice Assistant").font(.system(size: 18, weight: .medium)).foregroundColor(.white.opacity(0.9)).tracking(1)
                 Spacer().frame(height: 32)
-
-                // Android: Three concentric pulsing circles (60/40/20dp)
                 ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.3))
-                        .frame(width: 60, height: 60)
-                    Circle()
-                        .fill(Color.white.opacity(0.6))
-                        .frame(width: 40, height: 40)
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 20, height: 20)
+                    Circle().fill(Color.white.opacity(0.3)).frame(width: 60, height: 60)
+                    Circle().fill(Color.white.opacity(0.6)).frame(width: 40, height: 40)
+                    Circle().fill(Color.white).frame(width: 20, height: 20)
                 }
                 .scaleEffect(pulseScale)
-
                 Spacer().frame(height: 16)
-
-                // Android: "Loading...", 14.sp
-                Text("Loading...")
-                    .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.7))
+                Text("Loading...").font(.system(size: 14)).foregroundColor(.white.opacity(0.7))
             }
-            .opacity(alphaAnim)
-            .scaleEffect(scaleAnim)
+            .opacity(alphaAnim).scaleEffect(scaleAnim)
 
-            // Android: version at bottom, 12.sp, padding(bottom = 32.dp)
-            VStack {
-                Spacer()
-                Text("v1.0.0")
-                    .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.5))
-                    .padding(.bottom, 32)
-            }
-            .opacity(alphaAnim)
+            VStack { Spacer(); Text("v1.0.0").font(.system(size: 12)).foregroundColor(.white.opacity(0.5)).padding(.bottom, 32) }.opacity(alphaAnim)
         }
         .onAppear {
-            // Android: alphaAnim 0→1 (1000ms), scaleAnim 0.5→1 (spring), pulseScale 0.8→1.2 (infinite)
-            withAnimation(.easeOut(duration: 1.0)) {
-                alphaAnim = 1.0
-            }
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.6, blendDuration: 0)) {
-                scaleAnim = 1.0
-            }
-            withAnimation(Animation.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
-                pulseScale = 1.2
-            }
-            // Android: delay 2500ms then navigate
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                withAnimation { onFinished() }
-            }
+            withAnimation(.easeOut(duration: 1.0)) { alphaAnim = 1.0 }
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) { scaleAnim = 1.0 }
+            withAnimation(Animation.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) { pulseScale = 1.2 }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { withAnimation { onFinished() } }
         }
     }
 }
 
-// MARK: - Root View
+// MARK: - Root View (Simplified: Splash → Login → Dialog)
 
 struct RootView: View {
     @State private var showSplash = true
     @State private var isLoggedIn = AuthService.shared.isLoggedIn
-    @State private var hasAvatar: Bool = KeychainService.shared.hasSeenAvatarSelection()
-    @State private var selectedAvatar: AvatarType? = KeychainService.shared.getSelectedAvatar()
+
+    /// Use stored avatar or default to female
+    private var activeAvatar: AvatarType {
+        KeychainService.shared.getSelectedAvatar() ?? .female
+    }
 
     var body: some View {
         Group {
@@ -169,37 +107,17 @@ struct RootView: View {
                 LoginView()
                     .transition(.opacity)
                     .onReceive(NotificationCenter.default.publisher(for: .userDidLogin)) { _ in
-                        withAnimation {
-                            isLoggedIn = true
-                            hasAvatar = KeychainService.shared.hasSeenAvatarSelection()
-                            selectedAvatar = KeychainService.shared.getSelectedAvatar()
-                        }
+                        withAnimation { isLoggedIn = true }
                     }
-            } else if !hasAvatar || selectedAvatar == nil {
-                AvatarSelectionView { avatar in
-                    withAnimation { selectedAvatar = avatar; hasAvatar = true }
-                }
-                .transition(.opacity)
-                .onReceive(NotificationCenter.default.publisher(for: .userDidLogout)) { _ in
-                    withAnimation { isLoggedIn = false; hasAvatar = false; selectedAvatar = nil }
-                }
-            } else if let avatar = selectedAvatar {
-                DialogView(avatarType: avatar)
+            } else {
+                DialogView(avatarType: activeAvatar)
                     .transition(.opacity)
                     .onReceive(NotificationCenter.default.publisher(for: .userDidLogout)) { _ in
-                        withAnimation { isLoggedIn = false; hasAvatar = false; selectedAvatar = nil }
-                    }
-                    .onReceive(NotificationCenter.default.publisher(for: .changeAvatar)) { _ in
-                        withAnimation { hasAvatar = false; selectedAvatar = nil }
+                        withAnimation { isLoggedIn = false }
                     }
             }
         }
-        .onAppear {
-            isLoggedIn = AuthService.shared.isLoggedIn
-            hasAvatar = KeychainService.shared.hasSeenAvatarSelection()
-            selectedAvatar = KeychainService.shared.getSelectedAvatar()
-        }
-        // Set tint color globally to match Android primary
+        .onAppear { isLoggedIn = AuthService.shared.isLoggedIn }
         .tint(.appPrimary)
         .accentColor(.appPrimary)
     }
