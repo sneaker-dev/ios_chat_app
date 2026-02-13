@@ -1,9 +1,3 @@
-//
-//  ChatBubbleView.swift
-//  MVP
-//
-//  Android-matching chat bubbles. User=white/black, AI=primary/white.
-
 import SwiftUI
 
 struct ChatBubbleView: View {
@@ -52,7 +46,6 @@ struct ChatBubbleView: View {
     }
 }
 
-// Asymmetric bubble corners matching Android
 struct BubbleShape: Shape {
     let isFromUser: Bool
     func path(in rect: CGRect) -> Path {

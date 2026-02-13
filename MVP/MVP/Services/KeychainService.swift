@@ -1,12 +1,6 @@
-//
-//  KeychainService.swift
-//  MVP
-//
-
 import Foundation
 import Security
 
-/// Secure storage for auth token and user preferences (e.g. selected avatar).
 final class KeychainService {
     static let shared = KeychainService()
 
@@ -47,10 +41,8 @@ final class KeychainService {
         save(key: hasSeenAvatarSelectionKey, value: "1")
     }
 
-    /// Clears auth only; keeps avatar so user doesn't have to re-pick after next login.
     func clearAll() {
         removeToken()
-        // Do not clear avatarKey or hasSeenAvatarSelectionKey
     }
 
     func saveLastEmail(_ email: String) {
@@ -60,8 +52,6 @@ final class KeychainService {
     func getLastEmail() -> String? {
         load(key: lastEmailKey)
     }
-
-    // MARK: - Generic keychain helpers
 
     private func save(key: String, value: String) {
         guard let data = value.data(using: .utf8) else { return }

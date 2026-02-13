@@ -1,10 +1,3 @@
-//
-//  TextToSpeechService.swift
-//  MVP
-//
-//  v2.0: Exact Android parity - pitch 1.35/0.75, rate 0.85/0.95,
-//  gender-matched voice selection, completion callbacks, word-by-word sync
-
 import Foundation
 import AVFoundation
 

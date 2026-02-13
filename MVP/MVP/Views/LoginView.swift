@@ -1,9 +1,3 @@
-//
-//  LoginView.swift
-//  MVP
-//
-//  Clean Android-matching login screen. Card layout on background image.
-
 import SwiftUI
 
 struct LoginView: View {
@@ -21,7 +15,6 @@ struct LoginView: View {
         let screenH = UIScreen.main.bounds.height
 
         ZStack {
-            // Background (absolute, fills entire screen)
             Color.black.ignoresSafeArea()
 
             if UIImage(named: "LoginBackground") != nil {
@@ -34,14 +27,11 @@ struct LoginView: View {
                     .allowsHitTesting(false)
             }
 
-            // 50% overlay
             Color.black.opacity(0.5).ignoresSafeArea().allowsHitTesting(false)
 
-            // Content - vertically centered
             VStack(spacing: 0) {
                 Spacer()
 
-                // Title
                 Text(isRegister ? "Create Account" : "Welcome")
                     .font(.system(size: 30, weight: .bold))
                     .foregroundColor(.appPrimary)
@@ -53,9 +43,7 @@ struct LoginView: View {
 
                 Spacer().frame(height: 28)
 
-                // Card
                 VStack(spacing: 16) {
-                    // Email
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Email").font(.system(size: 13, weight: .medium))
                             .foregroundColor(focusedField == .email ? .appPrimary : .gray)
@@ -77,7 +65,6 @@ struct LoginView: View {
                             )
                     }
 
-                    // Password
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Password").font(.system(size: 13, weight: .medium))
                             .foregroundColor(focusedField == .password ? .appPrimary : .gray)
@@ -112,7 +99,6 @@ struct LoginView: View {
                         )
                     }
 
-                    // Error
                     if let err = errorMessage {
                         Text(err)
                             .font(.system(size: 13))
@@ -121,7 +107,6 @@ struct LoginView: View {
                             .frame(maxWidth: .infinity)
                     }
 
-                    // Sign In button
                     Button(action: submit) {
                         ZStack {
                             if isLoading {
@@ -147,7 +132,6 @@ struct LoginView: View {
                 .shadow(color: .black.opacity(0.2), radius: 12, y: 6)
                 .padding(.horizontal, 24)
 
-                // Toggle
                 Button(isRegister ? "Already have an account? Sign In" : "Create an account") {
                     withAnimation { isRegister.toggle(); errorMessage = nil }
                 }
@@ -194,7 +178,6 @@ struct LoginView: View {
     }
 }
 
-// Hex color helper
 extension Color {
     init(hex: UInt, alpha: Double = 1.0) {
         self.init(

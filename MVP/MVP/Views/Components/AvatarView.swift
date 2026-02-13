@@ -1,14 +1,6 @@
-//
-//  AvatarView.swift
-//  MVP
-//
-//  GIF avatar display using ImageIO. Falls back to static images.
-
 import SwiftUI
 import UIKit
 import ImageIO
-
-// MARK: - GIF Loader
 
 final class GIFAnimator {
     static func createAnimatedImage(from name: String) -> UIImage? {
@@ -37,8 +29,6 @@ final class GIFAnimator {
     }
 }
 
-// MARK: - GIF Image View
-
 struct GIFImageView: UIViewRepresentable {
     let gifName: String
     var contentMode: UIView.ContentMode = .scaleAspectFill
@@ -60,7 +50,6 @@ struct GIFImageView: UIViewRepresentable {
         iv.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(iv)
 
-        // Center the image view within the container
         NSLayoutConstraint.activate([
             iv.centerXAnchor.constraint(equalTo: container.centerXAnchor),
             iv.centerYAnchor.constraint(equalTo: container.centerYAnchor),
@@ -82,8 +71,6 @@ struct GIFImageView: UIViewRepresentable {
         else if let img = UIImage(named: gifName) { iv.image = img }
     }
 }
-
-// MARK: - Avatar View
 
 struct AvatarView: View {
     let avatarType: AvatarType

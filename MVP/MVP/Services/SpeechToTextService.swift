@@ -1,13 +1,7 @@
-//
-//  SpeechToTextService.swift
-//  MVP
-//
-
 import Foundation
 import Speech
 import AVFoundation
 
-/// Local Speech-to-Text using system language. Open-source system APIs only.
 final class SpeechToTextService: NSObject, ObservableObject {
     @Published var isRecording = false
     @Published var transcribedText: String = ""
@@ -18,7 +12,6 @@ final class SpeechToTextService: NSObject, ObservableObject {
     private let audioEngine = AVAudioEngine()
     private let speechRecognizer: SFSpeechRecognizer? = SFSpeechRecognizer(locale: Locale.current)
     private var recordingCompletion: ((String?) -> Void)?
-    /// Auto-stop recording after this much silence (no new speech results).
     private let silenceTimeout: TimeInterval = 2.0
     private var silenceWorkItem: DispatchWorkItem?
 

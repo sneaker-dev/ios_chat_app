@@ -1,10 +1,3 @@
-//
-//  DialogView.swift
-//  MVP
-//
-//  Clean Android-matching dialog screen. No settings page, no avatar selection.
-//  Layout: background image → avatar → semi-transparent top bar → chat → speak button
-
 import SwiftUI
 
 struct DialogView: View {
@@ -26,7 +19,6 @@ struct DialogView: View {
     @State private var showTypingIndicator = false
     @State private var showSettings = false
 
-    // Settings (persisted) - matching Android SettingsRepository defaults
     @AppStorage("voiceOutputEnabled") private var voiceOutputEnabled = false
     @AppStorage("alwaysVoiceResponse") private var alwaysVoiceResponse = false
     @AppStorage("typingIndicatorEnabled") private var typingIndicatorEnabled = true
@@ -47,7 +39,6 @@ struct DialogView: View {
         let screenH = UIScreen.main.bounds.height
 
         ZStack {
-            // LAYER 1: Background (absolute, fills entire screen - never moves)
             Color.black.ignoresSafeArea()
 
             if UIImage(named: "LoginBackground") != nil {
@@ -60,7 +51,6 @@ struct DialogView: View {
                     .allowsHitTesting(false)
             }
 
-            // LAYER 2: Main content
             GeometryReader { geo in
                 let isLandscape = geo.size.width > geo.size.height
 
@@ -73,7 +63,6 @@ struct DialogView: View {
         }
         .ignoresSafeArea()
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { n in
-            // When "Show Keyboard" is OFF, ignore keyboard height → bottom bar stays fixed
             guard showSoftwareKeyboard else { return }
             guard let f = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
             withAnimation(.easeOut(duration: 0.25)) { keyboardHeight = f.height }
@@ -88,10 +77,7 @@ struct DialogView: View {
         }
         .onChange(of: showSoftwareKeyboard) { newValue in
             if !newValue {
-                // When "Show Keyboard" is turned OFF, reset keyboard height immediately
-                // so speak button reappears and bottom bar returns to fixed position
                 withAnimation(.easeOut(duration: 0.25)) { keyboardHeight = 0 }
-                // Dismiss any active keyboard
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
         }
@@ -100,10 +86,7 @@ struct DialogView: View {
         }
     }
 
-    // MARK: - Portrait Layout
-
     private func portraitLayout(geo: GeometryProxy) -> some View {
-        // Safe area insets from the window (geo may report 0 due to ignoresSafeArea)
         let windowTop = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.windows.first?.safeAreaInsets.top ?? 59
@@ -113,28 +96,22 @@ struct DialogView: View {
         let screenW = UIScreen.main.bounds.width
         let screenH = UIScreen.main.bounds.height
         let topBarH: CGFloat = 52
-        // Keyboard is only considered "up" when BOTH: height > 0 AND the setting is ON
         let keyboardUp = keyboardHeight > 0 && showSoftwareKeyboard
-        // When keyboard is up, shrink chat to leave room; otherwise use 52%
         let chatH = keyboardUp ? screenH * 0.35 : screenH * 0.52
 
         return ZStack(alignment: .top) {
-            // LAYER 1: Avatar (fixed, never moves)
             AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
                 .frame(width: screenW, height: screenH)
                 .clipped()
                 .allowsHitTesting(false)
 
-            // LAYER 2: Top bar (fixed, never moves)
             topBar
                 .frame(height: topBarH)
                 .padding(.top, windowTop + 6)
 
-            // LAYER 3: Bottom section (chat + input) - moves with keyboard
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
 
-                // Chat + input (mic button is now integrated into inputRow)
                 VStack(spacing: 0) {
                     chatSection
 
@@ -145,7 +122,6 @@ struct DialogView: View {
                     inputRow
                 }
                 .frame(height: chatH)
-                .padding(.bottom, keyboardUp ? 0 : max(windowBottom - 22, 6))
                 .background(
                     LinearGradient(
                         colors: [Color.black.opacity(0.0), Color.black.opacity(0.4), Color.black.opacity(0.6)],
@@ -153,22 +129,26 @@ struct DialogView: View {
                     )
                     .allowsHitTesting(false)
                 )
+
+                if !keyboardUp || !showSoftwareKeyboard {
+                    speakButton
+                        .padding(.top, 6)
+                        .padding(.bottom, max(windowBottom - 22, 6))
+                        .frame(maxWidth: .infinity)
+                        .background(Color.black.opacity(0.6).allowsHitTesting(false))
+                }
             }
             .padding(.bottom, keyboardUp ? keyboardHeight : 0)
         }
     }
 
-    // MARK: - Landscape Layout
-
     private func landscapeLayout(geo: GeometryProxy) -> some View {
         ZStack(alignment: .top) {
             HStack(spacing: 0) {
-                // Avatar left 50%
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
                     .frame(width: geo.size.width * 0.5)
                     .clipped()
 
-                // Chat right 50%
                 VStack(spacing: 0) {
                     chatSection
 
@@ -181,12 +161,9 @@ struct DialogView: View {
                 .background(Color.black.opacity(0.3).allowsHitTesting(false))
             }
 
-            // Top bar overlay
             topBar
         }
     }
-
-    // MARK: - Top Bar (Android: "inango" + Person icon + Settings icon)
 
     private var topBar: some View {
         HStack(spacing: 4) {
@@ -197,7 +174,6 @@ struct DialogView: View {
 
             Spacer()
 
-            // Avatar change button (Android: Icons.Default.Person)
             Button {
                 NotificationCenter.default.post(name: .changeAvatar, object: nil)
             } label: {
@@ -207,7 +183,6 @@ struct DialogView: View {
                     .frame(width: 44, height: 44)
             }
 
-            // Settings button (Android: Icons.Default.Settings)
             Button { showSettings = true } label: {
                 Image(systemName: "gearshape.fill")
                     .font(.system(size: 20))
@@ -218,8 +193,6 @@ struct DialogView: View {
         .padding(.horizontal, 16)
         .background(Color.black.opacity(0.3))
     }
-
-    // MARK: - Chat Section
 
     private var chatSection: some View {
         ScrollViewReader { proxy in
@@ -247,8 +220,6 @@ struct DialogView: View {
         }
     }
 
-    // MARK: - Typing Indicator
-
     private var typingIndicatorView: some View {
         HStack(spacing: 6) {
             ForEach(0..<3, id: \.self) { i in
@@ -266,8 +237,6 @@ struct DialogView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    // MARK: - Portrait Input Row
-
     private var inputRow: some View {
         VStack(spacing: 4) {
             if let err = errorMessage {
@@ -275,29 +244,6 @@ struct DialogView: View {
             }
 
             HStack(spacing: 8) {
-                // Mic button (compact speak) - always visible to the left of text field
-                Button {
-                    if stt.isRecording { stt.stopRecording() }
-                    else { startVoiceInput() }
-                } label: {
-                    Image(systemName: stt.isRecording ? "stop.circle.fill" : "mic.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.white)
-                        .frame(width: 44, height: 44)
-                        .background(
-                            LinearGradient(
-                                colors: stt.isRecording
-                                    ? [Color.speakActive1, Color.speakActive2]
-                                    : [Color.speakNormal1, Color.speakNormal2],
-                                startPoint: .leading, endPoint: .trailing
-                            )
-                        )
-                        .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.3), radius: 3, y: 2)
-                }
-                .disabled(isLoading)
-
-                // Text field
                 TextField("Type your message...", text: $inputText)
                     .textFieldStyle(PlainTextFieldStyle())
                     .font(.system(size: 15))
@@ -316,7 +262,28 @@ struct DialogView: View {
                         else if val.isEmpty && avatarState == .thinking && !stt.isRecording { avatarState = .idle }
                     }
 
-                // Send button (always visible with primary color)
+                if !showSoftwareKeyboard {
+                    Button {
+                        if stt.isRecording { stt.stopRecording() }
+                        else { startVoiceInput() }
+                    } label: {
+                        Image(systemName: stt.isRecording ? "stop.circle.fill" : "mic.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .frame(width: 44, height: 44)
+                            .background(
+                                LinearGradient(
+                                    colors: stt.isRecording
+                                        ? [Color.speakActive1, Color.speakActive2]
+                                        : [Color.speakNormal1, Color.speakNormal2],
+                                    startPoint: .leading, endPoint: .trailing
+                                )
+                            )
+                            .clipShape(Circle())
+                    }
+                    .disabled(isLoading)
+                }
+
                 Button {
                     wasVoiceInput = false
                     sendMessage(inputText, fromVoice: false)
@@ -336,8 +303,6 @@ struct DialogView: View {
         }
     }
 
-    // MARK: - Landscape Input Row
-
     private var landscapeInputRow: some View {
         HStack(spacing: 8) {
             TextField("Type your message...", text: $inputText)
@@ -354,7 +319,6 @@ struct DialogView: View {
                     else if val.isEmpty && avatarState == .thinking && !stt.isRecording { avatarState = .idle }
                 }
 
-            // Voice
             Button {
                 if stt.isRecording { stt.stopRecording() }
                 else { startVoiceInput() }
@@ -368,7 +332,6 @@ struct DialogView: View {
             }
             .disabled(isLoading)
 
-            // Send
             Button {
                 wasVoiceInput = false
                 sendMessage(inputText, fromVoice: false)
@@ -385,8 +348,6 @@ struct DialogView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
     }
-
-    // MARK: - Error Banner
 
     private func errorBanner(_ message: String) -> some View {
         HStack(spacing: 8) {
@@ -411,8 +372,6 @@ struct DialogView: View {
         .cornerRadius(10)
         .padding(.horizontal, 12)
     }
-
-    // MARK: - Speak Button (Android: 234x71dp, RoundedCornerShape(50), dark red gradient)
 
     private var speakButton: some View {
         Button {
@@ -441,14 +400,10 @@ struct DialogView: View {
         .disabled(isLoading)
     }
 
-    // MARK: - TTS Callbacks
-
     private func setupTTSCallbacks() {
         tts.onSpeakingStarted = { avatarState = .speaking }
         tts.onSpeakingCompleted = { avatarState = .idle }
     }
-
-    // MARK: - Greeting
 
     private func playGreetingIfNeeded() {
         guard !hasPlayedGreeting else { return }
@@ -462,8 +417,6 @@ struct DialogView: View {
             tts.speak(greeting, language: dialogLanguage, preferMale: preferMale)
         }
     }
-
-    // MARK: - Voice Input
 
     private func startVoiceInput() {
         errorMessage = nil
@@ -482,8 +435,6 @@ struct DialogView: View {
             }
         }
     }
-
-    // MARK: - Send Message
 
     private func sendMessage(_ text: String, fromVoice: Bool, isRetry: Bool = false) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -539,8 +490,6 @@ struct DialogView: View {
         sendMessage(text, fromVoice: wasVoiceInput, isRetry: true)
     }
 
-    // MARK: - Typewriter
-
     private func startTypewriter(messageId: UUID, fullText: String, wordByWord: Bool = false, msPerWord: Int = 0) {
         typingMessageId = messageId; typingDisplayedCount = 0
         let total = fullText.count
@@ -570,8 +519,6 @@ struct DialogView: View {
         }
     }
 
-    // MARK: - Chat History
-
     private func saveChatHistory() {
         let toSave = Array(messages.suffix(maxHistoryCount))
         if let data = try? JSONEncoder().encode(toSave) { UserDefaults.standard.set(data, forKey: historyKey) }
@@ -589,12 +536,9 @@ struct DialogView: View {
         playGreetingIfNeeded()
     }
 
-    // MARK: - Settings Sheet (matching Android SettingsScreen.kt)
-
     private var settingsSheet: some View {
         NavigationView {
             List {
-                // User Info (Android: UserInfoCard)
                 Section {
                     HStack(spacing: 14) {
                         Image(systemName: "person.circle.fill")
@@ -612,68 +556,18 @@ struct DialogView: View {
                     .padding(.vertical, 4)
                 }
 
-                // Preferences (Android: PreferencesSection)
                 Section(header: Text("Preferences")) {
-                    // Voice Output
-                    settingsToggle(
-                        icon: "speaker.wave.2",
-                        title: "Voice Output",
-                        description: "Enable voice responses",
-                        isOn: $voiceOutputEnabled
-                    )
-
-                    // Always Voice Response
-                    settingsToggle(
-                        icon: "waveform",
-                        title: "Always Voice Response",
-                        description: "Voice response for all messages",
-                        isOn: $alwaysVoiceResponse
-                    )
-                    .disabled(!voiceOutputEnabled)
-                    .opacity(voiceOutputEnabled ? 1.0 : 0.5)
-
-                    // Typing Indicator
-                    settingsToggle(
-                        icon: "ellipsis.bubble",
-                        title: "Typing Indicator",
-                        description: "Show when AI is thinking",
-                        isOn: $typingIndicatorEnabled
-                    )
-
-                    // Gender-matched Voice
-                    settingsToggle(
-                        icon: "person.wave.2",
-                        title: "Gender-matched Voice",
-                        description: "Voice matches avatar gender",
-                        isOn: $genderMatchedVoice
-                    )
-
-                    // Streaming Text
-                    settingsToggle(
-                        icon: "text.cursor",
-                        title: "Streaming Text",
-                        description: "Typewriter effect for responses",
-                        isOn: $streamingTextEnabled
-                    )
-
-                    // Dark Mode
-                    settingsToggle(
-                        icon: "moon.fill",
-                        title: "Dark Mode",
-                        description: "Use dark theme",
-                        isOn: $darkModeEnabled
-                    )
-
-                    // Show Keyboard
-                    settingsToggle(
-                        icon: "keyboard",
-                        title: "Show Keyboard",
-                        description: "Show on-screen keyboard when typing",
-                        isOn: $showSoftwareKeyboard
-                    )
+                    settingsToggle(icon: "speaker.wave.2", title: "Voice Output", description: "Enable voice responses", isOn: $voiceOutputEnabled)
+                    settingsToggle(icon: "waveform", title: "Always Voice Response", description: "Voice response for all messages", isOn: $alwaysVoiceResponse)
+                        .disabled(!voiceOutputEnabled)
+                        .opacity(voiceOutputEnabled ? 1.0 : 0.5)
+                    settingsToggle(icon: "ellipsis.bubble", title: "Typing Indicator", description: "Show when AI is thinking", isOn: $typingIndicatorEnabled)
+                    settingsToggle(icon: "person.wave.2", title: "Gender-matched Voice", description: "Voice matches avatar gender", isOn: $genderMatchedVoice)
+                    settingsToggle(icon: "text.cursor", title: "Streaming Text", description: "Typewriter effect for responses", isOn: $streamingTextEnabled)
+                    settingsToggle(icon: "moon.fill", title: "Dark Mode", description: "Use dark theme", isOn: $darkModeEnabled)
+                    settingsToggle(icon: "keyboard", title: "Show Keyboard", description: "Show on-screen keyboard when typing", isOn: $showSoftwareKeyboard)
                 }
 
-                // Data Management (Android: DataManagementSection)
                 Section(header: Text("Data Management")) {
                     HStack {
                         Label("Chat History", systemImage: "clock.arrow.circlepath")
@@ -689,7 +583,6 @@ struct DialogView: View {
                     .disabled(messages.isEmpty)
                 }
 
-                // App Info (Android: AppInfoSection)
                 Section(header: Text("App Info")) {
                     settingsInfoRow(label: "App Name", value: "Inango Chat")
                     settingsInfoRow(label: "Version", value: "v1.0.0")
@@ -697,7 +590,6 @@ struct DialogView: View {
                     settingsInfoRow(label: "Platform", value: "iOS")
                 }
 
-                // Logout (Android: LogoutSection)
                 Section {
                     Button(role: .destructive) {
                         showSettings = false
@@ -724,7 +616,6 @@ struct DialogView: View {
         }
     }
 
-    // Settings toggle row with icon, title, and description
     private func settingsToggle(icon: String, title: String, description: String, isOn: Binding<Bool>) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
@@ -749,7 +640,6 @@ struct DialogView: View {
         .padding(.vertical, 2)
     }
 
-    // Settings info row
     private func settingsInfoRow(label: String, value: String) -> some View {
         HStack {
             Text(label)

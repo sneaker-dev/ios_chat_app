@@ -1,8 +1,3 @@
-//
-//  MVPApp.swift
-//  MVP
-//
-
 import SwiftUI
 
 @main

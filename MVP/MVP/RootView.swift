@@ -1,15 +1,6 @@
-//
-//  RootView.swift
-//  MVP
-//
-//  Full flow: Splash → Login → AvatarSelection → Dialog (matching Android)
-//  Avatar selection shown on first login; skipped if already selected
-
 import SwiftUI
 import UIKit
 import Combine
-
-// MARK: - App Theme (Android Color.kt / Theme.kt)
 
 extension Color {
     static let appPrimary = Color(red: 0xE5/255, green: 0x5C/255, blue: 0x38/255)
@@ -32,19 +23,15 @@ extension Color {
             ? UIColor(red: 0xCC/255, green: 0xCC/255, blue: 0xCC/255, alpha: 1)
             : UIColor(red: 0x66/255, green: 0x66/255, blue: 0x66/255, alpha: 1)
     })
-    // Chat bubbles
     static let userBubble = Color.white.opacity(0.85)
     static let userBubbleText = Color.black
     static let aiBubble = appPrimary.opacity(0.90)
     static let aiBubbleText = Color.white
-    // Speak button gradient (Android DarkRed)
     static let speakNormal1 = Color(red: 0xB7/255, green: 0x1C/255, blue: 0x1C/255)
     static let speakNormal2 = Color(red: 0xD3/255, green: 0x2F/255, blue: 0x2F/255)
     static let speakActive1 = Color(red: 0xD3/255, green: 0x2F/255, blue: 0x2F/255)
     static let speakActive2 = Color(red: 0xE5/255, green: 0x73/255, blue: 0x73/255)
 }
-
-// MARK: - Splash Screen (Android SplashScreen.kt)
 
 struct SplashView: View {
     var onFinished: () -> Void
@@ -97,13 +84,11 @@ struct SplashView: View {
     }
 }
 
-// MARK: - Root View (Splash → Login → AvatarSelection → Dialog)
-
 enum AppScreen {
     case splash
     case login
-    case avatarSelection   // Post-login: circle-based selection
-    case avatarChange      // Top bar: swipeable full-screen selection
+    case avatarSelection
+    case avatarChange
     case dialog
 }
 
@@ -125,7 +110,6 @@ struct RootView: View {
                 LoginView()
                     .transition(.opacity)
                     .onReceive(NotificationCenter.default.publisher(for: .userDidLogin)) { _ in
-                        // After login: always show avatar selection (matching Android)
                         withAnimation { currentScreen = .avatarSelection }
                     }
 
@@ -156,7 +140,6 @@ struct RootView: View {
                         withAnimation { currentScreen = .login }
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .changeAvatar)) { _ in
-                        // Top bar person icon → swipeable avatar change
                         withAnimation { currentScreen = .avatarChange }
                     }
             }
@@ -166,16 +149,13 @@ struct RootView: View {
         .preferredColorScheme(darkModeEnabled ? .dark : .light)
     }
 
-    /// After splash: check if logged in and has previously selected avatar
     private func navigateAfterSplash() {
         if AuthService.shared.isLoggedIn {
             if KeychainService.shared.hasSeenAvatarSelection(),
                let saved = KeychainService.shared.getSelectedAvatar() {
-                // Returning user who already picked avatar → go straight to dialog
                 selectedAvatar = saved
                 currentScreen = .dialog
             } else {
-                // Logged in but never selected avatar → show selection
                 currentScreen = .avatarSelection
             }
         } else {
@@ -184,15 +164,11 @@ struct RootView: View {
     }
 }
 
-// MARK: - Notification Names
-
 extension Notification.Name {
     static let userDidLogin = Notification.Name("userDidLogin")
     static let userDidLogout = Notification.Name("userDidLogout")
     static let changeAvatar = Notification.Name("changeAvatar")
 }
-
-// MARK: - Keyboard Avoiding
 
 private struct KeyboardAvoidingModifier: ViewModifier {
     @State private var keyboardHeight: CGFloat = 0

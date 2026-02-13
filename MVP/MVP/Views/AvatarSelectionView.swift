@@ -1,12 +1,4 @@
-//
-//  AvatarSelectionView.swift
-//  MVP
-//
-//  Post-login circle selection + Swipeable avatar change from top bar.
-
 import SwiftUI
-
-// MARK: - Post-Login Avatar Selection (Circle-based)
 
 struct AvatarSelectionView: View {
     var onSelected: (AvatarType) -> Void
@@ -104,7 +96,6 @@ struct AvatarSelectionView: View {
                         .fill(Color.gray.opacity(0.3))
                         .frame(width: size, height: size)
 
-                    // Scale down the avatar so the full person (head to feet) fits inside the circle
                     GIFImageView(avatar.isFemale ? "female_idle" : "male_idle", contentMode: .scaleAspectFit)
                         .frame(width: size * 0.75, height: size * 2.5)
                         .scaleEffect(0.31)
@@ -119,8 +110,6 @@ struct AvatarSelectionView: View {
         }
     }
 }
-
-// MARK: - Swipeable Avatar Change (from top bar)
 
 struct SwipeableAvatarChangeView: View {
     var currentAvatar: AvatarType

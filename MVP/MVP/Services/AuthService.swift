@@ -1,17 +1,10 @@
-//
-//  AuthService.swift
-//  MVP
-//
-
 import Foundation
 
-/// Login body: match server expectation (email + password only). Curl: -d '{"email":"...", "password":"..."}'
 struct LoginRequest: Encodable {
     let email: String
     let password: String
 }
 
-/// Register body: may include device_id if backend expects it.
 struct RegisterRequest: Encodable {
     let email: String
     let password: String
@@ -37,7 +30,6 @@ enum AuthError: Error, LocalizedError {
     case noData
     case invalidResponse
     case serverError(String)
-    /// Server returned 404 for all path variants; app will sign you in locally so you can use it.
     case endpointNotFound
 
     var errorDescription: String? {
@@ -74,7 +66,6 @@ final class AuthService {
             keychain.saveToken("demo-token-\(email)")
             return
         }
-        // Match server curl: body is only email + password.
         let body = LoginRequest(email: email, password: password)
         let token = try await postAuth(path: APIConfig.loginPath, body: body)
         keychain.saveToken(token)
@@ -86,12 +77,14 @@ final class AuthService {
 
     func token() -> String? { keychain.getToken() }
 
-    /// Auth: POST to appstore-demo.inango.com. Returns JWT (from JSON { token } or raw response body).
     private func postAuth<T: Encodable>(path: String, body: T) async throws -> String {
         guard let url = URL(string: APIConfig.authBaseURL + path) else { throw AuthError.invalidURL }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let deviceId = KeychainService.shared.getOrCreateDeviceId()
+        let appVersion = "1.3.26"
+        request.setValue("InangoChatApp/\(appVersion) (device_id=\(deviceId); platform=iOS)", forHTTPHeaderField: "User-Agent")
         request.httpBody = try JSONEncoder().encode(body)
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw AuthError.invalidResponse }
@@ -106,7 +99,6 @@ final class AuthService {
         return try parseToken(from: data)
     }
 
-    /// Parse JWT from response: either JSON { "token": "..." } or raw plain-text JWT (as per server curl).
     private func parseToken(from data: Data) throws -> String {
         if let decoded = try? JSONDecoder().decode(AuthResponse.self, from: data), let t = decoded.resolvedToken, !t.isEmpty {
             return t.trimmingCharacters(in: .whitespacesAndNewlines)

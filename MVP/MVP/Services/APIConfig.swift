@@ -1,18 +1,10 @@
-//
-//  APIConfig.swift
-//  MVP
-//
-
 import Foundation
 
-/// Inango: JWT from appstore-demo, then use it for voice-demo.
 enum APIConfig {
-    /// Auth: get JWT from appstore-demo.inango.com (login response).
     static var authBaseURL: String {
         ProcessInfo.processInfo.environment["MVP_AUTH_BASE_URL"] ?? "https://appstore-demo.inango.com"
     }
 
-    /// Dialog: use JWT with voice-demo.inango.com.
     static var baseURL: String {
         ProcessInfo.processInfo.environment["MVP_API_BASE_URL"] ?? "https://voice-demo.inango.com"
     }

@@ -1,19 +1,10 @@
-//
-//  DialogAPIService.swift
-//  MVP
-//
-//  v2.0: Enhanced with locale normalization (Hebrew/Ukrainian fix)
-//  and improved error handling
-
 import Foundation
 
-/// Inango Voice API: GenericQueryRequest (locale + queryText).
 struct InangoGenericRequest: Encodable {
     let locale: String
     let queryText: String
 }
 
-/// Inango Voice API: QueryResponse (queryResponse).
 struct InangoQueryResponse: Decodable {
     let queryResponse: String
 }
@@ -44,19 +35,16 @@ final class DialogAPIService {
 
     private init() {}
 
-    /// Get the current device language, normalized for legacy codes
     static func getDeviceLanguage() -> String {
         let rawLanguage = Locale.current.languageCode ?? "en"
-        // Normalize legacy codes (matching Android fix for Hebrew/Ukrainian)
         switch rawLanguage {
-        case "iw": return "he"  // Hebrew: iOS may return legacy "iw"
-        case "in": return "id"  // Indonesian: legacy code
-        case "ji": return "yi"  // Yiddish: legacy code
+        case "iw": return "he"
+        case "in": return "id"
+        case "ji": return "yi"
         default: return rawLanguage
         }
     }
 
-    /// Sends user message to Inango voice-demo API (POST /api/v1/intent/generic). Returns queryResponse.
     func sendMessage(_ text: String, language: String? = nil) async throws -> String {
         guard let token = auth.token() else { throw DialogAPIError.notAuthenticated }
 
@@ -64,7 +52,6 @@ final class DialogAPIService {
             return "You said: \"\(text)\". (Demo mode.)"
         }
 
-        // v2.0: Use normalized locale with full format
         let lang = language ?? DialogAPIService.getDeviceLanguage()
         let locale = TextToSpeechService.formatLocale(lang)
         
@@ -97,7 +84,7 @@ final class DialogAPIService {
                     let bodyPreview = String(data: data, encoding: .utf8) ?? ""
                     print("[MVP] Dialog API error: status=\(http.statusCode) url=\(url.absoluteString) body=\(bodyPreview.prefix(500))")
                     if http.statusCode == 500 && (bodyPreview.contains("users/user") || bodyPreview.contains("10.0.5.1")) {
-                        print("[MVP] → Server-side: voice-demo.inango.com's backend failed calling its internal users service (http://.../api/v1/users/user). Fix on server/infra, not in the app.")
+                        print("[MVP] → Server-side: voice-demo.inango.com's backend failed calling its internal users service.")
                     }
                     #endif
                     let msg = userFacingMessage(from: data, statusCode: http.statusCode)
@@ -144,7 +131,6 @@ final class DialogAPIService {
         throw DialogAPIError.decodingFailed("empty or unexpected format")
     }
 
-    /// Hides internal server URLs and 500 details; returns a short message for the user.
     private func userFacingMessage(from data: Data, statusCode: Int) -> String {
         struct ServerErrorBody: Decodable { let detail: String? }
         let raw = String(data: data, encoding: .utf8) ?? ""
