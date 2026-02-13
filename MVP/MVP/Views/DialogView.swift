@@ -594,9 +594,10 @@ struct DialogView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { showSettings = false }
-                        .fontWeight(.semibold)
-                        .foregroundColor(.appPrimary)
+                    Button(action: { showSettings = false }) {
+                        Text("Done").font(.system(size: 16, weight: .semibold))
+                    }
+                    .foregroundColor(.appPrimary)
                 }
             }
         }
