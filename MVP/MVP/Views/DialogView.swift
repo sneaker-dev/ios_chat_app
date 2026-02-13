@@ -174,10 +174,10 @@ struct DialogView: View {
         }
     }
 
-    // MARK: - Top Bar (Android: "inango" + Settings icon)
+    // MARK: - Top Bar (Android: "inango" + Person icon + Settings icon)
 
     private var topBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 4) {
             Text("inango")
                 .font(.system(size: 28, weight: .bold))
                 .tracking(2)
@@ -185,7 +185,17 @@ struct DialogView: View {
 
             Spacer()
 
-            // Settings button
+            // Avatar change button (Android: Icons.Default.Person)
+            Button {
+                NotificationCenter.default.post(name: .changeAvatar, object: nil)
+            } label: {
+                Image(systemName: "person.crop.circle")
+                    .font(.system(size: 22))
+                    .foregroundColor(.white)
+                    .frame(width: 44, height: 44)
+            }
+
+            // Settings button (Android: Icons.Default.Settings)
             Button { showSettings = true } label: {
                 Image(systemName: "gearshape.fill")
                     .font(.system(size: 20))
@@ -571,17 +581,6 @@ struct DialogView: View {
                         Label("Streaming Text", systemImage: "text.cursor")
                     }
                     .tint(.appPrimary)
-                }
-
-                Section("Avatar") {
-                    Button {
-                        showSettings = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            NotificationCenter.default.post(name: .changeAvatar, object: nil)
-                        }
-                    } label: {
-                        Label("Change Avatar", systemImage: "person.crop.circle")
-                    }
                 }
 
                 Section("Chat") {
