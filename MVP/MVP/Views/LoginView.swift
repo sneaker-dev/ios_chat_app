@@ -37,129 +37,125 @@ struct LoginView: View {
             // 50% overlay
             Color.black.opacity(0.5).ignoresSafeArea().allowsHitTesting(false)
 
-            // Content
-            GeometryReader { geo in
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        Spacer().frame(height: max(geo.size.height * 0.12, 60))
+            // Content - vertically centered
+            VStack(spacing: 0) {
+                Spacer()
 
-                        // Title
-                        Text(isRegister ? "Create Account" : "Welcome")
-                            .font(.system(size: 30, weight: .bold))
-                            .foregroundColor(.appPrimary)
+                // Title
+                Text(isRegister ? "Create Account" : "Welcome")
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundColor(.appPrimary)
 
-                        Text(isRegister ? "Create your AI Assistant account" : "Sign in to your AI Assistant")
+                Text(isRegister ? "Create your AI Assistant account" : "Sign in to your AI Assistant")
+                    .font(.system(size: 15))
+                    .foregroundColor(.white.opacity(0.7))
+                    .padding(.top, 6)
+
+                Spacer().frame(height: 28)
+
+                // Card
+                VStack(spacing: 16) {
+                    // Email
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Email").font(.system(size: 13, weight: .medium))
+                            .foregroundColor(focusedField == .email ? .appPrimary : .gray)
+                        TextField("Enter your email", text: $email)
+                            .focused($focusedField, equals: .email)
+                            .textContentType(.emailAddress)
+                            .keyboardType(.emailAddress)
+                            .autocapitalization(.none)
+                            .submitLabel(.next)
                             .font(.system(size: 15))
-                            .foregroundColor(.white.opacity(0.7))
-                            .padding(.top, 6)
-
-                        Spacer().frame(height: 28)
-
-                        // Card
-                        VStack(spacing: 16) {
-                            // Email
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text("Email").font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(focusedField == .email ? .appPrimary : .gray)
-                                TextField("Enter your email", text: $email)
-                                    .focused($focusedField, equals: .email)
-                                    .textContentType(.emailAddress)
-                                    .keyboardType(.emailAddress)
-                                    .autocapitalization(.none)
-                                    .submitLabel(.next)
-                                    .font(.system(size: 15))
-                                    .padding(.horizontal, 14)
-                                    .frame(height: 46)
-                                    .foregroundColor(Color(hex: 0x1A1A1A))
-                                    .background(Color.white)
-                                    .cornerRadius(10)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(focusedField == .email ? Color.appPrimary : Color(hex: 0xE0E0E0), lineWidth: 1.5)
-                                    )
-                            }
-
-                            // Password
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text("Password").font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(focusedField == .password ? .appPrimary : .gray)
-                                HStack(spacing: 0) {
-                                    Group {
-                                        if showPassword {
-                                            TextField("Enter your password", text: $password)
-                                                .focused($focusedField, equals: .password)
-                                                .submitLabel(.go)
-                                        } else {
-                                            SecureField("Enter your password", text: $password)
-                                                .focused($focusedField, equals: .password)
-                                                .submitLabel(.go)
-                                        }
-                                    }
-                                    .font(.system(size: 15))
-                                    .frame(height: 46)
-                                    .foregroundColor(Color(hex: 0x1A1A1A))
-
-                                    Button { showPassword.toggle() } label: {
-                                        Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
-                                            .foregroundColor(.gray)
-                                            .frame(width: 40, height: 46)
-                                    }
-                                }
-                                .padding(.leading, 14)
-                                .background(Color.white)
-                                .cornerRadius(10)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(focusedField == .password ? Color.appPrimary : Color(hex: 0xE0E0E0), lineWidth: 1.5)
-                                )
-                            }
-
-                            // Error
-                            if let err = errorMessage {
-                                Text(err)
-                                    .font(.system(size: 13))
-                                    .foregroundColor(.red)
-                                    .multilineTextAlignment(.center)
-                                    .frame(maxWidth: .infinity)
-                            }
-
-                            // Sign In button
-                            Button(action: submit) {
-                                ZStack {
-                                    if isLoading {
-                                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                    } else {
-                                        Text(isRegister ? "Create Account" : "Sign In")
-                                            .font(.system(size: 16, weight: .bold))
-                                    }
-                                }
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity, minHeight: 50)
-                                .background(
-                                    (email.isEmpty || password.isEmpty) ? Color.appPrimary.opacity(0.5) : Color.appPrimary
-                                )
-                                .cornerRadius(12)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(email.isEmpty || password.isEmpty || isLoading)
-                        }
-                        .padding(22)
-                        .background(Color.white.opacity(0.95))
-                        .cornerRadius(20)
-                        .shadow(color: .black.opacity(0.2), radius: 12, y: 6)
-                        .padding(.horizontal, 24)
-
-                        // Toggle
-                        Button(isRegister ? "Already have an account? Sign In" : "Create an account") {
-                            withAnimation { isRegister.toggle(); errorMessage = nil }
-                        }
-                        .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.top, 16)
-
-                        Spacer().frame(height: 40)
+                            .padding(.horizontal, 14)
+                            .frame(height: 46)
+                            .foregroundColor(Color(hex: 0x1A1A1A))
+                            .background(Color.white)
+                            .cornerRadius(10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(focusedField == .email ? Color.appPrimary : Color(hex: 0xE0E0E0), lineWidth: 1.5)
+                            )
                     }
+
+                    // Password
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Password").font(.system(size: 13, weight: .medium))
+                            .foregroundColor(focusedField == .password ? .appPrimary : .gray)
+                        HStack(spacing: 0) {
+                            Group {
+                                if showPassword {
+                                    TextField("Enter your password", text: $password)
+                                        .focused($focusedField, equals: .password)
+                                        .submitLabel(.go)
+                                } else {
+                                    SecureField("Enter your password", text: $password)
+                                        .focused($focusedField, equals: .password)
+                                        .submitLabel(.go)
+                                }
+                            }
+                            .font(.system(size: 15))
+                            .frame(height: 46)
+                            .foregroundColor(Color(hex: 0x1A1A1A))
+
+                            Button { showPassword.toggle() } label: {
+                                Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                                    .foregroundColor(.gray)
+                                    .frame(width: 40, height: 46)
+                            }
+                        }
+                        .padding(.leading, 14)
+                        .background(Color.white)
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(focusedField == .password ? Color.appPrimary : Color(hex: 0xE0E0E0), lineWidth: 1.5)
+                        )
+                    }
+
+                    // Error
+                    if let err = errorMessage {
+                        Text(err)
+                            .font(.system(size: 13))
+                            .foregroundColor(.red)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                    }
+
+                    // Sign In button
+                    Button(action: submit) {
+                        ZStack {
+                            if isLoading {
+                                ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            } else {
+                                Text(isRegister ? "Create Account" : "Sign In")
+                                    .font(.system(size: 16, weight: .bold))
+                            }
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                        .background(
+                            (email.isEmpty || password.isEmpty) ? Color.appPrimary.opacity(0.5) : Color.appPrimary
+                        )
+                        .cornerRadius(12)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(email.isEmpty || password.isEmpty || isLoading)
                 }
+                .padding(22)
+                .background(Color.white.opacity(0.95))
+                .cornerRadius(20)
+                .shadow(color: .black.opacity(0.2), radius: 12, y: 6)
+                .padding(.horizontal, 24)
+
+                // Toggle
+                Button(isRegister ? "Already have an account? Sign In" : "Create an account") {
+                    withAnimation { isRegister.toggle(); errorMessage = nil }
+                }
+                .font(.system(size: 14))
+                .foregroundColor(.white.opacity(0.8))
+                .padding(.top, 16)
+
+                Spacer()
             }
         }
         .ignoresSafeArea()
