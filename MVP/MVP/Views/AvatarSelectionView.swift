@@ -118,15 +118,15 @@ struct AvatarSelectionView: View {
                     .stroke(isSelected ? Color.appPrimary : Color.clear, lineWidth: 4)
                     .frame(width: circleSize + 8, height: circleSize + 8)
 
-                // Avatar GIF inside circle
+                // Avatar GIF inside circle (scaleAspectFit to show full person)
                 ZStack {
                     // Background fill (Android: surfaceVariant)
                     Circle()
                         .fill(Color.gray.opacity(0.3))
                         .frame(width: circleSize, height: circleSize)
 
-                    // GIF content cropped to circle
-                    GIFImageView(avatar.isFemale ? "female_idle" : "male_idle")
+                    // GIF content fitted to circle - full person visible
+                    GIFImageView(avatar.isFemale ? "female_idle" : "male_idle", contentMode: .scaleAspectFit)
                         .frame(width: circleSize, height: circleSize)
                         .clipShape(Circle())
                 }

@@ -41,17 +41,23 @@ final class GIFAnimator {
 
 struct GIFImageView: UIViewRepresentable {
     let gifName: String
-    init(_ gifName: String) { self.gifName = gifName }
+    var contentMode: UIView.ContentMode = .scaleAspectFill
+
+    init(_ gifName: String, contentMode: UIView.ContentMode = .scaleAspectFill) {
+        self.gifName = gifName
+        self.contentMode = contentMode
+    }
 
     func makeUIView(context: Context) -> UIImageView {
         let iv = UIImageView()
-        iv.contentMode = .scaleAspectFill
+        iv.contentMode = contentMode
         iv.clipsToBounds = true
         iv.backgroundColor = .clear
         loadGIF(into: iv)
         return iv
     }
     func updateUIView(_ uiView: UIImageView, context: Context) {
+        uiView.contentMode = contentMode
         if uiView.accessibilityIdentifier != gifName { loadGIF(into: uiView) }
     }
     private func loadGIF(into iv: UIImageView) {

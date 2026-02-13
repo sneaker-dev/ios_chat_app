@@ -102,7 +102,8 @@ struct SplashView: View {
 enum AppScreen {
     case splash
     case login
-    case avatarSelection
+    case avatarSelection   // Post-login: circle-based selection
+    case avatarChange      // Top bar: swipeable full-screen selection
     case dialog
 }
 
@@ -134,6 +135,19 @@ struct RootView: View {
                 }
                 .transition(.opacity)
 
+            case .avatarChange:
+                SwipeableAvatarChangeView(
+                    currentAvatar: selectedAvatar,
+                    onSelected: { avatar in
+                        selectedAvatar = avatar
+                        withAnimation { currentScreen = .dialog }
+                    },
+                    onCancel: {
+                        withAnimation { currentScreen = .dialog }
+                    }
+                )
+                .transition(.opacity)
+
             case .dialog:
                 DialogView(avatarType: selectedAvatar)
                     .transition(.opacity)
@@ -141,8 +155,8 @@ struct RootView: View {
                         withAnimation { currentScreen = .login }
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .changeAvatar)) { _ in
-                        // Settings → Change Avatar → go back to avatar selection
-                        withAnimation { currentScreen = .avatarSelection }
+                        // Top bar person icon → swipeable avatar change
+                        withAnimation { currentScreen = .avatarChange }
                     }
             }
         }
