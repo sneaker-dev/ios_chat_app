@@ -8,6 +8,7 @@ final class KeychainService {
     private let avatarKey = "com.mvp.selectedAvatar"
     private let hasSeenAvatarSelectionKey = "com.mvp.hasSeenAvatarSelection"
     private let lastEmailKey = "com.mvp.lastEmail"
+    private let deviceIdKey = "com.mvp.deviceId"
 
     private init() {}
 
@@ -51,6 +52,15 @@ final class KeychainService {
 
     func getLastEmail() -> String? {
         load(key: lastEmailKey)
+    }
+
+    func getOrCreateDeviceId() -> String {
+        if let existing = load(key: deviceIdKey) {
+            return existing
+        }
+        let newId = UUID().uuidString
+        save(key: deviceIdKey, value: newId)
+        return newId
     }
 
     private func save(key: String, value: String) {
