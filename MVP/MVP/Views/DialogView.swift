@@ -45,6 +45,8 @@ struct DialogView: View {
             ZStack {
                 // LAYER 1: Background image (Android: R.drawable.background, ContentScale.Crop)
                 backgroundLayer
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
 
                 if isLandscape {
                     landscapeLayout(geo: geo)
@@ -52,6 +54,8 @@ struct DialogView: View {
                     portraitLayout(geo: geo)
                 }
             }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
             .ignoresSafeArea(.container, edges: .bottom)
         }
         .keyboardAvoiding()
@@ -68,20 +72,22 @@ struct DialogView: View {
     // MARK: - Background
 
     private var backgroundLayer: some View {
-        Group {
+        GeometryReader { bgGeo in
             if UIImage(named: "LoginBackground") != nil {
                 Image("LoginBackground")
                     .resizable()
                     .scaledToFill()
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
+                    .frame(width: bgGeo.size.width, height: bgGeo.size.height)
+                    .clipped()
             } else {
                 LinearGradient(
                     colors: [Color(hex: 0x1A1A2E), Color(hex: 0x0F0F1E)],
                     startPoint: .top, endPoint: .bottom
-                ).ignoresSafeArea()
+                )
             }
         }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 
     // MARK: - Portrait Layout
@@ -97,6 +103,7 @@ struct DialogView: View {
         return ZStack(alignment: .top) {
             // LAYER 2: Avatar (full area behind content)
             AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
+                .frame(width: geo.size.width)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 

@@ -21,7 +21,13 @@ struct LoginView: View {
             ZStack {
                 // Background image
                 if UIImage(named: "LoginBackground") != nil {
-                    Image("LoginBackground").resizable().scaledToFill().ignoresSafeArea().allowsHitTesting(false)
+                    Image("LoginBackground")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                        .ignoresSafeArea()
+                        .allowsHitTesting(false)
                 } else {
                     Color(hex: 0x1A1A2E).ignoresSafeArea()
                 }
