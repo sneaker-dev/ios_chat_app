@@ -130,11 +130,11 @@ struct DialogView: View {
                 .frame(height: topBarH)
                 .padding(.top, windowTop + 6)
 
-            // LAYER 3: Bottom section (chat + input + speak) - moves with keyboard
+            // LAYER 3: Bottom section (chat + input) - moves with keyboard
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
 
-                // Chat + input
+                // Chat + input (mic button is now integrated into inputRow)
                 VStack(spacing: 0) {
                     chatSection
 
@@ -145,6 +145,7 @@ struct DialogView: View {
                     inputRow
                 }
                 .frame(height: chatH)
+                .padding(.bottom, keyboardUp ? 0 : max(windowBottom - 22, 6))
                 .background(
                     LinearGradient(
                         colors: [Color.black.opacity(0.0), Color.black.opacity(0.4), Color.black.opacity(0.6)],
@@ -152,15 +153,6 @@ struct DialogView: View {
                     )
                     .allowsHitTesting(false)
                 )
-
-                // Speak button - hide when keyboard is up
-                if !keyboardUp {
-                    speakButton
-                        .padding(.top, 6)
-                        .padding(.bottom, max(windowBottom - 22, 6))
-                        .frame(maxWidth: .infinity)
-                        .background(Color.black.opacity(0.6).allowsHitTesting(false))
-                }
             }
             .padding(.bottom, keyboardUp ? keyboardHeight : 0)
         }
@@ -283,6 +275,28 @@ struct DialogView: View {
             }
 
             HStack(spacing: 8) {
+                // Mic button (compact speak) - always visible to the left of text field
+                Button {
+                    if stt.isRecording { stt.stopRecording() }
+                    else { startVoiceInput() }
+                } label: {
+                    Image(systemName: stt.isRecording ? "stop.circle.fill" : "mic.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.white)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            LinearGradient(
+                                colors: stt.isRecording
+                                    ? [Color.speakActive1, Color.speakActive2]
+                                    : [Color.speakNormal1, Color.speakNormal2],
+                                startPoint: .leading, endPoint: .trailing
+                            )
+                        )
+                        .clipShape(Circle())
+                        .shadow(color: .black.opacity(0.3), radius: 3, y: 2)
+                }
+                .disabled(isLoading)
+
                 // Text field
                 TextField("Type your message...", text: $inputText)
                     .textFieldStyle(PlainTextFieldStyle())
