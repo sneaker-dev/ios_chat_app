@@ -2,8 +2,8 @@
 //  LoginView.swift
 //  MVP
 //
-//  v2.0: Production-ready login screen matching Android app.
-//  Background image, branding, show/hide password, text visibility fix.
+//  v2.0: Exact Android LoginScreen.kt match - card layout,
+//  colors, dimensions, typography
 
 import SwiftUI
 
@@ -15,63 +15,45 @@ struct LoginView: View {
     @State private var errorMessage: String?
     @State private var showPassword = false
     @FocusState private var focusedField: Field?
-
     private enum Field { case email, password }
 
     var body: some View {
         ZStack {
-            // Background
+            // Android: R.drawable.background, ContentScale.Crop
             if UIImage(named: "LoginBackground") != nil {
-                Image("LoginBackground")
-                    .resizable()
-                    .scaledToFill()
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
+                Image("LoginBackground").resizable().scaledToFill().ignoresSafeArea().allowsHitTesting(false)
             } else {
-                LinearGradient(
-                    colors: [Color(red: 0.1, green: 0.1, blue: 0.2), Color(red: 0.05, green: 0.05, blue: 0.15)],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                Color(red: 0x1A/255, green: 0x1A/255, blue: 0x2E/255).ignoresSafeArea()
             }
 
-            Color.black.opacity(0.35)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+            // Android: Color.Black.copy(alpha = 0.5f)
+            Color.black.opacity(0.5).ignoresSafeArea().allowsHitTesting(false)
 
             ScrollView {
-                VStack(spacing: 24) {
-                    Spacer().frame(height: 50)
+                VStack(spacing: 0) {
+                    Spacer().frame(height: 80)
 
-                    // App branding
-                    VStack(spacing: 8) {
-                        Image(systemName: "bubble.left.and.bubble.right.fill")
-                            .font(.system(size: 44))
-                            .foregroundColor(.white)
-                            .shadow(color: .blue.opacity(0.4), radius: 8)
+                    // Android: headlineLarge, Bold, primary color
+                    Text(isRegister ? "Create Account" : "Welcome")
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundColor(.appPrimary)
 
-                        Text("Inango Chat")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                            .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
+                    Spacer().frame(height: 8) // Android: 8.dp
 
-                        Text("Your AI Voice Assistant")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.8))
-                    }
+                    // Android: bodyLarge, onSurfaceVariant
+                    Text(isRegister ? "Create your AI Assistant account" : "Sign in to your AI Assistant")
+                        .font(.system(size: 16))
+                        .foregroundColor(.appTextSecondary)
 
-                    Text(isRegister ? "Create Account" : "Welcome Back")
-                        .font(.title2.bold())
-                        .foregroundColor(.white)
-                        .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
+                    Spacer().frame(height: 32) // Android: 32.dp
 
-                    // Login form card
-                    VStack(spacing: 16) {
-                        // Email
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("Email", systemImage: "envelope")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                    // Login card (Android: Card, RoundedCornerShape(24.dp), elevation 16.dp)
+                    VStack(spacing: 0) {
+                        // Email field
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Email")
+                                .font(.system(size: 14))
+                                .foregroundColor(focusedField == .email ? .appPrimary : Color(hex: 0x666666))
                             TextField("Enter your email", text: $email)
                                 .focused($focusedField, equals: .email)
                                 .textContentType(.emailAddress)
@@ -79,121 +61,103 @@ struct LoginView: View {
                                 .autocapitalization(.none)
                                 .submitLabel(.next)
                                 .frame(height: 44)
-                                .foregroundColor(.primary)
+                                .foregroundColor(Color(hex: 0x1A1A1A))
+                                .padding(.horizontal, 12)
+                                .background(Color.clear)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12) // Android: 12.dp
+                                        .stroke(focusedField == .email ? Color.appPrimary : Color(hex: 0xE0E0E0), lineWidth: 1)
+                                )
                         }
 
-                        Divider()
+                        Spacer().frame(height: 16) // Android: 16.dp
 
-                        // Password
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("Password", systemImage: "lock")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                        // Password field
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Password")
+                                .font(.system(size: 14))
+                                .foregroundColor(focusedField == .password ? .appPrimary : Color(hex: 0x666666))
                             HStack {
                                 if showPassword {
                                     TextField("Enter your password", text: $password)
                                         .focused($focusedField, equals: .password)
-                                        .textContentType(isRegister ? .newPassword : .password)
                                         .submitLabel(.go)
                                         .frame(height: 44)
-                                        .foregroundColor(.primary)
+                                        .foregroundColor(Color(hex: 0x1A1A1A))
                                 } else {
                                     SecureField("Enter your password", text: $password)
                                         .focused($focusedField, equals: .password)
-                                        .textContentType(isRegister ? .newPassword : .password)
                                         .submitLabel(.go)
                                         .frame(height: 44)
-                                        .foregroundColor(.primary)
+                                        .foregroundColor(Color(hex: 0x1A1A1A))
                                 }
-                                Button {
-                                    showPassword.toggle()
-                                } label: {
+                                Button { showPassword.toggle() } label: {
                                     Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
-                                        .foregroundColor(.gray)
-                                        .frame(width: 30)
+                                        .foregroundColor(Color(hex: 0x666666)) // Android: tint
                                 }
                             }
+                            .padding(.horizontal, 12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(focusedField == .password ? Color.appPrimary : Color(hex: 0xE0E0E0), lineWidth: 1)
+                            )
                         }
-                    }
-                    .padding(20)
-                    .background(Color(.systemBackground).opacity(0.95))
-                    .cornerRadius(16)
-                    .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
-                    .frame(maxWidth: 340)
-                    .padding(.horizontal, 24)
-                    .textFieldStyle(PlainTextFieldStyle())
 
-                    // Error message
-                    if let err = errorMessage {
-                        HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
+                        // Error
+                        if let err = errorMessage {
+                            Spacer().frame(height: 8)
                             Text(err)
-                                .font(.caption)
+                                .font(.system(size: 14))
                                 .foregroundColor(.red)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
                         }
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(Color.white.opacity(0.9))
-                        .cornerRadius(8)
-                        .padding(.horizontal, 24)
-                    }
 
-                    // Sign In button
-                    Button(action: submit) {
-                        if isLoading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                        } else {
-                            Text(isRegister ? "Create Account" : "Sign In")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
+                        Spacer().frame(height: 24) // Android: 24.dp
+
+                        // Sign In button (Android: Button, 56.dp height)
+                        Button(action: submit) {
+                            if isLoading {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .frame(maxWidth: .infinity, minHeight: 56)
+                            } else {
+                                Text(isRegister ? "Create Account" : "Sign In")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .frame(maxWidth: .infinity, minHeight: 56)
+                            }
                         }
+                        .background(Color.appPrimary)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                        .disabled(email.isEmpty || password.isEmpty || isLoading)
+                        .opacity((email.isEmpty || password.isEmpty) ? 0.6 : 1.0)
+
+                        Spacer().frame(height: 16)
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    .background(
-                        (email.isEmpty || password.isEmpty)
-                            ? Color.accentColor.opacity(0.5)
-                            : Color.accentColor
-                    )
-                    .foregroundColor(.white)
-                    .cornerRadius(14)
-                    .disabled(email.isEmpty || password.isEmpty || isLoading)
-                    .padding(.horizontal, 24)
-                    .frame(maxWidth: 340)
-                    .shadow(color: .accentColor.opacity(0.3), radius: 5, y: 3)
+                    .padding(32) // Android: 32.dp inner padding
+                    .background(Color.white.opacity(0.95)) // Android: White 95%
+                    .cornerRadius(24) // Android: 24.dp
+                    .shadow(color: .black.opacity(0.15), radius: 16, y: 8) // Android: elevation 16.dp
+                    .padding(.horizontal, 24) // Android: 24.dp screen padding
+
+                    Spacer().frame(height: 16)
 
                     // Toggle register/login
                     Button(isRegister ? "Already have an account? Sign In" : "Create an account") {
-                        withAnimation {
-                            isRegister.toggle()
-                            errorMessage = nil
-                        }
+                        withAnimation { isRegister.toggle(); errorMessage = nil }
                     }
                     .font(.subheadline)
                     .foregroundColor(.white)
-                    .shadow(color: .black.opacity(0.3), radius: 1)
 
-                    // Version
-                    Text("v1.0.0")
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.4))
-                        .padding(.top, 16)
+                    Spacer().frame(height: 40)
                 }
-                .padding(.bottom, 40)
             }
         }
+        .textFieldStyle(PlainTextFieldStyle())
         .onAppear {
-            if email.isEmpty {
-                email = KeychainService.shared.getLastEmail() ?? ""
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                focusedField = .email
-            }
+            if email.isEmpty { email = KeychainService.shared.getLastEmail() ?? "" }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { focusedField = .email }
         }
         .onSubmit {
             if focusedField == .email { focusedField = .password }
@@ -202,9 +166,7 @@ struct LoginView: View {
     }
 
     private func submit() {
-        focusedField = nil
-        errorMessage = nil
-        isLoading = true
+        focusedField = nil; errorMessage = nil; isLoading = true
         let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
         Task {
             do {
@@ -221,21 +183,23 @@ struct LoginView: View {
             } catch let e as AuthError {
                 await MainActor.run {
                     isLoading = false
-                    switch e {
-                    case .serverError(let msg): errorMessage = msg
-                    default: errorMessage = e.localizedDescription
-                    }
+                    switch e { case .serverError(let m): errorMessage = m; default: errorMessage = e.localizedDescription }
                 }
             } catch {
-                await MainActor.run {
-                    isLoading = false
-                    errorMessage = error.localizedDescription
-                }
+                await MainActor.run { isLoading = false; errorMessage = error.localizedDescription }
             }
         }
     }
 }
 
-#Preview {
-    LoginView()
+// Helper for hex colors
+extension Color {
+    init(hex: UInt, alpha: Double = 1.0) {
+        self.init(
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255,
+            opacity: alpha
+        )
+    }
 }

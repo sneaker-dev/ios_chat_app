@@ -2,51 +2,43 @@
 //  AvatarView.swift
 //  MVP
 //
-//  v2.0: Complete rewrite with GIF animation support.
-//  Uses ImageIO (built-in, no third-party deps) for animated GIFs.
-//  Falls back to static Man.png / Woman.png if GIFs not available.
+//  v2.0: Exact Android AvatarGifDisplay.kt match - GIF loading via ImageIO,
+//  state-based GIF selection, ContentScale.Crop equivalent
 
 import SwiftUI
 import UIKit
 import ImageIO
 
-// MARK: - GIF Loader (ImageIO-based, no third-party dependencies)
+// MARK: - GIF Loader (ImageIO, no third-party dependencies)
 
 final class GIFAnimator {
-    /// Load an animated GIF from the app bundle by name (without extension)
     static func createAnimatedImage(from name: String) -> UIImage? {
         guard let url = Bundle.main.url(forResource: name, withExtension: "gif"),
-              let data = try? Data(contentsOf: url) else {
-            return nil
-        }
+              let data = try? Data(contentsOf: url) else { return nil }
         return createAnimatedImage(from: data)
     }
-
-    /// Create an animated UIImage from GIF data
     static func createAnimatedImage(from data: Data) -> UIImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
         let count = CGImageSourceGetCount(source)
-        guard count > 1 else { return nil }
-
+        guard count > 1 else {
+            guard let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+            return UIImage(cgImage: cgImage)
+        }
         var images: [UIImage] = []
         var totalDuration: Double = 0
-
         for i in 0..<count {
             guard let cgImage = CGImageSourceCreateImageAtIndex(source, i, nil) else { continue }
             images.append(UIImage(cgImage: cgImage))
-
-            if let properties = CGImageSourceCopyPropertiesAtIndex(source, i, nil) as? [String: Any],
-               let gifProps = properties[kCGImagePropertyGIFDictionary as String] as? [String: Any] {
-                let delay = gifProps[kCGImagePropertyGIFUnclampedDelayTime as String] as? Double
-                    ?? gifProps[kCGImagePropertyGIFDelayTime as String] as? Double
+            if let props = CGImageSourceCopyPropertiesAtIndex(source, i, nil) as? [String: Any],
+               let gifProps = props[kCGImagePropertyGIFDictionary as String] as? [String: Any] {
+                let delay = (gifProps[kCGImagePropertyGIFUnclampedDelayTime as String] as? Double)
+                    ?? (gifProps[kCGImagePropertyGIFDelayTime as String] as? Double)
                     ?? 0.1
                 totalDuration += max(delay, 0.01)
             } else {
                 totalDuration += 0.1
             }
         }
-
-        guard !images.isEmpty else { return nil }
         return UIImage.animatedImage(with: images, duration: totalDuration)
     }
 }
@@ -57,22 +49,21 @@ struct GIFImageView: UIViewRepresentable {
     let gifName: String
     let contentMode: UIView.ContentMode
 
-    init(_ gifName: String, contentMode: UIView.ContentMode = .scaleAspectFit) {
+    init(_ gifName: String, contentMode: UIView.ContentMode = .scaleAspectFill) {
         self.gifName = gifName
-        self.contentMode = contentMode
+        self.contentMode = contentMode // Android uses ContentScale.Crop = scaleAspectFill
     }
 
     func makeUIView(context: Context) -> UIImageView {
-        let imageView = UIImageView()
-        imageView.contentMode = contentMode
-        imageView.clipsToBounds = true
-        imageView.backgroundColor = .clear
-        loadGIF(into: imageView)
-        return imageView
+        let iv = UIImageView()
+        iv.contentMode = contentMode
+        iv.clipsToBounds = true
+        iv.backgroundColor = .clear
+        loadGIF(into: iv)
+        return iv
     }
 
     func updateUIView(_ uiView: UIImageView, context: Context) {
-        // Only reload if the GIF name changed
         if uiView.accessibilityIdentifier != gifName {
             loadGIF(into: uiView)
         }
@@ -80,10 +71,10 @@ struct GIFImageView: UIViewRepresentable {
 
     private func loadGIF(into imageView: UIImageView) {
         imageView.accessibilityIdentifier = gifName
-        if let animatedImage = GIFAnimator.createAnimatedImage(from: gifName) {
-            imageView.image = animatedImage
-        } else if let staticImage = UIImage(named: gifName) {
-            imageView.image = staticImage
+        if let anim = GIFAnimator.createAnimatedImage(from: gifName) {
+            imageView.image = anim
+        } else if let static_img = UIImage(named: gifName) {
+            imageView.image = static_img
         }
     }
 }
@@ -96,17 +87,16 @@ struct AvatarView: View {
     var scale: CGFloat = 1.0
     var showAsCircle: Bool = false
 
-    /// GIF name for current avatar state
+    // Android GIF naming: female_idle, female_thinking, female_talking, male_idle, male_thinking, male_talking
     private var gifName: String {
-        let prefix = avatarType == .male ? "male" : "female"
+        let gender = avatarType.isFemale ? "female" : "male"
         switch state {
-        case .idle: return "\(prefix)_idle"
-        case .thinking: return "\(prefix)_thinking"
-        case .speaking: return "\(prefix)_talking"
+        case .idle: return "\(gender)_idle"
+        case .thinking: return "\(gender)_thinking"
+        case .speaking: return "\(gender)_talking"
         }
     }
 
-    /// Check if GIF file exists in bundle
     private var hasGIF: Bool {
         Bundle.main.url(forResource: gifName, withExtension: "gif") != nil
     }
@@ -114,93 +104,64 @@ struct AvatarView: View {
     var body: some View {
         ZStack {
             if hasGIF {
-                // Animated GIF avatar
-                GIFImageView(gifName)
+                // Animated GIF (Android: Coil with GIF decoder, ContentScale.Crop)
+                GIFImageView(gifName, contentMode: .scaleAspectFill)
                     .scaleEffect(scale)
             } else {
-                // Fallback: static image with animation effects
+                // Fallback: static image with programmatic animation
                 staticAvatarView
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
+        .if(showAsCircle) { $0.clipShape(Circle()) }
     }
 
     private var staticAvatarView: some View {
         Group {
-            if let uiImage = avatarUIImage {
-                Image(uiImage: uiImage)
+            if let img = avatarUIImage {
+                Image(uiImage: img)
                     .resizable()
                     .scaledToFill()
+                    .scaleEffect(scaleForState)
+                    .opacity(opacityForState)
+                    .animation(.easeInOut(duration: 0.3), value: state)
             } else {
-                // System fallback icon
-                Image(systemName: avatarType == .male ? "person.crop.circle.fill" : "person.crop.circle.badge.checkmark")
+                Image(systemName: "person.fill")
                     .resizable()
                     .scaledToFit()
-                    .foregroundColor(avatarType == .male ? .blue : .pink)
+                    .foregroundColor(.gray)
+                    .padding(40)
             }
         }
-        .clipShape(showAsCircle ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: 0)))
-        .scaleEffect(scaleForState)
-        .opacity(opacityForState)
-        .animation(.easeInOut(duration: 0.3), value: state)
     }
 
     private var avatarUIImage: UIImage? {
-        UIImage(named: avatarType == .male ? "Man" : "Woman")
+        UIImage(named: avatarType.isFemale ? "Woman" : "Man")
     }
 
     private var scaleForState: CGFloat {
         switch state {
         case .idle: return 1.0 * scale
         case .thinking: return 1.02 * scale
-        case .speaking: return 1.05 * scale
+        case .speaking: return 1.04 * scale
         }
     }
 
     private var opacityForState: Double {
         switch state {
         case .idle: return 1.0
-        case .thinking: return 0.85
+        case .thinking: return 0.9
         case .speaking: return 1.0
         }
     }
 }
 
-// MARK: - Shape Type Erasure (for conditional clip shapes)
+// MARK: - Conditional modifier
 
-struct AnyShape: Shape {
-    private let pathClosure: (CGRect) -> Path
-
-    init<S: Shape>(_ shape: S) {
-        pathClosure = { rect in shape.path(in: rect) }
+extension View {
+    @ViewBuilder
+    func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition { transform(self) } else { self }
     }
-
-    func path(in rect: CGRect) -> Path {
-        pathClosure(rect)
-    }
-}
-
-// MARK: - Avatar Background View
-
-struct AvatarBackgroundView: View {
-    let avatarType: AvatarType
-
-    var body: some View {
-        Group {
-            if let uiImage = UIImage(named: avatarType == .male ? "Man" : "Woman") {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Color(avatarType == .male ? UIColor.systemBlue : UIColor.systemPink)
-            }
-        }
-        .clipped()
-    }
-}
-
-#Preview {
-    AvatarView(avatarType: .female, state: .speaking)
-        .frame(height: 200)
 }
