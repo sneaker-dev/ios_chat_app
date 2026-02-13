@@ -2,10 +2,11 @@
 //  AvatarSelectionView.swift
 //  MVP
 //
-//  Android AvatarSelectionScreen.kt match: Two circular avatar previews,
-//  selection border, indicator dots, "Continue" button. Full-screen background.
+//  Post-login circle selection + Swipeable avatar change from top bar.
 
 import SwiftUI
+
+// MARK: - Post-Login Avatar Selection (Circle-based)
 
 struct AvatarSelectionView: View {
     var onSelected: (AvatarType) -> Void
@@ -18,7 +19,6 @@ struct AvatarSelectionView: View {
         let screenH = UIScreen.main.bounds.height
 
         ZStack {
-            // LAYER 1: Background (absolute, fills entire screen)
             Color.black.ignoresSafeArea()
 
             if UIImage(named: "LoginBackground") != nil {
@@ -31,33 +31,28 @@ struct AvatarSelectionView: View {
                     .allowsHitTesting(false)
             }
 
-            // LAYER 2: Overlay (Android: Color.Black.copy(alpha = 0.4f))
             Color.black.opacity(0.4).ignoresSafeArea().allowsHitTesting(false)
 
-            // LAYER 3: Content - centered column
             VStack(spacing: 0) {
                 Spacer()
 
-                // Title (Android: headlineMedium, Bold)
                 Text("Choose Avatar")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
 
-                // Subtitle (Android: bodyLarge, onSurfaceVariant)
                 Text("Select an avatar to begin")
                     .font(.system(size: 17))
                     .foregroundColor(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
                     .padding(.top, 8)
 
-                Spacer().frame(height: 48) // Android: 48.dp
+                Spacer().frame(height: 48)
 
-                // Avatar options in a row (Android: Row, SpaceEvenly)
                 HStack(spacing: 0) {
                     Spacer()
                     ForEach(avatars, id: \.self) { avatar in
-                        avatarOption(avatar: avatar, isSelected: selectedAvatar == avatar)
+                        avatarCircle(avatar: avatar, isSelected: selectedAvatar == avatar)
                             .onTapGesture { selectedAvatar = avatar }
                         if avatar != avatars.last {
                             Spacer()
@@ -67,9 +62,8 @@ struct AvatarSelectionView: View {
                 }
                 .padding(.horizontal, 24)
 
-                Spacer().frame(height: 48) // Android: 48.dp
+                Spacer().frame(height: 48)
 
-                // Continue button (Android: 56.dp height, RoundedCornerShape(28.dp))
                 Button {
                     guard !isNavigating, let avatar = selectedAvatar else { return }
                     isNavigating = true
@@ -96,36 +90,26 @@ struct AvatarSelectionView: View {
         .ignoresSafeArea()
     }
 
-    // MARK: - Avatar Option (Android: AvatarOption composable)
-    // Circular preview with selection border + indicator dot
+    private func avatarCircle(avatar: AvatarType, isSelected: Bool) -> some View {
+        let size: CGFloat = 140
 
-    @ViewBuilder
-    private func avatarOption(avatar: AvatarType, isSelected: Bool) -> some View {
-        let circleSize: CGFloat = 140 // Android: 140.dp
-
-        VStack(spacing: 12) {
-            // Circular avatar preview
+        return VStack(spacing: 12) {
             ZStack {
-                // Selection border (Android: 4.dp border, primary color)
                 Circle()
                     .stroke(isSelected ? Color.appPrimary : Color.clear, lineWidth: 4)
-                    .frame(width: circleSize + 8, height: circleSize + 8)
+                    .frame(width: size + 8, height: size + 8)
 
-                // Avatar GIF inside circle (scaleAspectFit to show full person)
                 ZStack {
-                    // Background fill (Android: surfaceVariant)
                     Circle()
                         .fill(Color.gray.opacity(0.3))
-                        .frame(width: circleSize, height: circleSize)
+                        .frame(width: size, height: size)
 
-                    // GIF content fitted to circle - full person visible
                     GIFImageView(avatar.isFemale ? "female_idle" : "male_idle", contentMode: .scaleAspectFit)
-                        .frame(width: circleSize, height: circleSize)
+                        .frame(width: size, height: size)
                         .clipShape(Circle())
                 }
             }
 
-            // Selection indicator dot (Android: 12.dp circle)
             Circle()
                 .fill(isSelected ? Color.appPrimary : Color.white.opacity(0.4))
                 .frame(width: 12, height: 12)
@@ -133,9 +117,7 @@ struct AvatarSelectionView: View {
     }
 }
 
-// MARK: - Swipeable Avatar Change View
-// Android SwipeableAvatarSelectionScreen.kt match: Full-screen swipeable avatar
-// with arrows, page dots, and confirm button. Used when changing avatar from top bar.
+// MARK: - Swipeable Avatar Change (from top bar)
 
 struct SwipeableAvatarChangeView: View {
     var currentAvatar: AvatarType
@@ -146,12 +128,11 @@ struct SwipeableAvatarChangeView: View {
     @State private var isNavigating = false
     private let avatars = AvatarType.allCases
 
-    private let screenW = UIScreen.main.bounds.width
-    private let screenH = UIScreen.main.bounds.height
-
     var body: some View {
+        let screenW = UIScreen.main.bounds.width
+        let screenH = UIScreen.main.bounds.height
+
         ZStack {
-            // Background
             Color.black.ignoresSafeArea()
 
             if UIImage(named: "LoginBackground") != nil {
@@ -164,11 +145,9 @@ struct SwipeableAvatarChangeView: View {
                     .allowsHitTesting(false)
             }
 
-            // Overlay
             Color.black.opacity(0.4).ignoresSafeArea().allowsHitTesting(false)
 
             VStack(spacing: 0) {
-                // Top bar with back button and title
                 HStack {
                     Button(action: onCancel) {
                         Image(systemName: "chevron.left")
@@ -186,7 +165,6 @@ struct SwipeableAvatarChangeView: View {
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
 
-                // Instruction text
                 Text("Swipe left or right to select")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(.white.opacity(0.8))
@@ -194,9 +172,7 @@ struct SwipeableAvatarChangeView: View {
 
                 Spacer().frame(height: 16)
 
-                // Avatar display with swipe + arrows
                 ZStack {
-                    // Swipeable avatar (full-screen within area)
                     TabView(selection: $selectedIndex) {
                         ForEach(Array(avatars.enumerated()), id: \.element) { index, avatar in
                             AvatarView(avatarType: avatar, state: .idle, scale: 1.0)
@@ -206,7 +182,6 @@ struct SwipeableAvatarChangeView: View {
                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                     .frame(maxHeight: .infinity)
 
-                    // Left/right arrows
                     HStack {
                         if selectedIndex > 0 {
                             Button { withAnimation { selectedIndex -= 1 } } label: {
@@ -236,7 +211,6 @@ struct SwipeableAvatarChangeView: View {
 
                 Spacer().frame(height: 16)
 
-                // Page indicator dots
                 HStack(spacing: 8) {
                     ForEach(0..<avatars.count, id: \.self) { i in
                         Circle()
@@ -250,14 +224,12 @@ struct SwipeableAvatarChangeView: View {
 
                 Spacer().frame(height: 24)
 
-                // Gender label
                 Text(avatars[selectedIndex].isFemale ? "Female Assistant" : "Male Assistant")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.white)
 
                 Spacer().frame(height: 32)
 
-                // Confirm button
                 Button {
                     guard !isNavigating else { return }
                     isNavigating = true
@@ -283,7 +255,6 @@ struct SwipeableAvatarChangeView: View {
         }
         .ignoresSafeArea()
         .onAppear {
-            // Start on the currently active avatar
             if let idx = avatars.firstIndex(of: currentAvatar) {
                 selectedIndex = idx
             }
