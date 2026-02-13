@@ -97,17 +97,27 @@ struct DialogView: View {
         let screenH = UIScreen.main.bounds.height
         let topBarH: CGFloat = 52
         let keyboardUp = keyboardHeight > 0 && showSoftwareKeyboard
-        let chatH = keyboardUp ? screenH * 0.35 : screenH * 0.52
 
-        return ZStack(alignment: .top) {
+        let topBarBottom = windowTop + 6 + topBarH
+        let bottomH: CGFloat
+        if keyboardUp {
+            bottomH = max(screenH - topBarBottom - keyboardHeight - 10, 220)
+        } else {
+            bottomH = screenH * 0.55
+        }
+
+        return ZStack {
             AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
                 .frame(width: screenW, height: screenH)
                 .clipped()
                 .allowsHitTesting(false)
 
-            topBar
-                .frame(height: topBarH)
-                .padding(.top, windowTop + 6)
+            VStack(spacing: 0) {
+                topBar
+                    .frame(height: topBarH)
+                    .padding(.top, windowTop + 6)
+                Spacer()
+            }
 
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
@@ -120,8 +130,14 @@ struct DialogView: View {
                     }
 
                     inputRow
+
+                    speakButton
+                        .padding(.top, 6)
+                        .padding(.bottom, keyboardUp ? 6 : max(windowBottom - 22, 6))
+                        .frame(maxWidth: .infinity)
+                        .background(Color.black.opacity(0.6).allowsHitTesting(false))
                 }
-                .frame(height: chatH)
+                .frame(height: bottomH)
                 .background(
                     LinearGradient(
                         colors: [Color.black.opacity(0.0), Color.black.opacity(0.4), Color.black.opacity(0.6)],
@@ -129,14 +145,6 @@ struct DialogView: View {
                     )
                     .allowsHitTesting(false)
                 )
-
-                if !keyboardUp || !showSoftwareKeyboard {
-                    speakButton
-                        .padding(.top, 6)
-                        .padding(.bottom, max(windowBottom - 22, 6))
-                        .frame(maxWidth: .infinity)
-                        .background(Color.black.opacity(0.6).allowsHitTesting(false))
-                }
             }
             .padding(.bottom, keyboardUp ? keyboardHeight : 0)
         }
@@ -171,6 +179,7 @@ struct DialogView: View {
                 .font(.system(size: 28, weight: .bold))
                 .tracking(2)
                 .foregroundColor(.white)
+                .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
 
             Spacer()
 
@@ -181,6 +190,7 @@ struct DialogView: View {
                     .font(.system(size: 22))
                     .foregroundColor(.white)
                     .frame(width: 44, height: 44)
+                    .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
             }
 
             Button { showSettings = true } label: {
@@ -188,10 +198,11 @@ struct DialogView: View {
                     .font(.system(size: 20))
                     .foregroundColor(.white)
                     .frame(width: 44, height: 44)
+                    .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
             }
         }
         .padding(.horizontal, 16)
-        .background(Color.black.opacity(0.3))
+        .background(Color.black.opacity(0.55))
     }
 
     private var chatSection: some View {
@@ -261,28 +272,6 @@ struct DialogView: View {
                         if !val.isEmpty && avatarState == .idle { avatarState = .thinking }
                         else if val.isEmpty && avatarState == .thinking && !stt.isRecording { avatarState = .idle }
                     }
-
-                if !showSoftwareKeyboard {
-                    Button {
-                        if stt.isRecording { stt.stopRecording() }
-                        else { startVoiceInput() }
-                    } label: {
-                        Image(systemName: stt.isRecording ? "stop.circle.fill" : "mic.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
-                            .frame(width: 44, height: 44)
-                            .background(
-                                LinearGradient(
-                                    colors: stt.isRecording
-                                        ? [Color.speakActive1, Color.speakActive2]
-                                        : [Color.speakNormal1, Color.speakNormal2],
-                                    startPoint: .leading, endPoint: .trailing
-                                )
-                            )
-                            .clipShape(Circle())
-                    }
-                    .disabled(isLoading)
-                }
 
                 Button {
                     wasVoiceInput = false
