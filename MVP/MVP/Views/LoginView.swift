@@ -2,8 +2,8 @@
 //  LoginView.swift
 //  MVP
 //
-//  v2.0: Enhanced with improved UI, text visibility fix,
-//  matching Android app's login screen design
+//  v2.0: Production-ready login screen matching Android app.
+//  Background image, branding, show/hide password, text visibility fix.
 
 import SwiftUI
 
@@ -21,41 +21,55 @@ struct LoginView: View {
     var body: some View {
         ZStack {
             // Background
-            Image("LoginBackground")
-                .resizable()
-                .scaledToFill()
+            if UIImage(named: "LoginBackground") != nil {
+                Image("LoginBackground")
+                    .resizable()
+                    .scaledToFill()
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            } else {
+                LinearGradient(
+                    colors: [Color(red: 0.1, green: 0.1, blue: 0.2), Color(red: 0.05, green: 0.05, blue: 0.15)],
+                    startPoint: .top, endPoint: .bottom
+                )
                 .ignoresSafeArea()
-                .allowsHitTesting(false)
+            }
 
             Color.black.opacity(0.35)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
             ScrollView {
-                VStack(spacing: 28) {
-                    Spacer().frame(height: 40)
-                    
-                    // App title
+                VStack(spacing: 24) {
+                    Spacer().frame(height: 50)
+
+                    // App branding
                     VStack(spacing: 8) {
+                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                            .font(.system(size: 44))
+                            .foregroundColor(.white)
+                            .shadow(color: .blue.opacity(0.4), radius: 8)
+
                         Text("Inango Chat")
-                            .font(.largeTitle.bold())
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                             .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
-                        
+
                         Text("Your AI Voice Assistant")
                             .font(.subheadline)
                             .foregroundColor(.white.opacity(0.8))
                     }
-                    
+
                     Text(isRegister ? "Create Account" : "Welcome Back")
                         .font(.title2.bold())
                         .foregroundColor(.white)
                         .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
 
+                    // Login form card
                     VStack(spacing: 16) {
-                        // Email field
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Email")
+                        // Email
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Email", systemImage: "envelope")
                                 .font(.caption)
                                 .foregroundColor(.gray)
                             TextField("Enter your email", text: $email)
@@ -65,12 +79,14 @@ struct LoginView: View {
                                 .autocapitalization(.none)
                                 .submitLabel(.next)
                                 .frame(height: 44)
-                                .foregroundColor(.primary) // v2.0: Fix text visibility
+                                .foregroundColor(.primary)
                         }
-                        
-                        // Password field
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Password")
+
+                        Divider()
+
+                        // Password
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Password", systemImage: "lock")
                                 .font(.caption)
                                 .foregroundColor(.gray)
                             HStack {
@@ -92,64 +108,81 @@ struct LoginView: View {
                                 Button {
                                     showPassword.toggle()
                                 } label: {
-                                    Image(systemName: showPassword ? "eye.slash" : "eye")
+                                    Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
                                         .foregroundColor(.gray)
+                                        .frame(width: 30)
                                 }
                             }
                         }
                     }
-                    .padding(16)
+                    .padding(20)
                     .background(Color(.systemBackground).opacity(0.95))
-                    .cornerRadius(12)
-                    .frame(maxWidth: 320)
+                    .cornerRadius(16)
+                    .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
+                    .frame(maxWidth: 340)
                     .padding(.horizontal, 24)
                     .textFieldStyle(PlainTextFieldStyle())
 
+                    // Error message
                     if let err = errorMessage {
-                        Text(err)
-                            .font(.caption)
-                            .foregroundColor(.red)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                            .padding(.vertical, 4)
-                            .background(Color.white.opacity(0.8))
-                            .cornerRadius(8)
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text(err)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.9))
+                        .cornerRadius(8)
+                        .padding(.horizontal, 24)
                     }
 
+                    // Sign In button
                     Button(action: submit) {
                         if isLoading {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 .frame(maxWidth: .infinity)
-                                .padding()
+                                .padding(.vertical, 14)
                         } else {
                             Text(isRegister ? "Create Account" : "Sign In")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)
-                                .padding()
+                                .padding(.vertical, 14)
                         }
                     }
                     .buttonStyle(PlainButtonStyle())
-                    .background(Color.accentColor)
+                    .background(
+                        (email.isEmpty || password.isEmpty)
+                            ? Color.accentColor.opacity(0.5)
+                            : Color.accentColor
+                    )
                     .foregroundColor(.white)
-                    .cornerRadius(12)
+                    .cornerRadius(14)
                     .disabled(email.isEmpty || password.isEmpty || isLoading)
                     .padding(.horizontal, 24)
-                    .frame(maxWidth: 320)
+                    .frame(maxWidth: 340)
+                    .shadow(color: .accentColor.opacity(0.3), radius: 5, y: 3)
 
+                    // Toggle register/login
                     Button(isRegister ? "Already have an account? Sign In" : "Create an account") {
-                        isRegister.toggle()
-                        errorMessage = nil
+                        withAnimation {
+                            isRegister.toggle()
+                            errorMessage = nil
+                        }
                     }
                     .font(.subheadline)
                     .foregroundColor(.white)
                     .shadow(color: .black.opacity(0.3), radius: 1)
-                    
+
                     // Version
                     Text("v1.0.0")
                         .font(.caption2)
-                        .foregroundColor(.white.opacity(0.5))
-                        .padding(.top, 20)
+                        .foregroundColor(.white.opacity(0.4))
+                        .padding(.top, 16)
                 }
                 .padding(.bottom, 40)
             }
