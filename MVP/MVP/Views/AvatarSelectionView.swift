@@ -107,7 +107,7 @@ struct AvatarSelectionView: View {
                     // Scale down the avatar so the full person (head to feet) fits inside the circle
                     GIFImageView(avatar.isFemale ? "female_idle" : "male_idle", contentMode: .scaleAspectFit)
                         .frame(width: size * 0.75, height: size * 2.5)
-                        .scaleEffect(0.37)
+                        .scaleEffect(0.31)
                         .frame(width: size, height: size)
                         .clipShape(Circle())
                 }
