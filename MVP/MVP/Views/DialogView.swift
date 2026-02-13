@@ -19,7 +19,7 @@ struct DialogView: View {
     @State private var showTypingIndicator = false
     @State private var showSettings = false
 
-    @AppStorage("voiceOutputEnabled") private var voiceOutputEnabled = false
+    @AppStorage("voiceOutputEnabled") private var voiceOutputEnabled = true
     @AppStorage("alwaysVoiceResponse") private var alwaysVoiceResponse = false
     @AppStorage("typingIndicatorEnabled") private var typingIndicatorEnabled = true
     @AppStorage("genderMatchedVoice") private var genderMatchedVoice = true
@@ -29,6 +29,7 @@ struct DialogView: View {
 
     private let maxHistoryCount = 500
     private let historyKey = "chatHistory"
+    private let lastVersionKey = "lastAppVersion"
 
     private var dialogLanguage: String { DialogAPIService.getDeviceLanguage() }
 
@@ -37,7 +38,7 @@ struct DialogView: View {
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width
-            let h = geo.size.height
+            let screenH = UIScreen.main.bounds.height
 
             ZStack {
                 Color.black
@@ -46,19 +47,19 @@ struct DialogView: View {
                     Image("LoginBackground")
                         .resizable()
                         .scaledToFill()
-                        .frame(width: w, height: h)
+                        .frame(width: w, height: screenH)
                         .clipped()
                         .allowsHitTesting(false)
                 }
 
-                let isLandscape = w > h
+                let isLandscape = w > screenH
                 if isLandscape {
                     landscapeLayout(geo: geo)
                 } else {
-                    portraitLayout(w: w, h: h)
+                    portraitLayout(w: w, h: screenH)
                 }
             }
-            .frame(width: w, height: h)
+            .frame(width: w, height: screenH)
             .clipped()
         }
         .ignoresSafeArea(.all, edges: .all)
@@ -98,18 +99,19 @@ struct DialogView: View {
         let topBarH: CGFloat = 52
         let keyboardUp = keyboardHeight > 0 && showSoftwareKeyboard
         let topBarBottom = windowTop + 6 + topBarH
+        let availableH: CGFloat = keyboardUp ? h - keyboardHeight : h
         let bottomH: CGFloat = keyboardUp
-            ? max(h - topBarBottom - keyboardHeight - 10, 200)
+            ? max(availableH - topBarBottom - 10, 200)
             : h * 0.55
 
         return ZStack(alignment: .top) {
             AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(width: w, height: h)
                 .clipped()
                 .allowsHitTesting(false)
 
             topBar
-                .frame(height: topBarH)
+                .frame(width: w, height: topBarH)
                 .padding(.top, windowTop + 6)
 
             VStack(spacing: 0) {
@@ -128,11 +130,12 @@ struct DialogView: View {
                         .padding(.top, 6)
                         .padding(.bottom, keyboardUp ? 6 : max(windowBottom, 12))
                 }
-                .frame(height: bottomH)
+                .frame(width: w, height: bottomH)
             }
-            .padding(.bottom, keyboardUp ? keyboardHeight : 0)
+            .frame(width: w, height: availableH)
         }
         .frame(width: w, height: h)
+        .clipped()
     }
 
     private func landscapeLayout(geo: GeometryProxy) -> some View {
@@ -382,13 +385,15 @@ struct DialogView: View {
     private func playGreetingIfNeeded() {
         guard !hasPlayedGreeting else { return }
         hasPlayedGreeting = true
-        let greeting = "Hello! How can I help you today?"
-        let msg = ChatMessage(text: greeting, isFromUser: false)
-        messages.append(msg)
-        startTypewriter(messageId: msg.id, fullText: greeting)
-        if voiceOutputEnabled {
-            let preferMale = genderMatchedVoice ? (avatarType == .male) : nil
-            tts.speak(greeting, language: dialogLanguage, preferMale: preferMale)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            let greeting = "Hello! How can I help you today?"
+            let msg = ChatMessage(text: greeting, isFromUser: false)
+            messages.append(msg)
+            startTypewriter(messageId: msg.id, fullText: greeting)
+            if voiceOutputEnabled {
+                let preferMale = genderMatchedVoice ? (avatarType == .male) : nil
+                tts.speak(greeting, language: dialogLanguage, preferMale: preferMale)
+            }
         }
     }
 
@@ -484,7 +489,7 @@ struct DialogView: View {
         } else {
             Task { @MainActor in
                 for i in 1...total {
-                    try? await Task.sleep(nanoseconds: 25_000_000)
+                    try? await Task.sleep(nanoseconds: 10_000_000)
                     if typingMessageId != messageId { return }
                     typingDisplayedCount = i
                 }
@@ -498,6 +503,15 @@ struct DialogView: View {
         if let data = try? JSONEncoder().encode(toSave) { UserDefaults.standard.set(data, forKey: historyKey) }
     }
     private func loadChatHistory() {
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+        let currentBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
+        let fullVersion = "\(currentVersion).\(currentBuild)"
+        let lastVersion = UserDefaults.standard.string(forKey: lastVersionKey) ?? ""
+        if fullVersion != lastVersion {
+            UserDefaults.standard.removeObject(forKey: historyKey)
+            UserDefaults.standard.set(fullVersion, forKey: lastVersionKey)
+            return
+        }
         guard let data = UserDefaults.standard.data(forKey: historyKey),
               let saved = try? JSONDecoder().decode([ChatMessage].self, from: data) else { return }
         messages = saved
@@ -506,8 +520,6 @@ struct DialogView: View {
     private func clearChatHistory() {
         messages.removeAll()
         UserDefaults.standard.removeObject(forKey: historyKey)
-        hasPlayedGreeting = false
-        playGreetingIfNeeded()
     }
 
     private var settingsSheet: some View {
@@ -559,8 +571,8 @@ struct DialogView: View {
 
                 Section(header: Text("App Info")) {
                     settingsInfoRow(label: "App Name", value: "Inango Chat")
-                    settingsInfoRow(label: "Version", value: "v1.0.0")
-                    settingsInfoRow(label: "Build", value: "Production")
+                    settingsInfoRow(label: "Version", value: "v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")")
+                    settingsInfoRow(label: "Build", value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1")
                     settingsInfoRow(label: "Platform", value: "iOS")
                 }
 

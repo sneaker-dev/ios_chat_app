@@ -12,7 +12,7 @@ final class SpeechToTextService: NSObject, ObservableObject {
     private let audioEngine = AVAudioEngine()
     private let speechRecognizer: SFSpeechRecognizer? = SFSpeechRecognizer(locale: Locale.current)
     private var recordingCompletion: ((String?) -> Void)?
-    private let silenceTimeout: TimeInterval = 2.0
+    private let silenceTimeout: TimeInterval = 4.0
     private var silenceWorkItem: DispatchWorkItem?
 
     override init() {
@@ -109,8 +109,6 @@ final class SpeechToTextService: NSObject, ObservableObject {
         isRecording = true
         transcribedText = ""
         errorMessage = nil
-
-        scheduleSilenceTimeout()
 
         recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
             guard let self = self else { return }

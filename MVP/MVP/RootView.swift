@@ -73,7 +73,13 @@ struct SplashView: View {
             }
             .opacity(alphaAnim).scaleEffect(scaleAnim)
 
-            VStack { Spacer(); Text("v1.0.0").font(.system(size: 12)).foregroundColor(.white.opacity(0.5)).padding(.bottom, 32) }.opacity(alphaAnim)
+            VStack {
+                Spacer()
+                Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.5))
+                    .padding(.bottom, 32)
+            }.opacity(alphaAnim)
         }
         .onAppear {
             withAnimation(.easeOut(duration: 1.0)) { alphaAnim = 1.0 }
