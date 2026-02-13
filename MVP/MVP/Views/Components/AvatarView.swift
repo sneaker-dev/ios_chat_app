@@ -48,17 +48,33 @@ struct GIFImageView: UIViewRepresentable {
         self.contentMode = contentMode
     }
 
-    func makeUIView(context: Context) -> UIImageView {
+    func makeUIView(context: Context) -> UIView {
+        let container = UIView()
+        container.clipsToBounds = true
+        container.backgroundColor = .clear
+
         let iv = UIImageView()
         iv.contentMode = contentMode
         iv.clipsToBounds = true
         iv.backgroundColor = .clear
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(iv)
+
+        // Center the image view within the container
+        NSLayoutConstraint.activate([
+            iv.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            iv.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            iv.widthAnchor.constraint(equalTo: container.widthAnchor),
+            iv.heightAnchor.constraint(equalTo: container.heightAnchor)
+        ])
+
         loadGIF(into: iv)
-        return iv
+        return container
     }
-    func updateUIView(_ uiView: UIImageView, context: Context) {
-        uiView.contentMode = contentMode
-        if uiView.accessibilityIdentifier != gifName { loadGIF(into: uiView) }
+    func updateUIView(_ uiView: UIView, context: Context) {
+        guard let iv = uiView.subviews.first as? UIImageView else { return }
+        iv.contentMode = contentMode
+        if iv.accessibilityIdentifier != gifName { loadGIF(into: iv) }
     }
     private func loadGIF(into iv: UIImageView) {
         iv.accessibilityIdentifier = gifName
