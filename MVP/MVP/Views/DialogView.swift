@@ -24,13 +24,15 @@ struct DialogView: View {
     @State private var avatarState: AvatarAnimState = .idle
     @State private var wasVoiceInput = false
     @State private var showTypingIndicator = false
+    @State private var showSettings = false
 
-    // Functional defaults (Android SettingsRepository defaults, no UI to change them)
-    private let voiceOutputEnabled = false
-    private let alwaysVoiceResponse = false
-    private let typingIndicatorEnabled = true
-    private let genderMatchedVoice = true
-    private let streamingTextEnabled = true
+    // Settings (persisted)
+    @AppStorage("voiceOutputEnabled") private var voiceOutputEnabled = false
+    @AppStorage("alwaysVoiceResponse") private var alwaysVoiceResponse = false
+    @AppStorage("typingIndicatorEnabled") private var typingIndicatorEnabled = true
+    @AppStorage("genderMatchedVoice") private var genderMatchedVoice = true
+    @AppStorage("streamingTextEnabled") private var streamingTextEnabled = true
+
     private let maxHistoryCount = 500
     private let historyKey = "chatHistory"
 
@@ -57,6 +59,9 @@ struct DialogView: View {
             loadChatHistory()
             playGreetingIfNeeded()
             setupTTSCallbacks()
+        }
+        .sheet(isPresented: $showSettings) {
+            settingsSheet
         }
     }
 
@@ -162,10 +167,10 @@ struct DialogView: View {
         }
     }
 
-    // MARK: - Top Bar (Android: "inango", 30% black overlay)
+    // MARK: - Top Bar (Android: "inango" + Settings icon)
 
     private var topBar: some View {
-        HStack {
+        HStack(spacing: 12) {
             Text("inango")
                 .font(.system(size: 28, weight: .bold))
                 .tracking(2)
@@ -173,14 +178,11 @@ struct DialogView: View {
 
             Spacer()
 
-            // Logout button (minimal)
-            Button {
-                AuthService.shared.logout()
-                NotificationCenter.default.post(name: .userDidLogout, object: nil)
-            } label: {
-                Image(systemName: "rectangle.portrait.and.arrow.right")
-                    .font(.system(size: 18))
-                    .foregroundColor(.white.opacity(0.7))
+            // Settings button
+            Button { showSettings = true } label: {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.white)
                     .frame(width: 44, height: 44)
             }
         }
@@ -263,7 +265,7 @@ struct DialogView: View {
                         else if val.isEmpty && avatarState == .thinking && !stt.isRecording { avatarState = .idle }
                     }
 
-                // Send button
+                // Send button (always visible with primary color)
                 Button {
                     wasVoiceInput = false
                     sendMessage(inputText, fromVoice: false)
@@ -271,12 +273,10 @@ struct DialogView: View {
                     Image(systemName: "paperplane.fill")
                         .font(.system(size: 18))
                         .foregroundColor(.white)
-                        .frame(width: 42, height: 42)
-                        .background(
-                            inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                ? Color.white.opacity(0.15) : Color.appPrimary
-                        )
+                        .frame(width: 44, height: 44)
+                        .background(Color.appPrimary)
                         .clipShape(Circle())
+                        .opacity(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
                 }
                 .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
             }
@@ -529,5 +529,76 @@ struct DialogView: View {
         guard let data = UserDefaults.standard.data(forKey: historyKey),
               let saved = try? JSONDecoder().decode([ChatMessage].self, from: data) else { return }
         messages = saved
+    }
+
+    private func clearChatHistory() {
+        messages.removeAll()
+        UserDefaults.standard.removeObject(forKey: historyKey)
+        hasPlayedGreeting = false
+        playGreetingIfNeeded()
+    }
+
+    // MARK: - Settings Sheet
+
+    private var settingsSheet: some View {
+        NavigationView {
+            List {
+                Section("Voice") {
+                    Toggle(isOn: $voiceOutputEnabled) {
+                        Label("Voice Output", systemImage: "speaker.wave.2")
+                    }
+                    .tint(.appPrimary)
+                    Toggle(isOn: $alwaysVoiceResponse) {
+                        Label("Always Voice Response", systemImage: "waveform")
+                    }
+                    .tint(.appPrimary)
+                    .disabled(!voiceOutputEnabled)
+                }
+
+                Section("Display") {
+                    Toggle(isOn: $typingIndicatorEnabled) {
+                        Label("Typing Indicator", systemImage: "ellipsis.bubble")
+                    }
+                    .tint(.appPrimary)
+                    Toggle(isOn: $streamingTextEnabled) {
+                        Label("Streaming Text", systemImage: "text.cursor")
+                    }
+                    .tint(.appPrimary)
+                }
+
+                Section("Chat") {
+                    Button(role: .destructive) { clearChatHistory() } label: {
+                        Label("Clear Chat History", systemImage: "trash")
+                    }
+                }
+
+                Section("About") {
+                    HStack { Text("App Name"); Spacer(); Text("Inango Chat").foregroundColor(.secondary) }
+                    HStack { Text("Version"); Spacer(); Text("v1.0.0").foregroundColor(.secondary) }
+                    HStack { Text("Platform"); Spacer(); Text("iOS").foregroundColor(.secondary) }
+                }
+
+                Section {
+                    Button(role: .destructive) {
+                        showSettings = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            AuthService.shared.logout()
+                            NotificationCenter.default.post(name: .userDidLogout, object: nil)
+                        }
+                    } label: {
+                        Label("Logout", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+                }
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { showSettings = false }
+                        .fontWeight(.semibold)
+                        .foregroundColor(.appPrimary)
+                }
+            }
+        }
     }
 }
