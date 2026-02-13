@@ -33,6 +33,7 @@ struct DialogView: View {
     @AppStorage("genderMatchedVoice") private var genderMatchedVoice = true
     @AppStorage("streamingTextEnabled") private var streamingTextEnabled = true
     @AppStorage("darkModeEnabled") private var darkModeEnabled = false
+    @AppStorage("showSoftwareKeyboard") private var showSoftwareKeyboard = true
 
     private let maxHistoryCount = 500
     private let historyKey = "chatHistory"
@@ -72,6 +73,8 @@ struct DialogView: View {
         }
         .ignoresSafeArea()
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { n in
+            // When "Show Keyboard" is OFF, ignore keyboard height → bottom bar stays fixed
+            guard showSoftwareKeyboard else { return }
             guard let f = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
             withAnimation(.easeOut(duration: 0.25)) { keyboardHeight = f.height }
         }
@@ -635,6 +638,14 @@ struct DialogView: View {
                         title: "Dark Mode",
                         description: "Use dark theme",
                         isOn: $darkModeEnabled
+                    )
+
+                    // Show Keyboard
+                    settingsToggle(
+                        icon: "keyboard",
+                        title: "Show Keyboard",
+                        description: "Show on-screen keyboard when typing",
+                        isOn: $showSoftwareKeyboard
                     )
                 }
 
