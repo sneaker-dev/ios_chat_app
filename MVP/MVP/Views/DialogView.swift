@@ -35,33 +35,34 @@ struct DialogView: View {
     @State private var keyboardHeight: CGFloat = 0
 
     var body: some View {
-        let screenW = UIScreen.main.bounds.width
-        let screenH = UIScreen.main.bounds.height
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
 
-        ZStack {
-            Color.black.ignoresSafeArea()
+            ZStack {
+                Color.black
 
-            if UIImage(named: "LoginBackground") != nil {
-                Image("LoginBackground")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: screenW, height: screenH)
-                    .clipped()
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-            }
+                if UIImage(named: "LoginBackground") != nil {
+                    Image("LoginBackground")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: w, height: h)
+                        .clipped()
+                        .allowsHitTesting(false)
+                }
 
-            GeometryReader { geo in
-                let isLandscape = geo.size.width > geo.size.height
-
+                let isLandscape = w > h
                 if isLandscape {
                     landscapeLayout(geo: geo)
                 } else {
-                    portraitLayout(geo: geo)
+                    portraitLayout(w: w, h: h)
                 }
             }
+            .frame(width: w, height: h)
+            .clipped()
         }
-        .ignoresSafeArea()
+        .ignoresSafeArea(.all, edges: .all)
+        .ignoresSafeArea(.keyboard)
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { n in
             guard showSoftwareKeyboard else { return }
             guard let f = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
@@ -74,6 +75,7 @@ struct DialogView: View {
             loadChatHistory()
             playGreetingIfNeeded()
             setupTTSCallbacks()
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
         .onChange(of: showSoftwareKeyboard) { newValue in
             if !newValue {
@@ -86,38 +88,29 @@ struct DialogView: View {
         }
     }
 
-    private func portraitLayout(geo: GeometryProxy) -> some View {
+    private func portraitLayout(w: CGFloat, h: CGFloat) -> some View {
         let windowTop = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
-            .first?.windows.first?.safeAreaInsets.top ?? 59
+            .first?.windows.first?.safeAreaInsets.top ?? 47
         let windowBottom = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.windows.first?.safeAreaInsets.bottom ?? 34
-        let screenW = UIScreen.main.bounds.width
-        let screenH = UIScreen.main.bounds.height
         let topBarH: CGFloat = 52
         let keyboardUp = keyboardHeight > 0 && showSoftwareKeyboard
-
         let topBarBottom = windowTop + 6 + topBarH
-        let bottomH: CGFloat
-        if keyboardUp {
-            bottomH = max(screenH - topBarBottom - keyboardHeight - 10, 220)
-        } else {
-            bottomH = screenH * 0.55
-        }
+        let bottomH: CGFloat = keyboardUp
+            ? max(h - topBarBottom - keyboardHeight - 10, 200)
+            : h * 0.55
 
-        return ZStack {
+        return ZStack(alignment: .top) {
             AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
-                .frame(width: screenW, height: screenH)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
                 .allowsHitTesting(false)
 
-            VStack(spacing: 0) {
-                topBar
-                    .frame(height: topBarH)
-                    .padding(.top, windowTop + 6)
-                Spacer()
-            }
+            topBar
+                .frame(height: topBarH)
+                .padding(.top, windowTop + 6)
 
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
@@ -133,13 +126,13 @@ struct DialogView: View {
 
                     speakButton
                         .padding(.top, 6)
-                        .padding(.bottom, keyboardUp ? 6 : max(windowBottom - 22, 6))
-                        .frame(maxWidth: .infinity)
+                        .padding(.bottom, keyboardUp ? 6 : max(windowBottom, 12))
                 }
                 .frame(height: bottomH)
             }
             .padding(.bottom, keyboardUp ? keyboardHeight : 0)
         }
+        .frame(width: w, height: h)
     }
 
     private func landscapeLayout(geo: GeometryProxy) -> some View {
