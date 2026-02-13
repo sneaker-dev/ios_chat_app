@@ -43,10 +43,8 @@ struct DialogView: View {
             let isLandscape = geo.size.width > geo.size.height
 
             ZStack {
-                // LAYER 1: Background image (Android: R.drawable.background, ContentScale.Crop)
+                // LAYER 1: Background image
                 backgroundLayer
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .clipped()
 
                 if isLandscape {
                     landscapeLayout(geo: geo)
@@ -72,13 +70,11 @@ struct DialogView: View {
     // MARK: - Background
 
     private var backgroundLayer: some View {
-        GeometryReader { bgGeo in
+        ZStack {
             if UIImage(named: "LoginBackground") != nil {
                 Image("LoginBackground")
                     .resizable()
                     .scaledToFill()
-                    .frame(width: bgGeo.size.width, height: bgGeo.size.height)
-                    .clipped()
             } else {
                 LinearGradient(
                     colors: [Color(hex: 0x1A1A2E), Color(hex: 0x0F0F1E)],

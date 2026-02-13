@@ -19,20 +19,19 @@ struct LoginView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Background image
+                // Background image (fill entire screen including safe areas)
                 if UIImage(named: "LoginBackground") != nil {
                     Image("LoginBackground")
                         .resizable()
                         .scaledToFill()
-                        .frame(width: geo.size.width, height: geo.size.height)
+                        .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
                         .clipped()
-                        .ignoresSafeArea()
                         .allowsHitTesting(false)
                 } else {
-                    Color(hex: 0x1A1A2E).ignoresSafeArea()
+                    Color(hex: 0x1A1A2E)
                 }
                 // 50% overlay
-                Color.black.opacity(0.5).ignoresSafeArea().allowsHitTesting(false)
+                Color.black.opacity(0.5).allowsHitTesting(false)
 
                 // Content
                 ScrollView(showsIndicators: false) {
@@ -157,7 +156,9 @@ struct LoginView: View {
                     }
                 }
             }
+            .ignoresSafeArea(.container, edges: .all)
         }
+        .ignoresSafeArea(.container, edges: .all)
         .textFieldStyle(PlainTextFieldStyle())
         .onAppear {
             if email.isEmpty { email = KeychainService.shared.getLastEmail() ?? "" }
