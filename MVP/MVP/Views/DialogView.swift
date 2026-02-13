@@ -97,10 +97,10 @@ struct DialogView: View {
 
             // Content overlay
             VStack(spacing: 0) {
-                // Top bar
+                // Top bar (safeTop + 6pt extra so it clears Dynamic Island/notch)
                 topBar
                     .frame(height: topBarH)
-                    .padding(.top, safeTop)
+                    .padding(.top, safeTop + 6)
 
                 Spacer(minLength: 0)
 
@@ -123,10 +123,10 @@ struct DialogView: View {
                     .allowsHitTesting(false)
                 )
 
-                // Speak button
+                // Speak button (reduced bottom padding to raise it up)
                 speakButton
-                    .padding(.top, 8)
-                    .padding(.bottom, max(safeBottom, 8))
+                    .padding(.top, 6)
+                    .padding(.bottom, max(safeBottom - 20, 4))
                     .frame(maxWidth: .infinity)
                     .background(Color.black.opacity(0.6).allowsHitTesting(false))
             }
