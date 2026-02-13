@@ -86,6 +86,15 @@ struct DialogView: View {
             playGreetingIfNeeded()
             setupTTSCallbacks()
         }
+        .onChange(of: showSoftwareKeyboard) { newValue in
+            if !newValue {
+                // When "Show Keyboard" is turned OFF, reset keyboard height immediately
+                // so speak button reappears and bottom bar returns to fixed position
+                withAnimation(.easeOut(duration: 0.25)) { keyboardHeight = 0 }
+                // Dismiss any active keyboard
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
+        }
         .sheet(isPresented: $showSettings) {
             settingsSheet
         }
@@ -104,7 +113,8 @@ struct DialogView: View {
         let screenW = UIScreen.main.bounds.width
         let screenH = UIScreen.main.bounds.height
         let topBarH: CGFloat = 52
-        let keyboardUp = keyboardHeight > 0
+        // Keyboard is only considered "up" when BOTH: height > 0 AND the setting is ON
+        let keyboardUp = keyboardHeight > 0 && showSoftwareKeyboard
         // When keyboard is up, shrink chat to leave room; otherwise use 52%
         let chatH = keyboardUp ? screenH * 0.35 : screenH * 0.52
 
