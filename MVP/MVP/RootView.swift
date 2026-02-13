@@ -110,6 +110,7 @@ enum AppScreen {
 struct RootView: View {
     @State private var currentScreen: AppScreen = .splash
     @State private var selectedAvatar: AvatarType = KeychainService.shared.getSelectedAvatar() ?? .female
+    @AppStorage("darkModeEnabled") private var darkModeEnabled = false
 
     var body: some View {
         Group {
@@ -162,6 +163,7 @@ struct RootView: View {
         }
         .tint(.appPrimary)
         .accentColor(.appPrimary)
+        .preferredColorScheme(darkModeEnabled ? .dark : .light)
     }
 
     /// After splash: check if logged in and has previously selected avatar

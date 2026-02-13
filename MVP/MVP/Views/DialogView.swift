@@ -26,12 +26,13 @@ struct DialogView: View {
     @State private var showTypingIndicator = false
     @State private var showSettings = false
 
-    // Settings (persisted)
+    // Settings (persisted) - matching Android SettingsRepository defaults
     @AppStorage("voiceOutputEnabled") private var voiceOutputEnabled = false
     @AppStorage("alwaysVoiceResponse") private var alwaysVoiceResponse = false
     @AppStorage("typingIndicatorEnabled") private var typingIndicatorEnabled = true
     @AppStorage("genderMatchedVoice") private var genderMatchedVoice = true
     @AppStorage("streamingTextEnabled") private var streamingTextEnabled = true
+    @AppStorage("darkModeEnabled") private var darkModeEnabled = false
 
     private let maxHistoryCount = 500
     private let historyKey = "chatHistory"
@@ -561,46 +562,107 @@ struct DialogView: View {
         playGreetingIfNeeded()
     }
 
-    // MARK: - Settings Sheet
+    // MARK: - Settings Sheet (matching Android SettingsScreen.kt)
 
     private var settingsSheet: some View {
         NavigationView {
             List {
-                Section("Voice") {
-                    Toggle(isOn: $voiceOutputEnabled) {
-                        Label("Voice Output", systemImage: "speaker.wave.2")
+                // User Info (Android: UserInfoCard)
+                Section {
+                    HStack(spacing: 14) {
+                        Image(systemName: "person.circle.fill")
+                            .font(.system(size: 44))
+                            .foregroundColor(.appPrimary)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(KeychainService.shared.getLastEmail() ?? "User")
+                                .font(.system(size: 16, weight: .semibold))
+                            Text("Free Plan")
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
                     }
-                    .tint(.appPrimary)
-                    Toggle(isOn: $alwaysVoiceResponse) {
-                        Label("Always Voice Response", systemImage: "waveform")
-                    }
-                    .tint(.appPrimary)
+                    .padding(.vertical, 4)
+                }
+
+                // Preferences (Android: PreferencesSection)
+                Section(header: Text("Preferences")) {
+                    // Voice Output
+                    settingsToggle(
+                        icon: "speaker.wave.2",
+                        title: "Voice Output",
+                        description: "Enable voice responses",
+                        isOn: $voiceOutputEnabled
+                    )
+
+                    // Always Voice Response
+                    settingsToggle(
+                        icon: "waveform",
+                        title: "Always Voice Response",
+                        description: "Voice response for all messages",
+                        isOn: $alwaysVoiceResponse
+                    )
                     .disabled(!voiceOutputEnabled)
+                    .opacity(voiceOutputEnabled ? 1.0 : 0.5)
+
+                    // Typing Indicator
+                    settingsToggle(
+                        icon: "ellipsis.bubble",
+                        title: "Typing Indicator",
+                        description: "Show when AI is thinking",
+                        isOn: $typingIndicatorEnabled
+                    )
+
+                    // Gender-matched Voice
+                    settingsToggle(
+                        icon: "person.wave.2",
+                        title: "Gender-matched Voice",
+                        description: "Voice matches avatar gender",
+                        isOn: $genderMatchedVoice
+                    )
+
+                    // Streaming Text
+                    settingsToggle(
+                        icon: "text.cursor",
+                        title: "Streaming Text",
+                        description: "Typewriter effect for responses",
+                        isOn: $streamingTextEnabled
+                    )
+
+                    // Dark Mode
+                    settingsToggle(
+                        icon: "moon.fill",
+                        title: "Dark Mode",
+                        description: "Use dark theme",
+                        isOn: $darkModeEnabled
+                    )
                 }
 
-                Section("Display") {
-                    Toggle(isOn: $typingIndicatorEnabled) {
-                        Label("Typing Indicator", systemImage: "ellipsis.bubble")
+                // Data Management (Android: DataManagementSection)
+                Section(header: Text("Data Management")) {
+                    HStack {
+                        Label("Chat History", systemImage: "clock.arrow.circlepath")
+                        Spacer()
+                        Text("\(messages.count) messages")
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
                     }
-                    .tint(.appPrimary)
-                    Toggle(isOn: $streamingTextEnabled) {
-                        Label("Streaming Text", systemImage: "text.cursor")
-                    }
-                    .tint(.appPrimary)
-                }
 
-                Section("Chat") {
                     Button(role: .destructive) { clearChatHistory() } label: {
                         Label("Clear Chat History", systemImage: "trash")
                     }
+                    .disabled(messages.isEmpty)
                 }
 
-                Section("About") {
-                    HStack { Text("App Name"); Spacer(); Text("Inango Chat").foregroundColor(.secondary) }
-                    HStack { Text("Version"); Spacer(); Text("v1.0.0").foregroundColor(.secondary) }
-                    HStack { Text("Platform"); Spacer(); Text("iOS").foregroundColor(.secondary) }
+                // App Info (Android: AppInfoSection)
+                Section(header: Text("App Info")) {
+                    settingsInfoRow(label: "App Name", value: "Inango Chat")
+                    settingsInfoRow(label: "Version", value: "v1.0.0")
+                    settingsInfoRow(label: "Build", value: "Production")
+                    settingsInfoRow(label: "Platform", value: "iOS")
                 }
 
+                // Logout (Android: LogoutSection)
                 Section {
                     Button(role: .destructive) {
                         showSettings = false
@@ -623,6 +685,44 @@ struct DialogView: View {
                     .foregroundColor(.appPrimary)
                 }
             }
+            .preferredColorScheme(darkModeEnabled ? .dark : .light)
+        }
+    }
+
+    // Settings toggle row with icon, title, and description
+    private func settingsToggle(icon: String, title: String, description: String, isOn: Binding<Bool>) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundColor(.appPrimary)
+                .frame(width: 28)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 15))
+                Text(description)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .tint(.appPrimary)
+        }
+        .padding(.vertical, 2)
+    }
+
+    // Settings info row
+    private func settingsInfoRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 15))
+            Spacer()
+            Text(value)
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
         }
     }
 }
