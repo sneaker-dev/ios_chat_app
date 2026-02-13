@@ -82,25 +82,30 @@ struct DialogView: View {
     // MARK: - Portrait Layout
 
     private func portraitLayout(geo: GeometryProxy) -> some View {
-        let safeTop = geo.safeAreaInsets.top
-        let safeBottom = geo.safeAreaInsets.bottom
-        let totalH = geo.size.height + safeTop + safeBottom
+        // Safe area insets from the window (geo may report 0 due to ignoresSafeArea)
+        let windowTop = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.windows.first?.safeAreaInsets.top ?? 59
+        let windowBottom = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.windows.first?.safeAreaInsets.bottom ?? 34
+        let screenH = UIScreen.main.bounds.height
         let topBarH: CGFloat = 52
-        let chatH = totalH * 0.55
+        let chatH = screenH * 0.52
 
         return ZStack(alignment: .top) {
             // Avatar (full area behind content)
             AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
-                .frame(width: geo.size.width, height: totalH)
+                .frame(width: geo.size.width, height: screenH)
                 .clipped()
                 .allowsHitTesting(false)
 
             // Content overlay
             VStack(spacing: 0) {
-                // Top bar (safeTop + 6pt extra so it clears Dynamic Island/notch)
+                // Top bar - pushed below Dynamic Island/notch + 6pt breathing room
                 topBar
                     .frame(height: topBarH)
-                    .padding(.top, safeTop + 6)
+                    .padding(.top, windowTop + 6)
 
                 Spacer(minLength: 0)
 
@@ -123,10 +128,10 @@ struct DialogView: View {
                     .allowsHitTesting(false)
                 )
 
-                // Speak button (reduced bottom padding to raise it up)
+                // Speak button - raised up from bottom
                 speakButton
                     .padding(.top, 6)
-                    .padding(.bottom, max(safeBottom - 20, 4))
+                    .padding(.bottom, max(windowBottom - 22, 6))
                     .frame(maxWidth: .infinity)
                     .background(Color.black.opacity(0.6).allowsHitTesting(false))
             }
