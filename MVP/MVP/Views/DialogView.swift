@@ -38,12 +38,14 @@ struct DialogView: View {
 
     private var dialogLanguage: String { DialogAPIService.getDeviceLanguage() }
 
+    @State private var keyboardHeight: CGFloat = 0
+
     var body: some View {
         let screenW = UIScreen.main.bounds.width
         let screenH = UIScreen.main.bounds.height
 
         ZStack {
-            // LAYER 1: Background (absolute, fills entire screen)
+            // LAYER 1: Background (absolute, fills entire screen - never moves)
             Color.black.ignoresSafeArea()
 
             if UIImage(named: "LoginBackground") != nil {
@@ -68,7 +70,13 @@ struct DialogView: View {
             }
         }
         .ignoresSafeArea()
-        .keyboardAvoiding()
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { n in
+            guard let f = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+            withAnimation(.easeOut(duration: 0.25)) { keyboardHeight = f.height }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.easeOut(duration: 0.25)) { keyboardHeight = 0 }
+        }
         .onAppear {
             loadChatHistory()
             playGreetingIfNeeded()
@@ -89,24 +97,27 @@ struct DialogView: View {
         let windowBottom = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.windows.first?.safeAreaInsets.bottom ?? 34
+        let screenW = UIScreen.main.bounds.width
         let screenH = UIScreen.main.bounds.height
         let topBarH: CGFloat = 52
-        let chatH = screenH * 0.52
+        let keyboardUp = keyboardHeight > 0
+        // When keyboard is up, shrink chat to leave room; otherwise use 52%
+        let chatH = keyboardUp ? screenH * 0.35 : screenH * 0.52
 
         return ZStack(alignment: .top) {
-            // Avatar (full area behind content)
+            // LAYER 1: Avatar (fixed, never moves)
             AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
-                .frame(width: geo.size.width, height: screenH)
+                .frame(width: screenW, height: screenH)
                 .clipped()
                 .allowsHitTesting(false)
 
-            // Content overlay
-            VStack(spacing: 0) {
-                // Top bar - pushed below Dynamic Island/notch + 6pt breathing room
-                topBar
-                    .frame(height: topBarH)
-                    .padding(.top, windowTop + 6)
+            // LAYER 2: Top bar (fixed, never moves)
+            topBar
+                .frame(height: topBarH)
+                .padding(.top, windowTop + 6)
 
+            // LAYER 3: Bottom section (chat + input + speak) - moves with keyboard
+            VStack(spacing: 0) {
                 Spacer(minLength: 0)
 
                 // Chat + input
@@ -128,13 +139,16 @@ struct DialogView: View {
                     .allowsHitTesting(false)
                 )
 
-                // Speak button - raised up from bottom
-                speakButton
-                    .padding(.top, 6)
-                    .padding(.bottom, max(windowBottom - 22, 6))
-                    .frame(maxWidth: .infinity)
-                    .background(Color.black.opacity(0.6).allowsHitTesting(false))
+                // Speak button - hide when keyboard is up
+                if !keyboardUp {
+                    speakButton
+                        .padding(.top, 6)
+                        .padding(.bottom, max(windowBottom - 22, 6))
+                        .frame(maxWidth: .infinity)
+                        .background(Color.black.opacity(0.6).allowsHitTesting(false))
+                }
             }
+            .padding(.bottom, keyboardUp ? keyboardHeight : 0)
         }
     }
 
