@@ -17,27 +17,28 @@ struct LoginView: View {
     private enum Field { case email, password }
 
     var body: some View {
-        GeometryReader { geo in
-            let screenW = UIScreen.main.bounds.width
-            let screenH = UIScreen.main.bounds.height
+        let screenW = UIScreen.main.bounds.width
+        let screenH = UIScreen.main.bounds.height
 
-            ZStack {
-                // Background image (fill entire screen including safe areas)
-                if UIImage(named: "LoginBackground") != nil {
-                    Image("LoginBackground")
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: screenW, height: screenH)
-                        .clipped()
-                        .position(x: screenW / 2, y: screenH / 2)
-                        .allowsHitTesting(false)
-                } else {
-                    Color(hex: 0x1A1A2E)
-                }
-                // 50% overlay
-                Color.black.opacity(0.5).allowsHitTesting(false)
+        ZStack {
+            // Background (absolute, fills entire screen)
+            Color.black.ignoresSafeArea()
 
-                // Content
+            if UIImage(named: "LoginBackground") != nil {
+                Image("LoginBackground")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: screenW, height: screenH)
+                    .clipped()
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
+
+            // 50% overlay
+            Color.black.opacity(0.5).ignoresSafeArea().allowsHitTesting(false)
+
+            // Content
+            GeometryReader { geo in
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
                         Spacer().frame(height: max(geo.size.height * 0.12, 60))
@@ -160,9 +161,8 @@ struct LoginView: View {
                     }
                 }
             }
-            .ignoresSafeArea(.container, edges: .all)
         }
-        .ignoresSafeArea(.container, edges: .all)
+        .ignoresSafeArea()
         .textFieldStyle(PlainTextFieldStyle())
         .onAppear {
             if email.isEmpty { email = KeychainService.shared.getLastEmail() ?? "" }

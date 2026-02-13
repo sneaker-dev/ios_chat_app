@@ -39,12 +39,26 @@ struct DialogView: View {
     private var dialogLanguage: String { DialogAPIService.getDeviceLanguage() }
 
     var body: some View {
-        GeometryReader { geo in
-            let isLandscape = geo.size.width > geo.size.height
+        let screenW = UIScreen.main.bounds.width
+        let screenH = UIScreen.main.bounds.height
 
-            ZStack {
-                // LAYER 1: Background image
-                backgroundLayer
+        ZStack {
+            // LAYER 1: Background (absolute, fills entire screen)
+            Color.black.ignoresSafeArea()
+
+            if UIImage(named: "LoginBackground") != nil {
+                Image("LoginBackground")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: screenW, height: screenH)
+                    .clipped()
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
+
+            // LAYER 2: Main content
+            GeometryReader { geo in
+                let isLandscape = geo.size.width > geo.size.height
 
                 if isLandscape {
                     landscapeLayout(geo: geo)
@@ -52,10 +66,8 @@ struct DialogView: View {
                     portraitLayout(geo: geo)
                 }
             }
-            .frame(width: geo.size.width, height: geo.size.height)
-            .clipped()
-            .ignoresSafeArea(.container, edges: .bottom)
         }
+        .ignoresSafeArea()
         .keyboardAvoiding()
         .onAppear {
             loadChatHistory()
@@ -67,47 +79,23 @@ struct DialogView: View {
         }
     }
 
-    // MARK: - Background
-
-    private var backgroundLayer: some View {
-        GeometryReader { _ in
-            if UIImage(named: "LoginBackground") != nil {
-                Image("LoginBackground")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-                    .clipped()
-                    .position(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height / 2)
-            } else {
-                LinearGradient(
-                    colors: [Color(hex: 0x1A1A2E), Color(hex: 0x0F0F1E)],
-                    startPoint: .top, endPoint: .bottom
-                )
-            }
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-    }
-
     // MARK: - Portrait Layout
 
     private func portraitLayout(geo: GeometryProxy) -> some View {
         let safeTop = geo.safeAreaInsets.top
         let safeBottom = geo.safeAreaInsets.bottom
-        let screenH = geo.size.height + safeTop + safeBottom
+        let totalH = geo.size.height + safeTop + safeBottom
         let topBarH: CGFloat = 52
-        let speakH: CGFloat = 71 + 16
-        let chatH = screenH * 0.62
+        let chatH = totalH * 0.55
 
         return ZStack(alignment: .top) {
-            // LAYER 2: Avatar (full area behind content, centered)
+            // Avatar (full area behind content)
             AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
-                .frame(width: geo.size.width, height: geo.size.height + safeTop + safeBottom)
+                .frame(width: geo.size.width, height: totalH)
                 .clipped()
-                .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-            // LAYER 3: Content
+            // Content overlay
             VStack(spacing: 0) {
                 // Top bar
                 topBar
@@ -143,7 +131,6 @@ struct DialogView: View {
                     .background(Color.black.opacity(0.6).allowsHitTesting(false))
             }
         }
-        .ignoresSafeArea()
     }
 
     // MARK: - Landscape Layout
