@@ -613,6 +613,9 @@ struct DialogView: View {
     }
 
     private func startVoiceInput() {
+        tts.stop()
+        CloudTTSService.shared.stop()
+        AzureTTSService.shared.stop()
         errorMessage = nil
         avatarState = .thinking
         wasVoiceInput = true
