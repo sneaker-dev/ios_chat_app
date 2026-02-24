@@ -678,24 +678,26 @@ struct DialogView: View {
                 await MainActor.run {
                     stopLongRequestNoticeTimer()
                     showTypingIndicator = false
-                    let botMsg = ChatMessage(text: response, isFromUser: false, wasVoiceInput: fromVoice, language: dialogLanguage)
+                    let displayText = stripNoSpeechForDisplay(response)
+                    let ttsText = stripNoSpeechForTTS(response)
+                    let botMsg = ChatMessage(text: displayText, isFromUser: false, wasVoiceInput: fromVoice, language: dialogLanguage)
                     messages.append(botMsg)
                     isLoading = false
-                    let shouldSpeak = voiceOutputEnabled
+                    let shouldSpeak = voiceOutputEnabled && !ttsText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     if shouldSpeak {
                         typingMessageId = botMsg.id
                         typingDisplayedCount = 0
                         avatarState = .speaking
                         let preferMale = genderMatchedVoice ? (avatarType == .male) : nil
-                        tts.speak(response, language: dialogLanguage, preferMale: preferMale, rate: ttsRate, pitch: ttsPitchValue, volume: ttsVolumeValue) {
-                            typingDisplayedCount = response.count
+                        tts.speak(ttsText, language: dialogLanguage, preferMale: preferMale, rate: ttsRate, pitch: ttsPitchValue, volume: ttsVolumeValue) {
+                            typingDisplayedCount = displayText.count
                             typingMessageId = nil
                             avatarState = .idle
                         }
                     } else {
                         avatarState = .speaking
-                        startTypewriter(messageId: botMsg.id, fullText: response)
-                        let displayTime = Double(response.count) * 0.025 + 0.5
+                        startTypewriter(messageId: botMsg.id, fullText: displayText)
+                        let displayTime = Double(displayText.count) * 0.025 + 0.5
                         DispatchQueue.main.asyncAfter(deadline: .now() + displayTime) {
                             if avatarState == .speaking { avatarState = .idle }
                         }
@@ -714,6 +716,22 @@ struct DialogView: View {
                 }
             }
         }
+    }
+
+    private func stripNoSpeechForDisplay(_ text: String) -> String {
+        text.replacingOccurrences(
+            of: "</?no-sp(?:ee|ea)ch>",
+            with: "",
+            options: [.regularExpression, .caseInsensitive]
+        )
+    }
+
+    private func stripNoSpeechForTTS(_ text: String) -> String {
+        text.replacingOccurrences(
+            of: "<no-sp(?:ee|ea)ch>[\\s\\S]*?</no-sp(?:ee|ea)ch>",
+            with: "",
+            options: [.regularExpression, .caseInsensitive]
+        )
     }
 
     private func startLongRequestNoticeTimer() {
