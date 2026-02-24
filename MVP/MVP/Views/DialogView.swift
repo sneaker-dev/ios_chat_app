@@ -27,6 +27,8 @@ struct DialogView: View {
     @State private var avatarState: AvatarAnimState = .idle
     @State private var wasVoiceInput = false
     @State private var showTypingIndicator = false
+    @State private var showLongRequestNotice = false
+    @State private var longRequestNoticeTask: Task<Void, Never>?
     @State private var showSettings = false
     @State private var appMode: AppMode = .chat
 
@@ -152,6 +154,7 @@ struct DialogView: View {
             tts.stop()
             typingMessageId = nil
             showTypingIndicator = false
+            stopLongRequestNoticeTimer()
             isLoading = false
             errorMessage = nil
         }
@@ -203,6 +206,9 @@ struct DialogView: View {
                         if showTypingIndicator && typingIndicatorEnabled {
                             typingIndicatorView
                         }
+                        if showLongRequestNotice {
+                            longRequestNoticeView
+                        }
 
                         inputRow
 
@@ -241,6 +247,9 @@ struct DialogView: View {
 
                         if showTypingIndicator && typingIndicatorEnabled {
                             typingIndicatorView
+                        }
+                        if showLongRequestNotice {
+                            longRequestNoticeView
                         }
 
                         landscapeInputRow
@@ -533,6 +542,23 @@ struct DialogView: View {
         .padding(.horizontal, 12)
     }
 
+    private var longRequestNoticeView: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "clock.arrow.circlepath")
+                .foregroundColor(.yellow)
+                .font(.system(size: 13))
+            Text("Still processing your request...")
+                .font(.system(size: 13))
+                .foregroundColor(.white)
+                .lineLimit(2)
+            Spacer()
+        }
+        .padding(10)
+        .background(Color.yellow.opacity(0.18))
+        .cornerRadius(10)
+        .padding(.horizontal, 12)
+    }
+
     private var speakButton: some View {
         Button {
             if stt.isRecording { stt.stopRecording() }
@@ -643,12 +669,14 @@ struct DialogView: View {
         }
         errorMessage = nil; lastFailedMessage = nil; isLoading = true; avatarState = .thinking
         if typingIndicatorEnabled { showTypingIndicator = true }
+        startLongRequestNoticeTimer()
 
         Task {
             do {
                 let apiBaseURL: String? = appMode == .support ? APIConfig.supportBaseURL : nil
                 let response = try await DialogAPIService.shared.sendMessage(trimmed, language: dialogLanguage, baseURL: apiBaseURL)
                 await MainActor.run {
+                    stopLongRequestNoticeTimer()
                     showTypingIndicator = false
                     let botMsg = ChatMessage(text: response, isFromUser: false, wasVoiceInput: fromVoice, language: dialogLanguage)
                     messages.append(botMsg)
@@ -676,6 +704,7 @@ struct DialogView: View {
                 }
             } catch {
                 await MainActor.run {
+                    stopLongRequestNoticeTimer()
                     showTypingIndicator = false; isLoading = false
                     errorMessage = error.localizedDescription; lastFailedMessage = trimmed; avatarState = .idle
                     let fallback = ChatMessage(text: "I'm having trouble connecting. Please try again.", isFromUser: false)
@@ -685,6 +714,25 @@ struct DialogView: View {
                 }
             }
         }
+    }
+
+    private func startLongRequestNoticeTimer() {
+        stopLongRequestNoticeTimer()
+        longRequestNoticeTask = Task {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                if isLoading {
+                    showLongRequestNotice = true
+                }
+            }
+        }
+    }
+
+    private func stopLongRequestNoticeTimer() {
+        longRequestNoticeTask?.cancel()
+        longRequestNoticeTask = nil
+        showLongRequestNotice = false
     }
 
     private func retryLastMessage() {
