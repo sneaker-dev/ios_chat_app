@@ -75,6 +75,27 @@ final class SpeechToTextService: NSObject, ObservableObject {
             return
         }
 
+        // Keep behavior close to current online flow, but force on-device STT in offline/air-gapped mode.
+        checkPublicInternet { [weak self] hasPublicInternet in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                let preferOnDevice = !hasPublicInternet
+                self.beginRecognitionSession(
+                    recognizer: recognizer,
+                    canUseOnDeviceRecognition: canUseOnDeviceRecognition,
+                    preferOnDevice: preferOnDevice,
+                    completion: completion
+                )
+            }
+        }
+    }
+
+    private func beginRecognitionSession(
+        recognizer: SFSpeechRecognizer,
+        canUseOnDeviceRecognition: Bool,
+        preferOnDevice: Bool,
+        completion: @escaping (String?) -> Void
+    ) {
         recognitionTask?.cancel()
         recognitionTask = nil
         recordingCompletion = completion
@@ -97,12 +118,10 @@ final class SpeechToTextService: NSObject, ObservableObject {
             return
         }
         request.shouldReportPartialResults = true
-        // Prefer on-device dictation so STT works in air-gapped/offline environments.
-        request.requiresOnDeviceRecognition = canUseOnDeviceRecognition
+        request.requiresOnDeviceRecognition = preferOnDevice && canUseOnDeviceRecognition
 
         let inputNode = audioEngine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
-
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             self?.recognitionRequest?.append(buffer)
         }
@@ -149,6 +168,27 @@ final class SpeechToTextService: NSObject, ObservableObject {
                 }
             }
         }
+    }
+
+    private func checkPublicInternet(completion: @escaping (Bool) -> Void) {
+        guard let url = URL(string: "https://www.apple.com/library/test/success.html") else {
+            completion(false)
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        request.timeoutInterval = 1.5
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+
+        let task = URLSession.shared.dataTask(with: request) { _, response, error in
+            guard error == nil else {
+                completion(false)
+                return
+            }
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            completion((200...399).contains(statusCode))
+        }
+        task.resume()
     }
 
     private func scheduleSilenceTimeout() {
