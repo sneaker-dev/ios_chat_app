@@ -58,12 +58,44 @@ final class SpeechToTextService: NSObject, ObservableObject {
     }
 
     func startRecording(completion: @escaping (String?) -> Void) {
-        guard let recognizer = speechRecognizer, recognizer.isAvailable else {
+        guard let recognizer = speechRecognizer else {
+            errorMessage = "Speech recognizer not available"
+            completion(nil)
+            return
+        }
+        let canUseOnDeviceRecognition: Bool
+        if #available(iOS 13.0, *) {
+            canUseOnDeviceRecognition = recognizer.supportsOnDeviceRecognition
+        } else {
+            canUseOnDeviceRecognition = false
+        }
+        if !recognizer.isAvailable && !canUseOnDeviceRecognition {
             errorMessage = "Speech recognizer not available"
             completion(nil)
             return
         }
 
+        // Keep behavior close to current online flow, but force on-device STT in offline/air-gapped mode.
+        checkPublicInternet { [weak self] hasPublicInternet in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                let preferOnDevice = !hasPublicInternet
+                self.beginRecognitionSession(
+                    recognizer: recognizer,
+                    canUseOnDeviceRecognition: canUseOnDeviceRecognition,
+                    preferOnDevice: preferOnDevice,
+                    completion: completion
+                )
+            }
+        }
+    }
+
+    private func beginRecognitionSession(
+        recognizer: SFSpeechRecognizer,
+        canUseOnDeviceRecognition: Bool,
+        preferOnDevice: Bool,
+        completion: @escaping (String?) -> Void
+    ) {
         recognitionTask?.cancel()
         recognitionTask = nil
         recordingCompletion = completion
@@ -86,11 +118,10 @@ final class SpeechToTextService: NSObject, ObservableObject {
             return
         }
         request.shouldReportPartialResults = true
-        request.requiresOnDeviceRecognition = false
+        request.requiresOnDeviceRecognition = preferOnDevice && canUseOnDeviceRecognition
 
         let inputNode = audioEngine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
-
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             self?.recognitionRequest?.append(buffer)
         }
@@ -127,12 +158,37 @@ final class SpeechToTextService: NSObject, ObservableObject {
                     self.cancelSilenceTimeout()
                     let isCancelled = (error as NSError).code == 216
                     if !isCancelled {
-                        self.errorMessage = error.localizedDescription
+                        self.errorMessage = self.resolveRecognitionError(
+                            error,
+                            usedOnDeviceRecognition: request.requiresOnDeviceRecognition,
+                            hasTranscribedText: !self.transcribedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        )
                     }
                     self.finishRecording(with: self.transcribedText.isEmpty ? nil : self.transcribedText)
                 }
             }
         }
+    }
+
+    private func checkPublicInternet(completion: @escaping (Bool) -> Void) {
+        guard let url = URL(string: "https://www.apple.com/library/test/success.html") else {
+            completion(false)
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        request.timeoutInterval = 1.5
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+
+        let task = URLSession.shared.dataTask(with: request) { _, response, error in
+            guard error == nil else {
+                completion(false)
+                return
+            }
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            completion((200...399).contains(statusCode))
+        }
+        task.resume()
     }
 
     private func scheduleSilenceTimeout() {
@@ -157,6 +213,22 @@ final class SpeechToTextService: NSObject, ObservableObject {
     func stopRecording() {
         let text = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
         finishRecording(with: text.isEmpty ? nil : text)
+    }
+
+    private func resolveRecognitionError(
+        _ error: Error,
+        usedOnDeviceRecognition: Bool,
+        hasTranscribedText: Bool
+    ) -> String {
+        let message = error.localizedDescription
+        if usedOnDeviceRecognition && !hasTranscribedText {
+            let lower = message.lowercased()
+            if lower.contains("no speech") || lower.contains("no match") {
+                return "No speech detected. Please try again."
+            }
+            return "Offline voice recognition is not available."
+        }
+        return message
     }
 
     private func finishRecording(with text: String?) {
