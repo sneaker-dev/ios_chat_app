@@ -270,8 +270,8 @@ struct DialogView: View {
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
 
-                    VStack(spacing: 0) {
-                        chatSection
+            VStack(spacing: 0) {
+                chatSection
 
                         if showTypingIndicator && typingIndicatorEnabled {
                             typingIndicatorView
@@ -498,16 +498,16 @@ struct DialogView: View {
     }
 
     private var chatSection: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
+            ScrollViewReader { proxy in
+                ScrollView {
                 LazyVStack(spacing: 10) {
-                    ForEach(messages) { msg in
-                        ChatBubbleView(
-                            message: msg,
-                            displayedCharacterCount: msg.isFromUser ? nil : (msg.id == typingMessageId ? typingDisplayedCount : nil)
-                        )
+                        ForEach(messages) { msg in
+                            ChatBubbleView(
+                                message: msg,
+                                displayedCharacterCount: msg.isFromUser ? nil : (msg.id == typingMessageId ? typingDisplayedCount : nil)
+                            )
+                        }
                     }
-                }
                 .padding(.top, 8)
                 .padding(.bottom, 8)
             }
@@ -604,7 +604,7 @@ struct DialogView: View {
                     else if val.isEmpty && avatarState == .thinking && !stt.isRecording { avatarState = .idle }
                 }
 
-            Button {
+                Button {
                 if stt.isRecording { stt.stopRecording() }
                 else { startVoiceInput() }
             } label: {
@@ -620,7 +620,7 @@ struct DialogView: View {
             Button {
                 wasVoiceInput = false
                 sendMessage(inputText, fromVoice: false)
-            } label: {
+                } label: {
                 Image(systemName: "paperplane.fill")
                     .font(.system(size: 18))
                     .foregroundColor(.white)
@@ -698,8 +698,8 @@ struct DialogView: View {
             )
             .clipShape(Capsule())
             .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
-        }
-        .disabled(isLoading)
+                }
+                .disabled(isLoading)
     }
 
     private var ttsRate: Float {
