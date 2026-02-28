@@ -116,7 +116,7 @@ struct RootView: View {
                 LoginView()
                     .transition(.opacity)	
                     .onReceive(NotificationCenter.default.publisher(for: .userDidLogin)) { _ in
-                        withAnimation { currentScreen = .avatarSelection }
+                        withAnimation { navigateAfterLogin() }
                     }
 
             case .avatarSelection:
@@ -143,12 +143,15 @@ struct RootView: View {
                 DialogView(avatarType: selectedAvatar)
                     .transition(.opacity)
                     .onReceive(NotificationCenter.default.publisher(for: .userDidLogout)) { _ in
-                        withAnimation { currentScreen = .login }
+                        withAnimation { forceNavigateToLogin() }
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .changeAvatar)) { _ in
                         withAnimation { currentScreen = .avatarChange }
                     }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .sessionExpired)) { _ in
+            withAnimation { forceNavigateToLogin() }
         }
         .tint(.appPrimary)
         .accentColor(.appPrimary)
@@ -168,12 +171,30 @@ struct RootView: View {
             currentScreen = .login
         }
     }
+
+    /// After re-auth, restore the same entry behavior as normal authenticated startup.
+    private func navigateAfterLogin() {
+        if KeychainService.shared.hasSeenAvatarSelection(),
+           let saved = KeychainService.shared.getSelectedAvatar() {
+            selectedAvatar = saved
+            currentScreen = .dialog
+        } else {
+            currentScreen = .avatarSelection
+        }
+    }
+
+    /// Force root flow back to Login and clear transient authenticated UI state.
+    private func forceNavigateToLogin() {
+        AppStoreWebViewStore.shared.reset()
+        currentScreen = .login
+    }
 }
 
 extension Notification.Name {
     static let userDidLogin = Notification.Name("userDidLogin")
     static let userDidLogout = Notification.Name("userDidLogout")
     static let changeAvatar = Notification.Name("changeAvatar")
+    static let sessionExpired = Notification.Name("sessionExpired")
 }
 
 private struct KeyboardAvoidingModifier: ViewModifier {

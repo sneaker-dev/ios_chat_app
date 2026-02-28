@@ -1,5 +1,49 @@
 import Foundation
 
+final class SessionManager {
+    static let shared = SessionManager()
+
+    private(set) var isAuthenticated: Bool
+    private var sessionExpiredNotified = false
+    private let stateLock = NSLock()
+
+    private init() {
+        isAuthenticated = KeychainService.shared.getToken() != nil
+    }
+
+    func markAuthenticated() {
+        stateLock.lock()
+        isAuthenticated = true
+        sessionExpiredNotified = false
+        stateLock.unlock()
+    }
+
+    func markLoggedOut(resetUnauthorizedFlag: Bool = true) {
+        stateLock.lock()
+        isAuthenticated = false
+        if resetUnauthorizedFlag {
+            sessionExpiredNotified = false
+        }
+        stateLock.unlock()
+    }
+
+    /// Emits a single global "session expired" event for clustered 401 responses.
+    func handleUnauthorized() {
+        var shouldNotify = false
+        stateLock.lock()
+        if !sessionExpiredNotified {
+            sessionExpiredNotified = true
+            isAuthenticated = false
+            shouldNotify = true
+        }
+        stateLock.unlock()
+
+        guard shouldNotify else { return }
+        AuthService.shared.logout(resetUnauthorizedFlag: false)
+        NotificationCenter.default.post(name: .sessionExpired, object: nil)
+    }
+}
+
 struct LoginRequest: Encodable {
     let email: String
     let password: String
@@ -64,15 +108,18 @@ final class AuthService {
     func login(email: String, password: String, deviceId: String) async throws {
         if APIConfig.useDemoMode {
             keychain.saveToken("demo-token-\(email)")
+            SessionManager.shared.markAuthenticated()
             return
         }
         let body = LoginRequest(email: email, password: password)
         let token = try await postAuth(path: APIConfig.loginPath, body: body)
         keychain.saveToken(token)
+        SessionManager.shared.markAuthenticated()
     }
 
-    func logout() {
+    func logout(resetUnauthorizedFlag: Bool = true) {
         keychain.clearAll()
+        SessionManager.shared.markLoggedOut(resetUnauthorizedFlag: resetUnauthorizedFlag)
     }
 
     func token() -> String? { keychain.getToken() }
@@ -89,7 +136,7 @@ final class AuthService {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw AuthError.invalidResponse }
         if http.statusCode == 401 {
-            keychain.removeToken()
+            SessionManager.shared.handleUnauthorized()
             throw AuthError.serverError("Invalid credentials")
         }
         if http.statusCode >= 400 {
