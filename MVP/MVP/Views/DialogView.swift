@@ -138,12 +138,14 @@ struct DialogView: View {
             withAnimation(.easeOut(duration: 0.25)) { keyboardHeight = 0 }
         }
         .onAppear {
+            guard ensureAuthenticatedOrRedirect() else { return }
             loadAllHistories()
             messages = chatMessages
             setupTTSCallbacks()
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
         .onChange(of: appMode) { newMode in
+            guard ensureAuthenticatedOrRedirect() else { return }
             if newMode == .chat {
                 supportMessages = messages
                 messages = chatMessages
@@ -623,6 +625,18 @@ struct DialogView: View {
         tts.onSpeakingCompleted = { avatarState = .idle }
     }
 
+    /// Guard protected flows while user is inside Dialog screen.
+    /// If auth is gone for any reason, immediately force the global re-auth flow.
+    @MainActor
+    private func ensureAuthenticatedOrRedirect() -> Bool {
+        let hasToken = !(AuthService.shared.token() ?? "").isEmpty
+        guard SessionManager.shared.isAuthenticated && hasToken else {
+            SessionManager.shared.handleUnauthorized()
+            return false
+        }
+        return true
+    }
+
     private func playGreetingIfNeeded() {
         guard !hasPlayedGreeting else { return }
         hasPlayedGreeting = true
@@ -639,6 +653,7 @@ struct DialogView: View {
     }
 
     private func startVoiceInput() {
+        guard ensureAuthenticatedOrRedirect() else { return }
         tts.stop()
         CloudTTSService.shared.stop()
         AzureTTSService.shared.stop()
@@ -660,6 +675,7 @@ struct DialogView: View {
     }
 
     private func sendMessage(_ text: String, fromVoice: Bool, isRetry: Bool = false) {
+        guard ensureAuthenticatedOrRedirect() else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         wasVoiceInput = fromVoice
@@ -1064,6 +1080,23 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
         guard let currentURL = webView.url?.absoluteString else { return }
         if currentURL.contains("token=") { return }
         injectLandscapeForm(webView)
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationResponse: WKNavigationResponse,
+        decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
+    ) {
+        if let http = navigationResponse.response as? HTTPURLResponse,
+           navigationResponse.isForMainFrame,
+           http.statusCode == 401 {
+            DispatchQueue.main.async {
+                SessionManager.shared.handleUnauthorized()
+            }
+            decisionHandler(.cancel)
+            return
+        }
+        decisionHandler(.allow)
     }
 
     func injectLandscapeForm(_ webView: WKWebView) {
