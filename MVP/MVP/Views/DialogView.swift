@@ -678,6 +678,10 @@ struct DialogView: View {
         guard ensureAuthenticatedOrRedirect() else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        // Stop any ongoing TTS before starting a new request (#44825).
+        tts.stop()
+        CloudTTSService.shared.stop()
+        AzureTTSService.shared.stop()
         wasVoiceInput = fromVoice
         if !isRetry {
             inputText = ""
