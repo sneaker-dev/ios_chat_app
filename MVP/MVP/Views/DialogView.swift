@@ -7,6 +7,15 @@ enum AppMode: String, CaseIterable {
     case support = "Support"
     case appStore = "AppStore"
     case problems = "Problems"
+
+    var iconAssetName: String {
+        switch self {
+        case .chat: return "ic_tab_chat"
+        case .support: return "ic_tab_support"
+        case .appStore: return "ic_tab_appstore"
+        case .problems: return "ic_tab_problems"
+        }
+    }
 }
 
 struct DialogView: View {
@@ -332,19 +341,25 @@ struct DialogView: View {
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        Text(mode.rawValue)
-                            .font(.system(size: 14, weight: appMode == mode ? .semibold : .regular))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 7)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(
-                                        mode == .problems
-                                            ? (appMode == mode ? Color(red: 0.718, green: 0.11, blue: 0.11) : Color(red: 0.718, green: 0.11, blue: 0.11).opacity(0.35))
-                                            : (appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
-                                    )
-                            )
+                        VStack(spacing: 2) {
+                            Image(mode.iconAssetName)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 18, height: 18)
+                            Text(mode.rawValue)
+                                .font(.system(size: 14, weight: appMode == mode ? .semibold : .regular))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 7)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(
+                                    mode == .problems
+                                        ? (appMode == mode ? Color(red: 0.718, green: 0.11, blue: 0.11) : Color(red: 0.718, green: 0.11, blue: 0.11).opacity(0.35))
+                                        : (appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
+                                )
+                        )
                     }
                 }
             }
@@ -392,19 +407,25 @@ struct DialogView: View {
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        Text(mode.rawValue)
-                            .font(.system(size: 13, weight: appMode == mode ? .semibold : .regular))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(
-                                RoundedRectangle(cornerRadius: 7)
-                                    .fill(
-                                        mode == .problems
-                                            ? (appMode == mode ? Color(red: 0.718, green: 0.11, blue: 0.11) : Color(red: 0.718, green: 0.11, blue: 0.11).opacity(0.35))
-                                            : (appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
-                                    )
-                            )
+                        VStack(spacing: 2) {
+                            Image(mode.iconAssetName)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 16, height: 16)
+                            Text(mode.rawValue)
+                                .font(.system(size: 13, weight: appMode == mode ? .semibold : .regular))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(
+                                    mode == .problems
+                                        ? (appMode == mode ? Color(red: 0.718, green: 0.11, blue: 0.11) : Color(red: 0.718, green: 0.11, blue: 0.11).opacity(0.35))
+                                        : (appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
+                                )
+                        )
                     }
                 }
             }
