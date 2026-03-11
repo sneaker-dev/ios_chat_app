@@ -22,7 +22,7 @@ enum APIConfig {
     }
 
     static var problemsBaseURL: String {
-        ProcessInfo.processInfo.environment["MVP_PROBLEMS_BASE_URL"] ?? "https://dash-emulator.inango.com/api/v1/problems"
+        ProcessInfo.processInfo.environment["MVP_PROBLEMS_BASE_URL"] ?? "https://dash-emulator.inango.com"
     }
 
     static var useDemoMode: Bool {
