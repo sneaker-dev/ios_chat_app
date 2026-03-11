@@ -6,6 +6,7 @@ enum AppMode: String, CaseIterable {
     case chat = "Chat"
     case support = "Support"
     case appStore = "AppStore"
+    case problems = "Problems"
 }
 
 struct DialogView: View {
@@ -31,6 +32,14 @@ struct DialogView: View {
     @State private var longRequestNoticeTask: Task<Void, Never>?
     @State private var showSettings = false
     @State private var appMode: AppMode = .chat
+
+    private var isInangoUser: Bool {
+        KeychainService.shared.getLastEmail()?.hasSuffix("@inango-systems.com") == true
+    }
+
+    private var visibleModes: [AppMode] {
+        AppMode.allCases.filter { $0 != .problems || isInangoUser }
+    }
 
     @AppStorage("voiceOutputEnabled") private var voiceOutputEnabled = true
     @AppStorage("alwaysVoiceResponse") private var alwaysVoiceResponse = false
@@ -106,7 +115,23 @@ struct DialogView: View {
                     }
                 }
 
-                if isLandscape && appMode == .appStore {
+                // Problems screen — sits at the same layer as the AppStore WebView
+                if appMode == .problems {
+                    let landscapeBarH: CGFloat = 72
+                    if isLandscape {
+                        VStack(spacing: 0) {
+                            Spacer().frame(height: landscapeBarH)
+                            ProblemsView()
+                                .frame(width: w, height: screenH - landscapeBarH)
+                        }
+                    } else {
+                        ProblemsView()
+                            .frame(width: w, height: screenH - webViewTopPad)
+                            .padding(.top, webViewTopPad)
+                    }
+                }
+
+                if isLandscape && (appMode == .appStore || appMode == .problems) {
                     VStack {
                         landscapeFullWidthTopBar
                             .frame(width: w)
@@ -153,6 +178,7 @@ struct DialogView: View {
                 chatMessages = messages
                 messages = supportMessages
             }
+            // .appStore and .problems don't use the chat message list
             tts.stop()
             typingMessageId = nil
             showTypingIndicator = false
@@ -192,7 +218,7 @@ struct DialogView: View {
             : h * 0.55
 
         return ZStack(alignment: .top) {
-            if appMode != .appStore {
+            if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
                     .frame(width: w, height: h * 0.75)
                     .clipped()
@@ -202,8 +228,8 @@ struct DialogView: View {
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
 
-            VStack(spacing: 0) {
-                chatSection
+                    VStack(spacing: 0) {
+                        chatSection
 
                         if showTypingIndicator && typingIndicatorEnabled {
                             typingIndicatorView
@@ -234,7 +260,7 @@ struct DialogView: View {
         let bottomH: CGFloat = h * 0.45
 
         return ZStack(alignment: .top) {
-            if appMode != .appStore {
+            if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
                     .frame(width: w, height: h)
                     .offset(y: topBarH * 0.75)
@@ -302,7 +328,7 @@ struct DialogView: View {
             }
 
             HStack(spacing: 4) {
-                ForEach(AppMode.allCases, id: \.self) { mode in
+                ForEach(visibleModes, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
@@ -313,7 +339,11 @@ struct DialogView: View {
                             .padding(.vertical, 7)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
+                                    .fill(
+                                        mode == .problems
+                                            ? (appMode == mode ? Color(red: 0.718, green: 0.11, blue: 0.11) : Color(red: 0.718, green: 0.11, blue: 0.11).opacity(0.35))
+                                            : (appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
+                                    )
                             )
                     }
                 }
@@ -358,7 +388,7 @@ struct DialogView: View {
             }
 
             HStack(spacing: 2) {
-                ForEach(AppMode.allCases, id: \.self) { mode in
+                ForEach(visibleModes, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
@@ -369,7 +399,11 @@ struct DialogView: View {
                             .padding(.vertical, 7)
                             .background(
                                 RoundedRectangle(cornerRadius: 7)
-                                    .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
+                                    .fill(
+                                        mode == .problems
+                                            ? (appMode == mode ? Color(red: 0.718, green: 0.11, blue: 0.11) : Color(red: 0.718, green: 0.11, blue: 0.11).opacity(0.35))
+                                            : (appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
+                                    )
                             )
                     }
                 }
@@ -384,16 +418,16 @@ struct DialogView: View {
     }
 
     private var chatSection: some View {
-            ScrollViewReader { proxy in
-                ScrollView {
+        ScrollViewReader { proxy in
+            ScrollView {
                 LazyVStack(spacing: 10) {
-                        ForEach(messages) { msg in
-                            ChatBubbleView(
-                                message: msg,
-                                displayedCharacterCount: msg.isFromUser ? nil : (msg.id == typingMessageId ? typingDisplayedCount : nil)
-                            )
-                        }
+                    ForEach(messages) { msg in
+                        ChatBubbleView(
+                            message: msg,
+                            displayedCharacterCount: msg.isFromUser ? nil : (msg.id == typingMessageId ? typingDisplayedCount : nil)
+                        )
                     }
+                }
                 .padding(.top, 8)
                 .padding(.bottom, 8)
             }
@@ -490,7 +524,7 @@ struct DialogView: View {
                     else if val.isEmpty && avatarState == .thinking && !stt.isRecording { avatarState = .idle }
                 }
 
-                Button {
+            Button {
                 if stt.isRecording { stt.stopRecording() }
                 else { startVoiceInput() }
             } label: {
@@ -506,7 +540,7 @@ struct DialogView: View {
             Button {
                 wasVoiceInput = false
                 sendMessage(inputText, fromVoice: false)
-                } label: {
+            } label: {
                 Image(systemName: "paperplane.fill")
                     .font(.system(size: 18))
                     .foregroundColor(.white)
@@ -584,8 +618,8 @@ struct DialogView: View {
             )
             .clipShape(Capsule())
             .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
-                }
-                .disabled(isLoading)
+        }
+        .disabled(isLoading)
     }
 
     private var ttsRate: Float {

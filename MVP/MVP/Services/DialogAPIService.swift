@@ -77,7 +77,7 @@ final class DialogAPIService {
                 guard let http = response as? HTTPURLResponse else { throw DialogAPIError.invalidResponse }
 
                 if http.statusCode == 401 {
-                    SessionManager.shared.handleUnauthorized()
+                    AuthService.shared.logout()
                     throw DialogAPIError.notAuthenticated
                 }
                 if http.statusCode >= 400 {
