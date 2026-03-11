@@ -6,26 +6,23 @@ enum AppMode: String, CaseIterable {
     case chat = "Chat"
     case support = "Support"
     case appStore = "AppStore"
+    case problems = "Problems"
 
     var iconAssetName: String {
         switch self {
-        case .chat:
-            return "TabChat"
-        case .support:
-            return "TabSupport"
-        case .appStore:
-            return "TabAppStore"
+        case .chat:    return "TabChat"
+        case .support: return "TabSupport"
+        case .appStore: return "TabAppStore"
+        case .problems: return "TabProblems"
         }
     }
 
     var iconSystemName: String {
         switch self {
-        case .chat:
-            return "message.fill"
-        case .support:
-            return "person.2.fill"
-        case .appStore:
-            return "cart.fill"
+        case .chat:    return "message.fill"
+        case .support: return "person.2.fill"
+        case .appStore: return "cart.fill"
+        case .problems: return "exclamationmark.triangle.fill"
         }
     }
 }
@@ -92,6 +89,14 @@ struct DialogView: View {
     @State private var longRequestNoticeTask: Task<Void, Never>?
     @State private var showSettings = false
     @State private var appMode: AppMode = .chat
+
+    private var isInangoUser: Bool {
+        KeychainService.shared.getLastEmail()?.hasSuffix("@inango-systems.com") == true
+    }
+
+    private var visibleModes: [AppMode] {
+        AppMode.allCases.filter { $0 != .problems || isInangoUser }
+    }
 
     @AppStorage("voiceOutputEnabled") private var voiceOutputEnabled = true
     @AppStorage("alwaysVoiceResponse") private var alwaysVoiceResponse = false
@@ -174,7 +179,23 @@ struct DialogView: View {
                     }
                 }
 
-                if isLandscape && appMode == .appStore {
+                // Problems screen — sits at the same layer as the AppStore WebView
+                if appMode == .problems {
+                    let landscapeBarH: CGFloat = 72
+                    if isLandscape {
+                        VStack(spacing: 0) {
+                            Spacer().frame(height: landscapeBarH)
+                            ProblemsView()
+                                .frame(width: w, height: screenH - landscapeBarH)
+                        }
+                    } else {
+                        ProblemsView()
+                            .frame(width: w, height: screenH - webViewTopPad)
+                            .padding(.top, webViewTopPad)
+                    }
+                }
+
+                if isLandscape && (appMode == .appStore || appMode == .problems) {
                     VStack {
                         landscapeFullWidthTopBar
                             .frame(width: w)
@@ -221,6 +242,7 @@ struct DialogView: View {
                 chatMessages = messages
                 messages = supportMessages
             }
+            // .appStore and .problems don't use the chat message list
             tts.stop()
             typingMessageId = nil
             showTypingIndicator = false
@@ -260,7 +282,7 @@ struct DialogView: View {
             : h * 0.55
 
         return ZStack(alignment: .top) {
-            if appMode != .appStore {
+            if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
                     .frame(width: w, height: h * 0.65)
                     .clipped()
@@ -302,7 +324,7 @@ struct DialogView: View {
         let bottomH: CGFloat = h * 0.45
 
         return ZStack(alignment: .top) {
-            if appMode != .appStore {
+            if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
                     .frame(width: w, height: h)
                     .offset(y: topBarH * 0.75)
@@ -361,7 +383,7 @@ struct DialogView: View {
             }
 
             HStack(spacing: 6) {
-                ForEach(AppMode.allCases, id: \.self) { mode in
+                ForEach(visibleModes, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
@@ -399,7 +421,7 @@ struct DialogView: View {
             }
 
             HStack(spacing: 6) {
-                ForEach(AppMode.allCases, id: \.self) { mode in
+                ForEach(visibleModes, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
