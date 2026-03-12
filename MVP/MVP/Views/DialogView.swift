@@ -261,8 +261,8 @@ struct DialogView: View {
 
         return ZStack(alignment: .top) {
             if appMode != .appStore {
-                AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
-                    .frame(width: w, height: h * 0.75)
+                AvatarView(avatarType: avatarType, state: avatarState, scale: 0.77)
+                    .frame(width: w, height: h * 0.58)
                     .clipped()
                     .allowsHitTesting(false)
                     .padding(.top, topBarBottom)
@@ -303,7 +303,7 @@ struct DialogView: View {
 
         return ZStack(alignment: .top) {
             if appMode != .appStore {
-                AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
+                AvatarView(avatarType: avatarType, state: avatarState, scale: 0.65, useAspectFit: true)
                     .frame(width: w, height: h)
                     .offset(y: topBarH * 0.75)
                     .clipped()
@@ -340,113 +340,96 @@ struct DialogView: View {
     }
 
     private var landscapeFullWidthTopBar: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 6) {
-                brandLogo(width: 96, height: 30)
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                brandLogo(width: 134, height: 36)
 
                 Spacer()
 
                 Button {
                     NotificationCenter.default.post(name: .changeAvatar, object: nil)
                 } label: {
-                    Image(systemName: "person.crop.circle.fill")
-                        .font(.system(size: 21))
-                        .foregroundColor(.white)
-                        .frame(width: 40, height: 40)
-                        .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
+                    topActionIcon(systemName: "person.2.circle.fill", iconSize: 26, buttonSize: 48)
                 }
 
                 Button { showSettings = true } label: {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 19))
-                        .foregroundColor(.white)
-                        .frame(width: 40, height: 40)
-                        .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
+                    topActionIcon(systemName: "gearshape.fill", iconSize: 24, buttonSize: 48)
                 }
             }
 
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 ForEach(AppMode.allCases, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        HStack(spacing: 6) {
-                            tabIcon(for: mode, size: 15)
-                            Text(mode.rawValue)
-                                .font(.system(size: 14, weight: appMode == mode ? .semibold : .regular))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
-                            )
+                        modeTabButton(mode: mode, isLandscape: true)
                     }
                 }
             }
-            .padding(3)
+            .padding(4)
             .background(Color.white.opacity(0.08))
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .background(Color.black.opacity(0.25))
     }
 
     private var topBar: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 4) {
-                brandLogo(width: 110, height: 34)
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                brandLogo(width: 150, height: 40)
 
                 Spacer()
 
                 Button {
                     NotificationCenter.default.post(name: .changeAvatar, object: nil)
                 } label: {
-                    Image(systemName: "person.crop.circle.fill")
-                        .font(.system(size: 23))
-                        .foregroundColor(.white)
-                        .frame(width: 44, height: 44)
-                        .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
+                    topActionIcon(systemName: "person.2.circle.fill", iconSize: 28, buttonSize: 52)
                 }
 
                 Button { showSettings = true } label: {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.white)
-                        .frame(width: 44, height: 44)
-                        .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
+                    topActionIcon(systemName: "gearshape.fill", iconSize: 26, buttonSize: 52)
                 }
             }
 
-            HStack(spacing: 2) {
+            HStack(spacing: 6) {
                 ForEach(AppMode.allCases, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        VStack(spacing: 2) {
-                            tabIcon(for: mode, size: 14)
-                            Text(mode.rawValue)
-                                .font(.system(size: 12.5, weight: appMode == mode ? .semibold : .regular))
-                        }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 13)
-                            .padding(.vertical, 6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 7)
-                                    .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
-                            )
+                        modeTabButton(mode: mode, isLandscape: false)
                     }
                 }
             }
-            .padding(3)
+            .padding(4)
             .background(Color.white.opacity(0.08))
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 6)
+        .padding(.bottom, 8)
         .background(Color.black.opacity(0.55))
+    }
+
+    private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
+        let buttonWidth: CGFloat = isLandscape ? 122 : 106
+        let buttonHeight: CGFloat = isLandscape ? 52 : 60
+        let iconSize: CGFloat = isLandscape ? 34 : 38
+        let textSize: CGFloat = isLandscape ? 14 : 15
+
+        return VStack(spacing: 1) {
+            tabIcon(for: mode, size: iconSize)
+
+            Text(mode.rawValue)
+                .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
+                .lineLimit(1)
+        }
+        .foregroundColor(.white)
+        .frame(width: buttonWidth, height: buttonHeight)
+        .background(
+            RoundedRectangle(cornerRadius: 9)
+                .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
+        )
     }
 
     @ViewBuilder
@@ -484,6 +467,16 @@ struct DialogView: View {
             Image(systemName: mode.iconSystemName)
                 .font(.system(size: size * 0.9, weight: .semibold))
         }
+    }
+
+    private func topActionIcon(systemName: String, iconSize: CGFloat, buttonSize: CGFloat) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: iconSize, weight: .semibold))
+            .foregroundColor(.white)
+            .frame(width: buttonSize, height: buttonSize)
+            .background(Color.black.opacity(0.28))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.45), radius: 4, y: 2)
     }
 
     private var chatSection: some View {
