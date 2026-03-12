@@ -1162,6 +1162,11 @@ struct DialogView: View {
 final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
     var isLandscape: Bool = false
     var authToken: String?
+    private var didReloadAfterAuthInjection = false
+
+    func resetAuthInjectionReloadFlag() {
+        didReloadAfterAuthInjection = false
+    }
 
     private let landscapeFormHTML = """
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -1222,7 +1227,11 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
             document.cookie = 'next-auth.session-token=\(escapedToken); path=/; secure; samesite=lax';
         } catch (e) {}
         """
-        webView.evaluateJavaScript(js)
+        webView.evaluateJavaScript(js) { _, _ in
+            guard !self.didReloadAfterAuthInjection else { return }
+            self.didReloadAfterAuthInjection = true
+            webView.reload()
+        }
     }
 
     func webView(
@@ -1295,6 +1304,9 @@ final class AppStoreWebViewStore {
     func syncSession(url: URL, token: String?, in webView: WKWebView? = nil, forceReload: Bool = false) {
         let target = webView ?? self.webView
         guard let target else { return }
+        if token != loadedToken {
+            navDelegate.resetAuthInjectionReloadFlag()
+        }
         navDelegate.authToken = token
         guard forceReload || loadedToken != token else { return }
 
