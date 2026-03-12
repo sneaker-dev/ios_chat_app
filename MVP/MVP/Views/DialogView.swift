@@ -134,7 +134,7 @@ struct DialogView: View {
                 let winTop = UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }
                     .first?.windows.first?.safeAreaInsets.top ?? 47
-                return (winTop + 6) / 2 + 184
+                return (winTop + 6) / 2 + 174
             }()
 
             ZStack {
@@ -251,7 +251,7 @@ struct DialogView: View {
         let windowBottom = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.windows.first?.safeAreaInsets.bottom ?? 34
-        let topBarH: CGFloat = 210
+        let topBarH: CGFloat = 150
         let keyboardUp = keyboardHeight > 0 && showSoftwareKeyboard
         let topBarBottom = windowTop + 6 + topBarH
         let availableH: CGFloat = keyboardUp ? h - keyboardHeight : h
@@ -417,9 +417,9 @@ struct DialogView: View {
     }
 
     private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
-        let buttonWidth: CGFloat = isLandscape ? 140 : 122
-        let iconSize: CGFloat = isLandscape ? 120 : 100
-        let textSize: CGFloat = isLandscape ? 17 : 18
+        let buttonWidth: CGFloat = isLandscape ? 154 : 134
+        let iconSize: CGFloat = isLandscape ? 132 : 110
+        let textSize: CGFloat = isLandscape ? 19 : 20
         let topCut: CGFloat = iconSize * 0.30
         let bottomCut: CGFloat = iconSize * 0.10
 
