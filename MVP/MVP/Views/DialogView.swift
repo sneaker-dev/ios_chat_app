@@ -349,11 +349,11 @@ struct DialogView: View {
                 Button {
                     NotificationCenter.default.post(name: .changeAvatar, object: nil)
                 } label: {
-                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 28, buttonSize: 48)
+                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 72, buttonSize: 86)
                 }
 
                 Button { showSettings = true } label: {
-                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 28, buttonSize: 48)
+                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 72, buttonSize: 86)
                 }
             }
 
@@ -385,11 +385,11 @@ struct DialogView: View {
                 Button {
                     NotificationCenter.default.post(name: .changeAvatar, object: nil)
                 } label: {
-                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 30, buttonSize: 52)
+                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 78, buttonSize: 96)
                 }
 
                 Button { showSettings = true } label: {
-                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 30, buttonSize: 52)
+                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 78, buttonSize: 96)
                 }
             }
 
@@ -412,10 +412,10 @@ struct DialogView: View {
     }
 
     private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
-        let buttonWidth: CGFloat = isLandscape ? 126 : 112
-        let buttonHeight: CGFloat = isLandscape ? 72 : 78
-        let iconSize: CGFloat = isLandscape ? 52 : 58
-        let textSize: CGFloat = isLandscape ? 13 : 14
+        let buttonWidth: CGFloat = isLandscape ? 140 : 122
+        let buttonHeight: CGFloat = isLandscape ? 86 : 96
+        let iconSize: CGFloat = isLandscape ? 60 : 70
+        let textSize: CGFloat = isLandscape ? 14 : 15
 
         return VStack(spacing: 1) {
             tabIcon(for: mode, size: iconSize)
@@ -460,7 +460,7 @@ struct DialogView: View {
         if UIImage(named: mode.iconAssetName) != nil {
             Image(mode.iconAssetName)
                 .resizable()
-                .renderingMode(.template)
+                .renderingMode(.original)
                 .scaledToFit()
                 .frame(width: size, height: size)
         } else {
@@ -474,10 +474,9 @@ struct DialogView: View {
         if UIImage(named: assetName) != nil {
             Image(assetName)
                 .resizable()
-                .renderingMode(.template)
+                .renderingMode(.original)
                 .scaledToFit()
                 .frame(width: iconSize, height: iconSize)
-                .foregroundColor(.white)
                 .frame(width: buttonSize, height: buttonSize)
                 .background(Color.black.opacity(0.28))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
