@@ -349,11 +349,11 @@ struct DialogView: View {
                 Button {
                     NotificationCenter.default.post(name: .changeAvatar, object: nil)
                 } label: {
-                    topActionIcon(systemName: "person.2.circle.fill", iconSize: 26, buttonSize: 48)
+                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 28, buttonSize: 48)
                 }
 
                 Button { showSettings = true } label: {
-                    topActionIcon(systemName: "gearshape.fill", iconSize: 24, buttonSize: 48)
+                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 28, buttonSize: 48)
                 }
             }
 
@@ -385,11 +385,11 @@ struct DialogView: View {
                 Button {
                     NotificationCenter.default.post(name: .changeAvatar, object: nil)
                 } label: {
-                    topActionIcon(systemName: "person.2.circle.fill", iconSize: 28, buttonSize: 52)
+                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 30, buttonSize: 52)
                 }
 
                 Button { showSettings = true } label: {
-                    topActionIcon(systemName: "gearshape.fill", iconSize: 26, buttonSize: 52)
+                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 30, buttonSize: 52)
                 }
             }
 
@@ -412,10 +412,10 @@ struct DialogView: View {
     }
 
     private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
-        let buttonWidth: CGFloat = isLandscape ? 122 : 106
-        let buttonHeight: CGFloat = isLandscape ? 52 : 60
-        let iconSize: CGFloat = isLandscape ? 34 : 38
-        let textSize: CGFloat = isLandscape ? 14 : 15
+        let buttonWidth: CGFloat = isLandscape ? 126 : 112
+        let buttonHeight: CGFloat = isLandscape ? 72 : 78
+        let iconSize: CGFloat = isLandscape ? 52 : 58
+        let textSize: CGFloat = isLandscape ? 13 : 14
 
         return VStack(spacing: 1) {
             tabIcon(for: mode, size: iconSize)
@@ -469,14 +469,28 @@ struct DialogView: View {
         }
     }
 
-    private func topActionIcon(systemName: String, iconSize: CGFloat, buttonSize: CGFloat) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: iconSize, weight: .semibold))
-            .foregroundColor(.white)
-            .frame(width: buttonSize, height: buttonSize)
-            .background(Color.black.opacity(0.28))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.45), radius: 4, y: 2)
+    @ViewBuilder
+    private func topActionIcon(assetName: String, fallbackSystemName: String, iconSize: CGFloat, buttonSize: CGFloat) -> some View {
+        if UIImage(named: assetName) != nil {
+            Image(assetName)
+                .resizable()
+                .renderingMode(.template)
+                .scaledToFit()
+                .frame(width: iconSize, height: iconSize)
+                .foregroundColor(.white)
+                .frame(width: buttonSize, height: buttonSize)
+                .background(Color.black.opacity(0.28))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(color: .black.opacity(0.45), radius: 4, y: 2)
+        } else {
+            Image(systemName: fallbackSystemName)
+                .font(.system(size: iconSize, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: buttonSize, height: buttonSize)
+                .background(Color.black.opacity(0.28))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(color: .black.opacity(0.45), radius: 4, y: 2)
+        }
     }
 
     private var chatSection: some View {
