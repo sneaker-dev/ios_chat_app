@@ -134,7 +134,7 @@ struct DialogView: View {
                 let winTop = UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }
                     .first?.windows.first?.safeAreaInsets.top ?? 47
-                return winTop + 6 + 90
+                return (winTop + 6) / 2 + 175
             }()
 
             ZStack {
@@ -187,7 +187,7 @@ struct DialogView: View {
                         .compactMap { $0 as? UIWindowScene }
                         .first?.windows.first?.safeAreaInsets.top ?? 47
                     VStack {
-                        topBar.frame(width: w).padding(.top, winTop2 + 6)
+                        topBar.frame(width: w).padding(.top, (winTop2 + 6) / 2)
                         Spacer()
                     }
                 }
@@ -251,7 +251,7 @@ struct DialogView: View {
         let windowBottom = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.windows.first?.safeAreaInsets.bottom ?? 34
-        let topBarH: CGFloat = 90
+        let topBarH: CGFloat = 143
         let keyboardUp = keyboardHeight > 0 && showSoftwareKeyboard
         let topBarBottom = windowTop + 6 + topBarH
         let availableH: CGFloat = keyboardUp ? h - keyboardHeight : h
@@ -389,11 +389,11 @@ struct DialogView: View {
                     Button {
                         NotificationCenter.default.post(name: .changeAvatar, object: nil)
                     } label: {
-                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 120, buttonSize: 128)
+                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 80, buttonSize: 80)
                     }
 
                     Button { showSettings = true } label: {
-                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 120, buttonSize: 128)
+                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 80, buttonSize: 80)
                     }
                 }
             }
