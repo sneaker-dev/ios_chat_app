@@ -14,7 +14,6 @@ enum APIConfig {
     }
 
     static let appStoreURL = "https://app-store.inango.com"
-    static let problemsBaseURL = "http://192.168.68.104:8000"
 
     static var useDemoMode: Bool {
         baseURL.contains("api.example.com")

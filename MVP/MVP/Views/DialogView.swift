@@ -6,16 +6,6 @@ enum AppMode: String, CaseIterable {
     case chat = "Chat"
     case support = "Support"
     case appStore = "AppStore"
-    case problems = "Problems"
-
-    var iconAssetName: String {
-        switch self {
-        case .chat: return "ic_tab_chat"
-        case .support: return "ic_tab_support"
-        case .appStore: return "ic_tab_appstore"
-        case .problems: return "ic_tab_problems"
-        }
-    }
 }
 
 struct DialogView: View {
@@ -41,14 +31,6 @@ struct DialogView: View {
     @State private var longRequestNoticeTask: Task<Void, Never>?
     @State private var showSettings = false
     @State private var appMode: AppMode = .chat
-
-    private var isInangoUser: Bool {
-        KeychainService.shared.getLastEmail()?.hasSuffix("@inango-systems.com") == true
-    }
-
-    private var visibleModes: [AppMode] {
-        AppMode.allCases.filter { $0 != .problems || isInangoUser }
-    }
 
     @AppStorage("voiceOutputEnabled") private var voiceOutputEnabled = true
     @AppStorage("alwaysVoiceResponse") private var alwaysVoiceResponse = false
@@ -124,23 +106,7 @@ struct DialogView: View {
                     }
                 }
 
-                // Problems screen — sits at the same layer as the AppStore WebView
-                if appMode == .problems {
-                    let landscapeBarH: CGFloat = 72
-                    if isLandscape {
-                        VStack(spacing: 0) {
-                            Spacer().frame(height: landscapeBarH)
-                            ProblemsView()
-                                .frame(width: w, height: screenH - landscapeBarH)
-                        }
-                    } else {
-                        ProblemsView()
-                            .frame(width: w, height: screenH - webViewTopPad)
-                            .padding(.top, webViewTopPad)
-                    }
-                }
-
-                if isLandscape && (appMode == .appStore || appMode == .problems) {
+                if isLandscape && appMode == .appStore {
                     VStack {
                         landscapeFullWidthTopBar
                             .frame(width: w)
@@ -187,7 +153,6 @@ struct DialogView: View {
                 chatMessages = messages
                 messages = supportMessages
             }
-            // .appStore and .problems don't use the chat message list
             tts.stop()
             typingMessageId = nil
             showTypingIndicator = false
@@ -227,7 +192,7 @@ struct DialogView: View {
             : h * 0.55
 
         return ZStack(alignment: .top) {
-            if appMode != .appStore && appMode != .problems {
+            if appMode != .appStore {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
                     .frame(width: w, height: h * 0.75)
                     .clipped()
@@ -269,7 +234,7 @@ struct DialogView: View {
         let bottomH: CGFloat = h * 0.45
 
         return ZStack(alignment: .top) {
-            if appMode != .appStore && appMode != .problems {
+            if appMode != .appStore {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
                     .frame(width: w, height: h)
                     .offset(y: topBarH * 0.75)
@@ -337,29 +302,19 @@ struct DialogView: View {
             }
 
             HStack(spacing: 4) {
-                ForEach(visibleModes, id: \.self) { mode in
+                ForEach(AppMode.allCases, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        VStack(spacing: 2) {
-                            Image(mode.iconAssetName)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 18, height: 18)
-                            Text(mode.rawValue)
-                                .font(.system(size: 14, weight: appMode == mode ? .semibold : .regular))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 7)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(
-                                    mode == .problems
-                                        ? (appMode == mode ? Color(red: 0.718, green: 0.11, blue: 0.11) : Color(red: 0.718, green: 0.11, blue: 0.11).opacity(0.35))
-                                        : (appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
-                                )
-                        )
+                        Text(mode.rawValue)
+                            .font(.system(size: 14, weight: appMode == mode ? .semibold : .regular))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 7)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
+                            )
                     }
                 }
             }
@@ -403,29 +358,19 @@ struct DialogView: View {
             }
 
             HStack(spacing: 2) {
-                ForEach(visibleModes, id: \.self) { mode in
+                ForEach(AppMode.allCases, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        VStack(spacing: 2) {
-                            Image(mode.iconAssetName)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 16, height: 16)
-                            Text(mode.rawValue)
-                                .font(.system(size: 13, weight: appMode == mode ? .semibold : .regular))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7)
-                                .fill(
-                                    mode == .problems
-                                        ? (appMode == mode ? Color(red: 0.718, green: 0.11, blue: 0.11) : Color(red: 0.718, green: 0.11, blue: 0.11).opacity(0.35))
-                                        : (appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
-                                )
-                        )
+                        Text(mode.rawValue)
+                            .font(.system(size: 13, weight: appMode == mode ? .semibold : .regular))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(
+                                RoundedRectangle(cornerRadius: 7)
+                                    .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
+                            )
                     }
                 }
             }
