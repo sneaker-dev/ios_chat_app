@@ -1161,6 +1161,7 @@ struct DialogView: View {
 
 final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
     var isLandscape: Bool = false
+    var authToken: String?
 
     private let landscapeFormHTML = """
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -1198,10 +1199,30 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
     """
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        injectAuthSession(webView)
         guard isLandscape else { return }
         guard let currentURL = webView.url?.absoluteString else { return }
         if currentURL.contains("token=") { return }
         injectLandscapeForm(webView)
+    }
+
+    private func injectAuthSession(_ webView: WKWebView) {
+        guard let token = authToken, !token.isEmpty else { return }
+        let escapedToken = token
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+        let js = """
+        try {
+            window.localStorage.setItem('token', '\(escapedToken)');
+            window.localStorage.setItem('access_token', '\(escapedToken)');
+            window.localStorage.setItem('jwt', '\(escapedToken)');
+            document.cookie = 'token=\(escapedToken); path=/; secure; samesite=lax';
+            document.cookie = 'access_token=\(escapedToken); path=/; secure; samesite=lax';
+            document.cookie = 'jwt=\(escapedToken); path=/; secure; samesite=lax';
+            document.cookie = 'next-auth.session-token=\(escapedToken); path=/; secure; samesite=lax';
+        } catch (e) {}
+        """
+        webView.evaluateJavaScript(js)
     }
 
     func webView(
@@ -1274,6 +1295,7 @@ final class AppStoreWebViewStore {
     func syncSession(url: URL, token: String?, in webView: WKWebView? = nil, forceReload: Bool = false) {
         let target = webView ?? self.webView
         guard let target else { return }
+        navDelegate.authToken = token
         guard forceReload || loadedToken != token else { return }
 
         load(url: url, token: token, in: target)
@@ -1294,15 +1316,28 @@ final class AppStoreWebViewStore {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
             let domain = url.host ?? "app-store.inango.com"
-            if let cookie = HTTPCookie(properties: [
-                .domain: domain,
-                .path: "/",
-                .name: "token",
-                .value: token,
-                .secure: "TRUE",
-                .expires: Date(timeIntervalSinceNow: 86400)
-            ]) {
-                webView.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) {
+            let cookieNames = ["token", "access_token", "jwt", "next-auth.session-token"]
+            let cookieStore = webView.configuration.websiteDataStore.httpCookieStore
+            let cookieGroup = DispatchGroup()
+            var didSetAnyCookie = false
+            for cookieName in cookieNames {
+                if let cookie = HTTPCookie(properties: [
+                    .domain: domain,
+                    .path: "/",
+                    .name: cookieName,
+                    .value: token,
+                    .secure: "TRUE",
+                    .expires: Date(timeIntervalSinceNow: 86400)
+                ]) {
+                    didSetAnyCookie = true
+                    cookieGroup.enter()
+                    cookieStore.setCookie(cookie) {
+                        cookieGroup.leave()
+                    }
+                }
+            }
+            if didSetAnyCookie {
+                cookieGroup.notify(queue: .main) {
                     webView.load(request)
                 }
             } else {
