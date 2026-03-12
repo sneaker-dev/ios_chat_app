@@ -134,7 +134,7 @@ struct DialogView: View {
                 let winTop = UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }
                     .first?.windows.first?.safeAreaInsets.top ?? 47
-                return (winTop + 6) / 2 + 224
+                return (winTop + 6) / 2 + 204
             }()
 
             ZStack {
@@ -251,7 +251,7 @@ struct DialogView: View {
         let windowBottom = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.windows.first?.safeAreaInsets.bottom ?? 34
-        let topBarH: CGFloat = 192
+        let topBarH: CGFloat = 172
         let keyboardUp = keyboardHeight > 0 && showSoftwareKeyboard
         let topBarBottom = windowTop + 6 + topBarH
         let availableH: CGFloat = keyboardUp ? h - keyboardHeight : h
@@ -420,17 +420,16 @@ struct DialogView: View {
         let buttonWidth: CGFloat = isLandscape ? 140 : 122
         let iconSize: CGFloat = isLandscape ? 120 : 100
         let textSize: CGFloat = isLandscape ? 14 : 15
-        let buttonHeight: CGFloat = iconSize + 5 + textSize
 
-        return VStack(spacing: 5) {
+        return ZStack(alignment: .bottom) {
             tabIcon(for: mode, size: iconSize)
-
             Text(mode.rawValue)
                 .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
+                .foregroundColor(.white)
                 .lineLimit(1)
+                .padding(.bottom, 2)
         }
-        .foregroundColor(.white)
-        .frame(width: buttonWidth, height: buttonHeight)
+        .frame(width: buttonWidth, height: iconSize)
         .background(
             RoundedRectangle(cornerRadius: 9)
                 .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
