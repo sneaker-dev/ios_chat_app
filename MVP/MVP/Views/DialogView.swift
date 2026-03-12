@@ -340,10 +340,10 @@ struct DialogView: View {
     }
 
     private var landscapeFullWidthTopBar: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             HStack(spacing: 0) {
                 brandLogo(width: 107, height: 43)
-                    .padding(.leading, 8)
+                    .padding(.leading, 16)
 
                 Spacer()
 
@@ -370,19 +370,18 @@ struct DialogView: View {
                 }
             }
             .padding(4)
-            .background(Color.white.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .background(Color.clear)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
         .background(Color.black.opacity(0.25))
     }
 
     private var topBar: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             HStack(spacing: 0) {
                 brandLogo(width: 120, height: 48)
-                    .padding(.leading, 8)
+                    .padding(.leading, 16)
 
                 Spacer()
 
@@ -409,21 +408,20 @@ struct DialogView: View {
                 }
             }
             .padding(4)
-            .background(Color.white.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .background(Color.clear)
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 8)
+        .padding(.bottom, 4)
         .background(Color.black.opacity(0.55))
     }
 
     private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
         let buttonWidth: CGFloat = isLandscape ? 140 : 122
-        let buttonHeight: CGFloat = isLandscape ? 117 : 100
+        let buttonHeight: CGFloat = isLandscape ? 98 : 83
         let iconSize: CGFloat = isLandscape ? 120 : 100
         let textSize: CGFloat = isLandscape ? 14 : 15
 
-        return VStack(spacing: 0) {
+        return VStack(spacing: -12) {
             tabIcon(for: mode, size: iconSize)
 
             Text(mode.rawValue)
