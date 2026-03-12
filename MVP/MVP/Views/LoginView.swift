@@ -175,6 +175,7 @@ struct LoginView: View {
                 }
                 await MainActor.run {
                     KeychainService.shared.saveLastEmail(email)
+                    KeychainService.shared.saveLastPassword(password)
                     isLoading = false
                     NotificationCenter.default.post(name: .userDidLogin, object: nil)
                 }

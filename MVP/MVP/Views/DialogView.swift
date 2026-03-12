@@ -1162,10 +1162,17 @@ struct DialogView: View {
 final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
     var isLandscape: Bool = false
     var authToken: String?
+    var savedEmail: String?
+    var savedPassword: String?
     private var didReloadAfterAuthInjection = false
+    private var didAttemptCredentialAutoLogin = false
 
     func resetAuthInjectionReloadFlag() {
         didReloadAfterAuthInjection = false
+    }
+
+    func resetCredentialAutoLoginFlag() {
+        didAttemptCredentialAutoLogin = false
     }
 
     private let landscapeFormHTML = """
@@ -1205,6 +1212,7 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         injectAuthSession(webView)
+        injectCredentialAutoLogin(webView)
         guard isLandscape else { return }
         guard let currentURL = webView.url?.absoluteString else { return }
         if currentURL.contains("token=") { return }
@@ -1231,6 +1239,41 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
             guard !self.didReloadAfterAuthInjection else { return }
             self.didReloadAfterAuthInjection = true
             webView.reload()
+        }
+    }
+
+    private func injectCredentialAutoLogin(_ webView: WKWebView) {
+        guard !didAttemptCredentialAutoLogin else { return }
+        guard
+            let email = savedEmail, !email.isEmpty,
+            let password = savedPassword, !password.isEmpty
+        else { return }
+
+        let escapedEmail = email
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+        let escapedPassword = password
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+        let js = """
+        (function() {
+            var e = document.querySelector('input[type="email"],input[name="email"],#lf_email');
+            var p = document.querySelector('input[type="password"],input[name="password"],#lf_pass');
+            var b = document.querySelector('button[type="submit"],button#lf_btn,.btn');
+            if (!e || !p || !b) { return false; }
+            if ((e.value || '').length > 0 && (p.value || '').length > 0) { return false; }
+            e.value = '\(escapedEmail)';
+            p.value = '\(escapedPassword)';
+            e.dispatchEvent(new Event('input', { bubbles: true }));
+            p.dispatchEvent(new Event('input', { bubbles: true }));
+            setTimeout(function() { b.click(); }, 80);
+            return true;
+        })();
+        """
+        webView.evaluateJavaScript(js) { result, _ in
+            if let didSubmit = result as? Bool, didSubmit {
+                self.didAttemptCredentialAutoLogin = true
+            }
         }
     }
 
@@ -1306,8 +1349,11 @@ final class AppStoreWebViewStore {
         guard let target else { return }
         if token != loadedToken {
             navDelegate.resetAuthInjectionReloadFlag()
+            navDelegate.resetCredentialAutoLoginFlag()
         }
         navDelegate.authToken = token
+        navDelegate.savedEmail = KeychainService.shared.getLastEmail()
+        navDelegate.savedPassword = KeychainService.shared.getLastPassword()
         guard forceReload || loadedToken != token else { return }
 
         load(url: url, token: token, in: target)
