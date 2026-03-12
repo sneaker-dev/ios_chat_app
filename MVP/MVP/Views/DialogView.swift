@@ -1250,7 +1250,10 @@ final class AppStoreWebViewStore {
     let navDelegate = AppStoreNavDelegate()
 
     func getOrCreate(url: URL, token: String?) -> WKWebView {
-        if let wv = webView { return wv }
+        if let wv = webView {
+            syncSession(url: url, token: token, in: wv)
+            return wv
+        }
 
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
@@ -1263,13 +1266,32 @@ final class AppStoreWebViewStore {
         wv.scrollView.contentInsetAdjustmentBehavior = .always
         wv.navigationDelegate = navDelegate
 
+        webView = wv
+        syncSession(url: url, token: token, in: wv, forceReload: true)
+        return wv
+    }
+
+    func syncSession(url: URL, token: String?, in webView: WKWebView? = nil, forceReload: Bool = false) {
+        let target = webView ?? self.webView
+        guard let target else { return }
+        guard forceReload || loadedToken != token else { return }
+
+        load(url: url, token: token, in: target)
+        loadedToken = token
+    }
+
+    private func load(url: URL, token: String?, in webView: WKWebView) {
         var finalURL = url
         if let token = token {
             var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
             var items = components?.queryItems ?? []
+            items.removeAll { $0.name == "token" }
             items.append(URLQueryItem(name: "token", value: token))
             components?.queryItems = items
             finalURL = components?.url ?? url
+
+            var request = URLRequest(url: finalURL)
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
             let domain = url.host ?? "app-store.inango.com"
             if let cookie = HTTPCookie(properties: [
@@ -1280,19 +1302,15 @@ final class AppStoreWebViewStore {
                 .secure: "TRUE",
                 .expires: Date(timeIntervalSinceNow: 86400)
             ]) {
-                config.websiteDataStore.httpCookieStore.setCookie(cookie)
+                webView.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) {
+                    webView.load(request)
+                }
+            } else {
+                webView.load(request)
             }
-
-            var request = URLRequest(url: finalURL)
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            wv.load(request)
         } else {
-            wv.load(URLRequest(url: finalURL))
+            webView.load(URLRequest(url: finalURL))
         }
-
-        loadedToken = token
-        webView = wv
-        return wv
     }
 
     func reset() {
@@ -1316,6 +1334,7 @@ struct AppStoreWebView: UIViewRepresentable {
         let store = AppStoreWebViewStore.shared
         store.navDelegate.isLandscape = isLandscape
         DispatchQueue.main.async {
+            store.syncSession(url: url, token: token, in: webView)
             webView.setNeedsLayout()
             webView.layoutIfNeeded()
             if isLandscape {
