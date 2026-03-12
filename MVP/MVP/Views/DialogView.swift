@@ -6,6 +6,28 @@ enum AppMode: String, CaseIterable {
     case chat = "Chat"
     case support = "Support"
     case appStore = "AppStore"
+
+    var iconAssetName: String {
+        switch self {
+        case .chat:
+            return "TabChat"
+        case .support:
+            return "TabSupport"
+        case .appStore:
+            return "TabAppStore"
+        }
+    }
+
+    var iconSystemName: String {
+        switch self {
+        case .chat:
+            return "message.fill"
+        case .support:
+            return "person.2.fill"
+        case .appStore:
+            return "cart.fill"
+        }
+    }
 }
 
 struct SupportedLanguageItem {
@@ -320,19 +342,15 @@ struct DialogView: View {
     private var landscapeFullWidthTopBar: some View {
         VStack(spacing: 4) {
             HStack(spacing: 6) {
-                Text("inango")
-                    .font(.system(size: 24, weight: .bold))
-                    .tracking(2)
-                    .foregroundColor(.white.opacity(0.35))
-                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                brandLogo(width: 96, height: 30)
 
                 Spacer()
 
                 Button {
                     NotificationCenter.default.post(name: .changeAvatar, object: nil)
                 } label: {
-                    Image(systemName: "person.crop.circle")
-                        .font(.system(size: 20))
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 21))
                         .foregroundColor(.white)
                         .frame(width: 40, height: 40)
                         .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
@@ -340,7 +358,7 @@ struct DialogView: View {
 
                 Button { showSettings = true } label: {
                     Image(systemName: "gearshape.fill")
-                        .font(.system(size: 18))
+                        .font(.system(size: 19))
                         .foregroundColor(.white)
                         .frame(width: 40, height: 40)
                         .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
@@ -352,11 +370,14 @@ struct DialogView: View {
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        Text(mode.rawValue)
-                            .font(.system(size: 14, weight: appMode == mode ? .semibold : .regular))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 7)
+                        HStack(spacing: 6) {
+                            tabIcon(for: mode, size: 15)
+                            Text(mode.rawValue)
+                                .font(.system(size: 14, weight: appMode == mode ? .semibold : .regular))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
                                     .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
@@ -376,19 +397,15 @@ struct DialogView: View {
     private var topBar: some View {
         VStack(spacing: 4) {
             HStack(spacing: 4) {
-                Text("inango")
-                    .font(.system(size: 28, weight: .bold))
-                    .tracking(2)
-                    .foregroundColor(.white.opacity(0.35))
-                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                brandLogo(width: 110, height: 34)
 
                 Spacer()
 
                 Button {
                     NotificationCenter.default.post(name: .changeAvatar, object: nil)
                 } label: {
-                    Image(systemName: "person.crop.circle")
-                        .font(.system(size: 22))
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 23))
                         .foregroundColor(.white)
                         .frame(width: 44, height: 44)
                         .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
@@ -408,11 +425,14 @@ struct DialogView: View {
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        Text(mode.rawValue)
-                            .font(.system(size: 13, weight: appMode == mode ? .semibold : .regular))
+                        VStack(spacing: 2) {
+                            tabIcon(for: mode, size: 14)
+                            Text(mode.rawValue)
+                                .font(.system(size: 12.5, weight: appMode == mode ? .semibold : .regular))
+                        }
                             .foregroundColor(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 6)
                             .background(
                                 RoundedRectangle(cornerRadius: 7)
                                     .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
@@ -427,6 +447,43 @@ struct DialogView: View {
         .padding(.horizontal, 16)
         .padding(.bottom, 6)
         .background(Color.black.opacity(0.55))
+    }
+
+    @ViewBuilder
+    private func brandLogo(width: CGFloat, height: CGFloat) -> some View {
+        if UIImage(named: "InangoTopbarLogo") != nil {
+            Image("InangoTopbarLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: width, height: height)
+                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+        } else if UIImage(named: "InangoLogo") != nil {
+            Image("InangoLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: width, height: height)
+                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+        } else {
+            Text("inango")
+                .font(.system(size: 28, weight: .bold))
+                .tracking(2)
+                .foregroundColor(.white.opacity(0.35))
+                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+        }
+    }
+
+    @ViewBuilder
+    private func tabIcon(for mode: AppMode, size: CGFloat) -> some View {
+        if UIImage(named: mode.iconAssetName) != nil {
+            Image(mode.iconAssetName)
+                .resizable()
+                .renderingMode(.template)
+                .scaledToFit()
+                .frame(width: size, height: size)
+        } else {
+            Image(systemName: mode.iconSystemName)
+                .font(.system(size: size * 0.9, weight: .semibold))
+        }
     }
 
     private var chatSection: some View {
