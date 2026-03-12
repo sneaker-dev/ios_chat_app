@@ -265,7 +265,7 @@ struct DialogView: View {
                     .frame(width: w, height: h * 0.65)
                     .clipped()
                     .allowsHitTesting(false)
-                    .padding(.top, topBarBottom + 100)
+                    .padding(.top, topBarBottom + 70)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -420,19 +420,18 @@ struct DialogView: View {
         let buttonWidth: CGFloat = isLandscape ? 154 : 115
         let iconSize: CGFloat = isLandscape ? 132 : 115
         let textSize: CGFloat = isLandscape ? 19 : 18
-        let topCut: CGFloat = isLandscape ? iconSize * 0.30 : iconSize * 0.21
-        let bottomCut: CGFloat = iconSize * 0.10
+        let buttonHeight: CGFloat = isLandscape ? 92 : 80
 
         return ZStack(alignment: .bottom) {
             tabIcon(for: mode, size: iconSize)
-                .padding(.bottom, 5)
+                .padding(.bottom, 10)
             Text(mode.rawValue)
                 .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
                 .foregroundColor(.white)
                 .lineLimit(1)
-                .padding(.bottom, 14)
+                .padding(.bottom, 19)
         }
-        .frame(width: buttonWidth, height: iconSize - topCut - bottomCut)
+        .frame(width: buttonWidth, height: buttonHeight)
         .background(
             RoundedRectangle(cornerRadius: 9)
                 .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
