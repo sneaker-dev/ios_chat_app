@@ -1235,11 +1235,7 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
             document.cookie = 'next-auth.session-token=\(escapedToken); path=/; secure; samesite=lax';
         } catch (e) {}
         """
-        webView.evaluateJavaScript(js) { _, _ in
-            guard !self.didReloadAfterAuthInjection else { return }
-            self.didReloadAfterAuthInjection = true
-            webView.reload()
-        }
+        webView.evaluateJavaScript(js)
     }
 
     private func injectCredentialAutoLogin(_ webView: WKWebView) {
@@ -1320,6 +1316,7 @@ final class AppStoreWebViewStore {
     static let shared = AppStoreWebViewStore()
     private(set) var webView: WKWebView?
     private var loadedToken: String?
+    private var appStoreAuthTask: Task<Void, Never>?
     let navDelegate = AppStoreNavDelegate()
 
     func getOrCreate(url: URL, token: String?) -> WKWebView {
@@ -1361,6 +1358,50 @@ final class AppStoreWebViewStore {
     }
 
     private func load(url: URL, token: String?, in webView: WKWebView) {
+        if let email = navDelegate.savedEmail, !email.isEmpty,
+           let password = navDelegate.savedPassword, !password.isEmpty {
+            let fallbackToken = token
+            appStoreAuthTask?.cancel()
+            appStoreAuthTask = Task { [weak self, weak webView] in
+                guard let self = self else { return }
+                let appStoreToken = await self.fetchAppStoreToken(email: email, password: password)
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    guard let webView = webView else { return }
+                    let effectiveToken = appStoreToken ?? fallbackToken
+                    self.navDelegate.authToken = effectiveToken
+                    self.applySessionAndLoad(url: url, token: effectiveToken, in: webView)
+                }
+            }
+            return
+        }
+
+        applySessionAndLoad(url: url, token: token, in: webView)
+    }
+
+    private func fetchAppStoreToken(email: String, password: String) async -> String? {
+        guard let loginURL = URL(string: APIConfig.appStoreURL + "/api/auth/login") else { return nil }
+        var request = URLRequest(url: loginURL)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 12
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: String] = ["email": email, "password": password]
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
+        request.httpBody = bodyData
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else { return nil }
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+            return (json["token"] as? String)
+                ?? (json["access_token"] as? String)
+                ?? (json["access"] as? String)
+        } catch {
+            return nil
+        }
+    }
+
+    private func applySessionAndLoad(url: URL, token: String?, in webView: WKWebView) {
         var finalURL = url
         if let token = token {
             var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
@@ -1407,6 +1448,8 @@ final class AppStoreWebViewStore {
     }
 
     func reset() {
+        appStoreAuthTask?.cancel()
+        appStoreAuthTask = nil
         webView = nil
         loadedToken = nil
     }
