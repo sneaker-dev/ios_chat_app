@@ -134,7 +134,7 @@ struct DialogView: View {
                 let winTop = UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }
                     .first?.windows.first?.safeAreaInsets.top ?? 47
-                return (winTop + 6) / 2 + 174
+                return (winTop + 6) / 2 + 187
             }()
 
             ZStack {
@@ -251,7 +251,7 @@ struct DialogView: View {
         let windowBottom = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.windows.first?.safeAreaInsets.bottom ?? 34
-        let topBarH: CGFloat = 150
+        let topBarH: CGFloat = 160
         let keyboardUp = keyboardHeight > 0 && showSoftwareKeyboard
         let topBarBottom = windowTop + 6 + topBarH
         let availableH: CGFloat = keyboardUp ? h - keyboardHeight : h
@@ -261,11 +261,11 @@ struct DialogView: View {
 
         return ZStack(alignment: .top) {
             if appMode != .appStore {
-                AvatarView(avatarType: avatarType, state: avatarState, scale: 1.1)
+                AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
                     .frame(width: w, height: h * 0.65)
                     .clipped()
                     .allowsHitTesting(false)
-                    .padding(.top, topBarBottom)
+                    .padding(.top, topBarBottom + 100)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -417,10 +417,10 @@ struct DialogView: View {
     }
 
     private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
-        let buttonWidth: CGFloat = isLandscape ? 154 : 134
-        let iconSize: CGFloat = isLandscape ? 132 : 110
-        let textSize: CGFloat = isLandscape ? 19 : 20
-        let topCut: CGFloat = iconSize * 0.30
+        let buttonWidth: CGFloat = isLandscape ? 154 : 115
+        let iconSize: CGFloat = isLandscape ? 132 : 115
+        let textSize: CGFloat = isLandscape ? 19 : 18
+        let topCut: CGFloat = isLandscape ? iconSize * 0.30 : iconSize * 0.21
         let bottomCut: CGFloat = iconSize * 0.10
 
         return ZStack(alignment: .bottom) {
