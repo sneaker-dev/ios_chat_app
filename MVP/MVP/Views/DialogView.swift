@@ -134,7 +134,7 @@ struct DialogView: View {
                 let winTop = UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }
                     .first?.windows.first?.safeAreaInsets.top ?? 47
-                return (winTop + 6) / 2 + 175
+                return (winTop + 6) / 2 + 224
             }()
 
             ZStack {
@@ -251,7 +251,7 @@ struct DialogView: View {
         let windowBottom = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.windows.first?.safeAreaInsets.bottom ?? 34
-        let topBarH: CGFloat = 143
+        let topBarH: CGFloat = 192
         let keyboardUp = keyboardHeight > 0 && showSoftwareKeyboard
         let topBarBottom = windowTop + 6 + topBarH
         let availableH: CGFloat = keyboardUp ? h - keyboardHeight : h
@@ -351,11 +351,11 @@ struct DialogView: View {
                     Button {
                         NotificationCenter.default.post(name: .changeAvatar, object: nil)
                     } label: {
-                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 144, buttonSize: 144)
+                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 173, buttonSize: 173)
                     }
 
                     Button { showSettings = true } label: {
-                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 144, buttonSize: 144)
+                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 173, buttonSize: 173)
                     }
                 }
             }
@@ -378,7 +378,7 @@ struct DialogView: View {
     }
 
     private var topBar: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 0) {
             HStack(spacing: 0) {
                 brandLogo(width: 120, height: 48)
                     .padding(.leading, 16)
@@ -389,11 +389,11 @@ struct DialogView: View {
                     Button {
                         NotificationCenter.default.post(name: .changeAvatar, object: nil)
                     } label: {
-                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 80, buttonSize: 80)
+                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 96, buttonSize: 96)
                     }
 
                     Button { showSettings = true } label: {
-                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 80, buttonSize: 80)
+                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 96, buttonSize: 96)
                     }
                 }
             }
@@ -407,7 +407,8 @@ struct DialogView: View {
                     }
                 }
             }
-            .padding(4)
+            .padding(.horizontal, 4)
+            .padding(.bottom, 4)
             .background(Color.clear)
         }
         .padding(.horizontal, 16)
@@ -417,11 +418,11 @@ struct DialogView: View {
 
     private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
         let buttonWidth: CGFloat = isLandscape ? 140 : 122
-        let buttonHeight: CGFloat = isLandscape ? 98 : 83
         let iconSize: CGFloat = isLandscape ? 120 : 100
         let textSize: CGFloat = isLandscape ? 14 : 15
+        let buttonHeight: CGFloat = iconSize + 5 + textSize
 
-        return VStack(spacing: -12) {
+        return VStack(spacing: 5) {
             tabIcon(for: mode, size: iconSize)
 
             Text(mode.rawValue)
