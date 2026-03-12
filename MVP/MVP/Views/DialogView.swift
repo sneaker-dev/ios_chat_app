@@ -134,7 +134,7 @@ struct DialogView: View {
                 let winTop = UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }
                     .first?.windows.first?.safeAreaInsets.top ?? 47
-                return (winTop + 6) / 2 + 204
+                return (winTop + 6) / 2 + 184
             }()
 
             ZStack {
@@ -251,7 +251,7 @@ struct DialogView: View {
         let windowBottom = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.windows.first?.safeAreaInsets.bottom ?? 34
-        let topBarH: CGFloat = 172
+        let topBarH: CGFloat = 152
         let keyboardUp = keyboardHeight > 0 && showSoftwareKeyboard
         let topBarBottom = windowTop + 6 + topBarH
         let availableH: CGFloat = keyboardUp ? h - keyboardHeight : h
@@ -261,7 +261,7 @@ struct DialogView: View {
 
         return ZStack(alignment: .top) {
             if appMode != .appStore {
-                AvatarView(avatarType: avatarType, state: avatarState, scale: 0.77)
+                AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
                     .frame(width: w, height: h * 0.58)
                     .clipped()
                     .allowsHitTesting(false)
@@ -303,7 +303,7 @@ struct DialogView: View {
 
         return ZStack(alignment: .top) {
             if appMode != .appStore {
-                AvatarView(avatarType: avatarType, state: avatarState, scale: 0.65, useAspectFit: true)
+                AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
                     .frame(width: w, height: h)
                     .offset(y: topBarH * 0.75)
                     .clipped()
@@ -419,7 +419,8 @@ struct DialogView: View {
     private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
         let buttonWidth: CGFloat = isLandscape ? 140 : 122
         let iconSize: CGFloat = isLandscape ? 120 : 100
-        let textSize: CGFloat = isLandscape ? 14 : 15
+        let textSize: CGFloat = isLandscape ? 17 : 18
+        let topCut: CGFloat = iconSize * 0.10
 
         return ZStack(alignment: .bottom) {
             tabIcon(for: mode, size: iconSize)
@@ -427,13 +428,14 @@ struct DialogView: View {
                 .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
                 .foregroundColor(.white)
                 .lineLimit(1)
-                .padding(.bottom, 2)
+                .padding(.bottom, 9)
         }
-        .frame(width: buttonWidth, height: iconSize)
+        .frame(width: buttonWidth, height: iconSize - topCut)
         .background(
             RoundedRectangle(cornerRadius: 9)
                 .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
         )
+        .clipShape(RoundedRectangle(cornerRadius: 9))
     }
 
     @ViewBuilder
