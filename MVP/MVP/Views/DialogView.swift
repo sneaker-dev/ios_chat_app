@@ -9,23 +9,17 @@ enum AppMode: String, CaseIterable {
 
     var iconAssetName: String {
         switch self {
-        case .chat:
-            return "TabChat"
-        case .support:
-            return "TabSupport"
-        case .appStore:
-            return "TabAppStore"
+        case .chat: return "TabChat"
+        case .support: return "TabSupport"
+        case .appStore: return "TabAppStore"
         }
     }
 
-    var iconSystemName: String {
+    var fallbackSystemName: String {
         switch self {
-        case .chat:
-            return "message.fill"
-        case .support:
-            return "person.2.fill"
-        case .appStore:
-            return "cart.fill"
+        case .chat: return "message.fill"
+        case .support: return "person.2.fill"
+        case .appStore: return "cart.fill"
         }
     }
 }
@@ -261,8 +255,8 @@ struct DialogView: View {
 
         return ZStack(alignment: .top) {
             if appMode != .appStore {
-                AvatarView(avatarType: avatarType, state: avatarState, scale: 0.77)
-                    .frame(width: w, height: h * 0.58)
+                AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
+                    .frame(width: w, height: h * 0.75)
                     .clipped()
                     .allowsHitTesting(false)
                     .padding(.top, topBarBottom)
@@ -303,7 +297,7 @@ struct DialogView: View {
 
         return ZStack(alignment: .top) {
             if appMode != .appStore {
-                AvatarView(avatarType: avatarType, state: avatarState, scale: 0.65, useAspectFit: true)
+                AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
                     .frame(width: w, height: h)
                     .offset(y: topBarH * 0.75)
                     .clipped()
@@ -340,20 +334,34 @@ struct DialogView: View {
     }
 
     private var landscapeFullWidthTopBar: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                brandLogo(width: 134, height: 36)
+        VStack(spacing: 4) {
+            HStack(spacing: 6) {
+                Text("inango")
+                    .font(.system(size: 24, weight: .bold))
+                    .tracking(2)
+                    .foregroundColor(.white.opacity(0.35))
+                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
 
                 Spacer()
 
                 Button {
                     NotificationCenter.default.post(name: .changeAvatar, object: nil)
                 } label: {
-                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 72, buttonSize: 86)
+                    topActionIcon(
+                        assetName: "AvatarSelect",
+                        fallbackSystemName: "person.crop.circle.fill",
+                        iconSize: 20,
+                        buttonSize: 43
+                    )
                 }
 
                 Button { showSettings = true } label: {
-                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 72, buttonSize: 86)
+                    topActionIcon(
+                        assetName: "SettingsIcon",
+                        fallbackSystemName: "gearshape.fill",
+                        iconSize: 20,
+                        buttonSize: 43
+                    )
                 }
             }
 
@@ -371,25 +379,39 @@ struct DialogView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .background(Color.black.opacity(0.25))
     }
 
     private var topBar: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                brandLogo(width: 150, height: 40)
+        VStack(spacing: 4) {
+            HStack(spacing: 4) {
+                Text("inango")
+                    .font(.system(size: 28, weight: .bold))
+                    .tracking(2)
+                    .foregroundColor(.white.opacity(0.35))
+                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
 
                 Spacer()
 
                 Button {
                     NotificationCenter.default.post(name: .changeAvatar, object: nil)
                 } label: {
-                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 78, buttonSize: 96)
+                    topActionIcon(
+                        assetName: "AvatarSelect",
+                        fallbackSystemName: "person.crop.circle.fill",
+                        iconSize: 22,
+                        buttonSize: 48
+                    )
                 }
 
                 Button { showSettings = true } label: {
-                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 78, buttonSize: 96)
+                    topActionIcon(
+                        assetName: "SettingsIcon",
+                        fallbackSystemName: "gearshape.fill",
+                        iconSize: 22,
+                        buttonSize: 48
+                    )
                 }
             }
 
@@ -412,14 +434,13 @@ struct DialogView: View {
     }
 
     private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
-        let buttonWidth: CGFloat = isLandscape ? 140 : 122
-        let buttonHeight: CGFloat = isLandscape ? 86 : 96
-        let iconSize: CGFloat = isLandscape ? 60 : 70
-        let textSize: CGFloat = isLandscape ? 14 : 15
+        let buttonWidth: CGFloat = isLandscape ? 120 : 108
+        let buttonHeight: CGFloat = isLandscape ? 43 : 48
+        let iconSize: CGFloat = isLandscape ? 22 : 24
+        let textSize: CGFloat = isLandscape ? 11 : 12
 
-        return VStack(spacing: 1) {
+        return VStack(spacing: 0) {
             tabIcon(for: mode, size: iconSize)
-
             Text(mode.rawValue)
                 .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
                 .lineLimit(1)
@@ -433,61 +454,41 @@ struct DialogView: View {
     }
 
     @ViewBuilder
-    private func brandLogo(width: CGFloat, height: CGFloat) -> some View {
-        if UIImage(named: "InangoTopbarLogo") != nil {
-            Image("InangoTopbarLogo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: width, height: height)
-                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
-        } else if UIImage(named: "InangoLogo") != nil {
-            Image("InangoLogo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: width, height: height)
-                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
-        } else {
-            Text("inango")
-                .font(.system(size: 28, weight: .bold))
-                .tracking(2)
-                .foregroundColor(.white.opacity(0.35))
-                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
-        }
-    }
-
-    @ViewBuilder
     private func tabIcon(for mode: AppMode, size: CGFloat) -> some View {
         if UIImage(named: mode.iconAssetName) != nil {
-            Image(mode.iconAssetName)
-                .resizable()
-                .renderingMode(.original)
-                .scaledToFit()
-                .frame(width: size, height: size)
+            ZStack {
+                Image(mode.iconAssetName)
+                    .resizable()
+                    .renderingMode(.original)
+                    .scaledToFit()
+                    .frame(width: size * 2.0, height: size * 2.0)
+            }
+            .frame(width: size, height: size)
+            .clipped()
         } else {
-            Image(systemName: mode.iconSystemName)
-                .font(.system(size: size * 0.9, weight: .semibold))
+            Image(systemName: mode.fallbackSystemName)
+                .font(.system(size: size * 1.8, weight: .semibold))
         }
     }
 
     @ViewBuilder
     private func topActionIcon(assetName: String, fallbackSystemName: String, iconSize: CGFloat, buttonSize: CGFloat) -> some View {
         if UIImage(named: assetName) != nil {
-            Image(assetName)
-                .resizable()
-                .renderingMode(.original)
-                .scaledToFit()
-                .frame(width: iconSize, height: iconSize)
-                .frame(width: buttonSize, height: buttonSize)
-                .background(Color.black.opacity(0.28))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .shadow(color: .black.opacity(0.45), radius: 4, y: 2)
+            ZStack {
+                Image(assetName)
+                    .resizable()
+                    .renderingMode(.original)
+                    .scaledToFit()
+                    .frame(width: iconSize * 2.0, height: iconSize * 2.0)
+            }
+            .frame(width: buttonSize, height: buttonSize)
+            .clipped()
+            .shadow(color: .black.opacity(0.45), radius: 4, y: 2)
         } else {
             Image(systemName: fallbackSystemName)
-                .font(.system(size: iconSize, weight: .semibold))
+                .font(.system(size: iconSize * 2.0, weight: .semibold))
                 .foregroundColor(.white)
                 .frame(width: buttonSize, height: buttonSize)
-                .background(Color.black.opacity(0.28))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
                 .shadow(color: .black.opacity(0.45), radius: 4, y: 2)
         }
     }
@@ -1224,19 +1225,6 @@ struct DialogView: View {
 
 final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
     var isLandscape: Bool = false
-    var authToken: String?
-    var savedEmail: String?
-    var savedPassword: String?
-    private var didReloadAfterAuthInjection = false
-    private var didAttemptCredentialAutoLogin = false
-
-    func resetAuthInjectionReloadFlag() {
-        didReloadAfterAuthInjection = false
-    }
-
-    func resetCredentialAutoLoginFlag() {
-        didAttemptCredentialAutoLogin = false
-    }
 
     private let landscapeFormHTML = """
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -1274,66 +1262,10 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
     """
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        injectAuthSession(webView)
-        injectCredentialAutoLogin(webView)
         guard isLandscape else { return }
         guard let currentURL = webView.url?.absoluteString else { return }
         if currentURL.contains("token=") { return }
         injectLandscapeForm(webView)
-    }
-
-    private func injectAuthSession(_ webView: WKWebView) {
-        guard let token = authToken, !token.isEmpty else { return }
-        let escapedToken = token
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
-        let js = """
-        try {
-            window.localStorage.setItem('token', '\(escapedToken)');
-            window.localStorage.setItem('access_token', '\(escapedToken)');
-            window.localStorage.setItem('jwt', '\(escapedToken)');
-            document.cookie = 'token=\(escapedToken); path=/; secure; samesite=lax';
-            document.cookie = 'access_token=\(escapedToken); path=/; secure; samesite=lax';
-            document.cookie = 'jwt=\(escapedToken); path=/; secure; samesite=lax';
-            document.cookie = 'next-auth.session-token=\(escapedToken); path=/; secure; samesite=lax';
-        } catch (e) {}
-        """
-        webView.evaluateJavaScript(js)
-    }
-
-    private func injectCredentialAutoLogin(_ webView: WKWebView) {
-        guard !didAttemptCredentialAutoLogin else { return }
-        guard
-            let email = savedEmail, !email.isEmpty,
-            let password = savedPassword, !password.isEmpty
-        else { return }
-
-        let escapedEmail = email
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
-        let escapedPassword = password
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
-        let js = """
-        (function() {
-            var e = document.querySelector('input[type="email"],input[name="email"],#lf_email');
-            var p = document.querySelector('input[type="password"],input[name="password"],#lf_pass');
-            var b = document.querySelector('button[type="submit"],button#lf_btn,.btn');
-            if (!e || !p || !b) { return false; }
-            if ((e.value || '').length > 0 && (p.value || '').length > 0) { return false; }
-            e.value = '\(escapedEmail)';
-            p.value = '\(escapedPassword)';
-            e.dispatchEvent(new Event('input', { bubbles: true }));
-            p.dispatchEvent(new Event('input', { bubbles: true }));
-            setTimeout(function() { b.click(); }, 80);
-            return true;
-        })();
-        """
-        webView.evaluateJavaScript(js) { result, _ in
-            if let didSubmit = result as? Bool, didSubmit {
-                self.didAttemptCredentialAutoLogin = true
-            }
-        }
     }
 
     func webView(
@@ -1376,22 +1308,13 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
 }
 
 final class AppStoreWebViewStore {
-    private struct AppStoreAuthBootstrap {
-        let token: String?
-        let cookies: [HTTPCookie]
-    }
-
     static let shared = AppStoreWebViewStore()
     private(set) var webView: WKWebView?
     private var loadedToken: String?
-    private var appStoreAuthTask: Task<Void, Never>?
     let navDelegate = AppStoreNavDelegate()
 
     func getOrCreate(url: URL, token: String?) -> WKWebView {
-        if let wv = webView {
-            syncSession(url: url, token: token, in: wv)
-            return wv
-        }
+        if let wv = webView { return wv }
 
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
@@ -1404,193 +1327,39 @@ final class AppStoreWebViewStore {
         wv.scrollView.contentInsetAdjustmentBehavior = .always
         wv.navigationDelegate = navDelegate
 
-        webView = wv
-        syncSession(url: url, token: token, in: wv, forceReload: true)
-        return wv
-    }
-
-    func syncSession(url: URL, token: String?, in webView: WKWebView? = nil, forceReload: Bool = false) {
-        let target = webView ?? self.webView
-        guard let target else { return }
-        if token != loadedToken {
-            navDelegate.resetAuthInjectionReloadFlag()
-            navDelegate.resetCredentialAutoLoginFlag()
-        }
-        navDelegate.authToken = token
-        navDelegate.savedEmail = KeychainService.shared.getLastEmail()
-        navDelegate.savedPassword = KeychainService.shared.getLastPassword()
-        guard forceReload || loadedToken != token else { return }
-
-        load(url: url, token: token, in: target)
-        loadedToken = token
-    }
-
-    private func load(url: URL, token: String?, in webView: WKWebView) {
-        if let email = navDelegate.savedEmail, !email.isEmpty,
-           let password = navDelegate.savedPassword, !password.isEmpty {
-            let fallbackToken = token
-            appStoreAuthTask?.cancel()
-            appStoreAuthTask = Task { [weak self, weak webView] in
-                guard let self = self else { return }
-                let bootstrap = await self.fetchAppStoreAuthBootstrap(email: email, password: password)
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    guard let webView = webView else { return }
-                    let effectiveToken = bootstrap?.token ?? fallbackToken
-                    self.applyServerCookies(bootstrap?.cookies ?? [], in: webView) {
-                        self.navDelegate.authToken = effectiveToken
-                        self.applySessionAndLoad(url: url, token: effectiveToken, in: webView)
-                    }
-                }
-            }
-            return
-        }
-
-        applySessionAndLoad(url: url, token: token, in: webView)
-    }
-
-    private func fetchAppStoreAuthBootstrap(email: String, password: String) async -> AppStoreAuthBootstrap? {
-        let paths = ["/api/auth/login", "/api/v1/auth/login"]
-        let methods = ["POST", "PUT"]
-        let body: [String: String] = ["email": email, "password": password]
-        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
-
-        for path in paths {
-            guard let loginURL = URL(string: APIConfig.appStoreURL + path) else { continue }
-            for method in methods {
-                var request = URLRequest(url: loginURL)
-                request.httpMethod = method
-                request.timeoutInterval = 12
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.setValue("application/json", forHTTPHeaderField: "Accept")
-                request.httpBody = bodyData
-
-                do {
-                    let (data, response) = try await URLSession.shared.data(for: request)
-                    guard let http = response as? HTTPURLResponse else { continue }
-                    guard (200...299).contains(http.statusCode) else { continue }
-                    let cookies = extractCookies(from: http, for: loginURL)
-                    let token = parseToken(from: data)
-                    if token != nil || !cookies.isEmpty {
-                        return AppStoreAuthBootstrap(token: token, cookies: cookies)
-                    }
-                } catch {
-                    continue
-                }
-            }
-        }
-        return nil
-    }
-
-    private func applyServerCookies(_ cookies: [HTTPCookie], in webView: WKWebView, completion: @escaping () -> Void) {
-        guard !cookies.isEmpty else {
-            completion()
-            return
-        }
-        let cookieStore = webView.configuration.websiteDataStore.httpCookieStore
-        let cookieGroup = DispatchGroup()
-        for cookie in cookies {
-            cookieGroup.enter()
-            cookieStore.setCookie(cookie) {
-                cookieGroup.leave()
-            }
-        }
-        cookieGroup.notify(queue: .main, execute: completion)
-    }
-
-    private func extractCookies(from response: HTTPURLResponse, for url: URL) -> [HTTPCookie] {
-        var headers: [String: String] = [:]
-        for (key, value) in response.allHeaderFields {
-            guard let keyString = key as? String, let valueString = value as? String else { continue }
-            headers[keyString] = valueString
-        }
-        return HTTPCookie.cookies(withResponseHeaderFields: headers, for: url)
-    }
-
-    private func parseToken(from data: Data) -> String? {
-        if let text = String(data: data, encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-           text.contains("."),
-           text.count > 40,
-           !text.hasPrefix("{"),
-           !text.hasPrefix("[") {
-            return text
-        }
-        guard let json = try? JSONSerialization.jsonObject(with: data) else { return nil }
-        return findToken(in: json)
-    }
-
-    private func findToken(in value: Any) -> String? {
-        if let dict = value as? [String: Any] {
-            for key in ["token", "access_token", "access", "jwt"] {
-                if let token = dict[key] as? String, !token.isEmpty {
-                    return token
-                }
-            }
-            for child in dict.values {
-                if let token = findToken(in: child) {
-                    return token
-                }
-            }
-        } else if let arr = value as? [Any] {
-            for child in arr {
-                if let token = findToken(in: child) {
-                    return token
-                }
-            }
-        }
-        return nil
-    }
-
-    private func applySessionAndLoad(url: URL, token: String?, in webView: WKWebView) {
         var finalURL = url
         if let token = token {
             var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
             var items = components?.queryItems ?? []
-            items.removeAll { $0.name == "token" }
             items.append(URLQueryItem(name: "token", value: token))
             components?.queryItems = items
             finalURL = components?.url ?? url
 
+            let domain = url.host ?? "app-store.inango.com"
+            if let cookie = HTTPCookie(properties: [
+                .domain: domain,
+                .path: "/",
+                .name: "token",
+                .value: token,
+                .secure: "TRUE",
+                .expires: Date(timeIntervalSinceNow: 86400)
+            ]) {
+                config.websiteDataStore.httpCookieStore.setCookie(cookie)
+            }
+
             var request = URLRequest(url: finalURL)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-            let domain = url.host ?? "app-store.inango.com"
-            let cookieNames = ["token", "access_token", "jwt", "next-auth.session-token"]
-            let cookieStore = webView.configuration.websiteDataStore.httpCookieStore
-            let cookieGroup = DispatchGroup()
-            var didSetAnyCookie = false
-            for cookieName in cookieNames {
-                if let cookie = HTTPCookie(properties: [
-                    .domain: domain,
-                    .path: "/",
-                    .name: cookieName,
-                    .value: token,
-                    .secure: "TRUE",
-                    .expires: Date(timeIntervalSinceNow: 86400)
-                ]) {
-                    didSetAnyCookie = true
-                    cookieGroup.enter()
-                    cookieStore.setCookie(cookie) {
-                        cookieGroup.leave()
-                    }
-                }
-            }
-            if didSetAnyCookie {
-                cookieGroup.notify(queue: .main) {
-                    webView.load(request)
-                }
-            } else {
-                webView.load(request)
-            }
+            wv.load(request)
         } else {
-            webView.load(URLRequest(url: finalURL))
+            wv.load(URLRequest(url: finalURL))
         }
+
+        loadedToken = token
+        webView = wv
+        return wv
     }
 
     func reset() {
-        appStoreAuthTask?.cancel()
-        appStoreAuthTask = nil
         webView = nil
         loadedToken = nil
     }
@@ -1611,7 +1380,6 @@ struct AppStoreWebView: UIViewRepresentable {
         let store = AppStoreWebViewStore.shared
         store.navDelegate.isLandscape = isLandscape
         DispatchQueue.main.async {
-            store.syncSession(url: url, token: token, in: webView)
             webView.setNeedsLayout()
             webView.layoutIfNeeded()
             if isLandscape {
