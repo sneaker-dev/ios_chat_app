@@ -342,18 +342,18 @@ struct DialogView: View {
     private var landscapeFullWidthTopBar: some View {
         VStack(spacing: 8) {
             HStack(spacing: 10) {
-                brandLogo(width: 268, height: 108)
+                brandLogo(width: 89, height: 36)
 
                 Spacer()
 
                 Button {
                     NotificationCenter.default.post(name: .changeAvatar, object: nil)
                 } label: {
-                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 72, buttonSize: 86)
+                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 144, buttonSize: 144)
                 }
 
                 Button { showSettings = true } label: {
-                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 72, buttonSize: 86)
+                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 144, buttonSize: 144)
                 }
             }
 
@@ -378,18 +378,18 @@ struct DialogView: View {
     private var topBar: some View {
         VStack(spacing: 8) {
             HStack(spacing: 10) {
-                brandLogo(width: 300, height: 120)
+                brandLogo(width: 100, height: 40)
 
                 Spacer()
 
                 Button {
                     NotificationCenter.default.post(name: .changeAvatar, object: nil)
                 } label: {
-                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 78, buttonSize: 96)
+                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 120, buttonSize: 128)
                 }
 
                 Button { showSettings = true } label: {
-                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 78, buttonSize: 96)
+                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 120, buttonSize: 128)
                 }
             }
 
@@ -413,8 +413,8 @@ struct DialogView: View {
 
     private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
         let buttonWidth: CGFloat = isLandscape ? 140 : 122
-        let buttonHeight: CGFloat = isLandscape ? 43 : 48
-        let iconSize: CGFloat = isLandscape ? 60 : 70
+        let buttonHeight: CGFloat = isLandscape ? 140 : 120
+        let iconSize: CGFloat = isLandscape ? 120 : 100
         let textSize: CGFloat = isLandscape ? 14 : 15
 
         return VStack(spacing: 1) {
