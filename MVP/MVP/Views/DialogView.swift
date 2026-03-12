@@ -261,7 +261,7 @@ struct DialogView: View {
 
         return ZStack(alignment: .top) {
             if appMode != .appStore {
-                AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
+                AvatarView(avatarType: avatarType, state: avatarState, scale: 1.1)
                     .frame(width: w, height: h * 0.65)
                     .clipped()
                     .allowsHitTesting(false)
@@ -421,16 +421,18 @@ struct DialogView: View {
         let iconSize: CGFloat = isLandscape ? 120 : 100
         let textSize: CGFloat = isLandscape ? 17 : 18
         let topCut: CGFloat = iconSize * 0.30
+        let bottomCut: CGFloat = iconSize * 0.10
 
         return ZStack(alignment: .bottom) {
             tabIcon(for: mode, size: iconSize)
+                .padding(.bottom, 5)
             Text(mode.rawValue)
                 .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
                 .foregroundColor(.white)
                 .lineLimit(1)
-                .padding(.bottom, 9)
+                .padding(.bottom, 14)
         }
-        .frame(width: buttonWidth, height: iconSize - topCut)
+        .frame(width: buttonWidth, height: iconSize - topCut - bottomCut)
         .background(
             RoundedRectangle(cornerRadius: 9)
                 .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
