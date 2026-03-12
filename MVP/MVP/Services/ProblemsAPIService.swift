@@ -23,14 +23,13 @@ enum ProblemsAPIError: Error, LocalizedError {
 final class ProblemsAPIService {
     static let shared = ProblemsAPIService()
     private let session = URLSession.shared
-    private let demoToken = "demo-token"
 
     private init() {}
 
     // MARK: - Public API
 
     func getCatalog() async throws -> ProblemCatalogResponse {
-        try await get(path: "/api/v1/problems/catalog", requiresAuth: false)
+        try await get(path: "/api/v1/problems/catalog", requiresAuth: true)
     }
 
     func getActiveProblems() async throws -> DeviceProblemsResponse {
@@ -56,9 +55,10 @@ final class ProblemsAPIService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         if requiresAuth {
-            // Temporary integration mode requested by backend team:
-            // use static "demo-token" for DASH emulator until auth is ready.
-            request.setValue("Bearer \(demoToken)", forHTTPHeaderField: "Authorization")
+            guard let token = AuthService.shared.token(), !token.isEmpty else {
+                throw ProblemsAPIError.notAuthenticated
+            }
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         return request
     }

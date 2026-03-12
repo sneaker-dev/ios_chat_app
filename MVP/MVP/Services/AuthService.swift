@@ -96,21 +96,12 @@ final class AuthService {
     var isLoggedIn: Bool { keychain.getToken() != nil }
 
     func register(email: String, password: String, deviceId: String) async throws {
-        if APIConfig.useDemoMode {
-            keychain.saveToken("demo-token-\(email)")
-            return
-        }
         let body = RegisterRequest(email: email, password: password, device_id: deviceId)
         let token = try await postAuth(path: APIConfig.registerPath, body: body)
         keychain.saveToken(token)
     }
 
     func login(email: String, password: String, deviceId: String) async throws {
-        if APIConfig.useDemoMode {
-            keychain.saveToken("demo-token-\(email)")
-            SessionManager.shared.markAuthenticated()
-            return
-        }
         let body = LoginRequest(email: email, password: password)
         let token = try await postAuth(path: APIConfig.loginPath, body: body)
         keychain.saveToken(token)
