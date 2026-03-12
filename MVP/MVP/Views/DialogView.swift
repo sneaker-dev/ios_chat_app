@@ -251,7 +251,7 @@ struct DialogView: View {
         let windowBottom = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.windows.first?.safeAreaInsets.bottom ?? 34
-        let topBarH: CGFloat = 152
+        let topBarH: CGFloat = 110
         let keyboardUp = keyboardHeight > 0 && showSoftwareKeyboard
         let topBarBottom = windowTop + 6 + topBarH
         let availableH: CGFloat = keyboardUp ? h - keyboardHeight : h
@@ -261,8 +261,8 @@ struct DialogView: View {
 
         return ZStack(alignment: .top) {
             if appMode != .appStore {
-                AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
-                    .frame(width: w, height: h * 0.58)
+                AvatarView(avatarType: avatarType, state: avatarState, scale: 1.1)
+                    .frame(width: w, height: h * 0.65)
                     .clipped()
                     .allowsHitTesting(false)
                     .padding(.top, topBarBottom)
@@ -420,7 +420,7 @@ struct DialogView: View {
         let buttonWidth: CGFloat = isLandscape ? 140 : 122
         let iconSize: CGFloat = isLandscape ? 120 : 100
         let textSize: CGFloat = isLandscape ? 17 : 18
-        let topCut: CGFloat = iconSize * 0.10
+        let topCut: CGFloat = iconSize * 0.20
 
         return ZStack(alignment: .bottom) {
             tabIcon(for: mode, size: iconSize)
