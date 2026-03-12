@@ -10,7 +10,6 @@ final class SpeechToTextService: NSObject, ObservableObject {
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let audioEngine = AVAudioEngine()
-    private let speechRecognizer: SFSpeechRecognizer? = SFSpeechRecognizer(locale: Locale.current)
     private var recordingCompletion: ((String?) -> Void)?
     private let silenceTimeout: TimeInterval = 1.0
     private var silenceWorkItem: DispatchWorkItem?
@@ -57,8 +56,9 @@ final class SpeechToTextService: NSObject, ObservableObject {
         }
     }
 
-    func startRecording(completion: @escaping (String?) -> Void) {
-        guard let recognizer = speechRecognizer else {
+    func startRecording(language: String? = nil, completion: @escaping (String?) -> Void) {
+        let localeIdentifier = normalizedLocaleIdentifier(from: language)
+        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: localeIdentifier)) else {
             errorMessage = "Speech recognizer not available"
             completion(nil)
             return
@@ -87,6 +87,19 @@ final class SpeechToTextService: NSObject, ObservableObject {
                     completion: completion
                 )
             }
+        }
+    }
+
+    private func normalizedLocaleIdentifier(from language: String?) -> String {
+        guard let language = language, !language.isEmpty else {
+            return Locale.current.identifier
+        }
+        switch language.lowercased() {
+        case "he": return "he-IL"
+        case "id": return "id-ID"
+        case "yi": return "yi-001"
+        default:
+            return language.contains("-") ? language : "\(language)-\(language.uppercased())"
         }
     }
 
