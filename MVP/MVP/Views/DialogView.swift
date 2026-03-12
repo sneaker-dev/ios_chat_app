@@ -341,19 +341,22 @@ struct DialogView: View {
 
     private var landscapeFullWidthTopBar: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                brandLogo(width: 89, height: 36)
+            HStack(spacing: 0) {
+                brandLogo(width: 107, height: 43)
+                    .padding(.leading, 8)
 
                 Spacer()
 
-                Button {
-                    NotificationCenter.default.post(name: .changeAvatar, object: nil)
-                } label: {
-                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 144, buttonSize: 144)
-                }
+                HStack(spacing: 4) {
+                    Button {
+                        NotificationCenter.default.post(name: .changeAvatar, object: nil)
+                    } label: {
+                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 144, buttonSize: 144)
+                    }
 
-                Button { showSettings = true } label: {
-                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 144, buttonSize: 144)
+                    Button { showSettings = true } label: {
+                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 144, buttonSize: 144)
+                    }
                 }
             }
 
@@ -377,19 +380,22 @@ struct DialogView: View {
 
     private var topBar: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                brandLogo(width: 100, height: 40)
+            HStack(spacing: 0) {
+                brandLogo(width: 120, height: 48)
+                    .padding(.leading, 8)
 
                 Spacer()
 
-                Button {
-                    NotificationCenter.default.post(name: .changeAvatar, object: nil)
-                } label: {
-                    topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 120, buttonSize: 128)
-                }
+                HStack(spacing: 4) {
+                    Button {
+                        NotificationCenter.default.post(name: .changeAvatar, object: nil)
+                    } label: {
+                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 120, buttonSize: 128)
+                    }
 
-                Button { showSettings = true } label: {
-                    topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 120, buttonSize: 128)
+                    Button { showSettings = true } label: {
+                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 120, buttonSize: 128)
+                    }
                 }
             }
 
@@ -413,11 +419,11 @@ struct DialogView: View {
 
     private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
         let buttonWidth: CGFloat = isLandscape ? 140 : 122
-        let buttonHeight: CGFloat = isLandscape ? 140 : 120
+        let buttonHeight: CGFloat = isLandscape ? 117 : 100
         let iconSize: CGFloat = isLandscape ? 120 : 100
         let textSize: CGFloat = isLandscape ? 14 : 15
 
-        return VStack(spacing: 1) {
+        return VStack(spacing: 0) {
             tabIcon(for: mode, size: iconSize)
 
             Text(mode.rawValue)
