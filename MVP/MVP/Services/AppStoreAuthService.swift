@@ -21,7 +21,7 @@ final class AppStoreAuthService {
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
 
         var request = URLRequest(url: loginURL)
-        request.httpMethod = "POST"
+        request.httpMethod = "PUT"
         request.timeoutInterval = 12
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")

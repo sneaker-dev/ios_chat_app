@@ -1223,12 +1223,7 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
         let js = """
         try {
             window.localStorage.setItem('token', '\(escapedToken)');
-            window.localStorage.setItem('access_token', '\(escapedToken)');
-            window.localStorage.setItem('jwt', '\(escapedToken)');
             document.cookie = 'token=\(escapedToken); path=/; secure; samesite=lax';
-            document.cookie = 'access_token=\(escapedToken); path=/; secure; samesite=lax';
-            document.cookie = 'jwt=\(escapedToken); path=/; secure; samesite=lax';
-            document.cookie = 'next-auth.session-token=\(escapedToken); path=/; secure; samesite=lax';
         } catch (e) {}
         """
         webView.evaluateJavaScript(js)
@@ -1448,7 +1443,7 @@ final class AppStoreWebViewStore {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
             let domain = url.host ?? URL(string: APIConfig.appStoreURL)?.host ?? "appstore-demo.inango.com"
-            let cookieNames = ["token", "access_token", "jwt", "next-auth.session-token"]
+            let cookieNames = ["token"]
             let cookieStore = webView.configuration.websiteDataStore.httpCookieStore
             let cookieGroup = DispatchGroup()
             var didSetAnyCookie = false
