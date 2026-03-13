@@ -8,6 +8,45 @@ enum AppMode: String, CaseIterable {
     case appStore = "AppStore"
 }
 
+struct SupportedLanguageItem {
+    let code: String
+    let displayName: String
+}
+
+struct SupportedLanguages {
+    static let all: [SupportedLanguageItem] = [
+        SupportedLanguageItem(code: "system", displayName: "System Default"),
+        SupportedLanguageItem(code: "en-US", displayName: "English (US)"),
+        SupportedLanguageItem(code: "es-ES", displayName: "Spanish"),
+        SupportedLanguageItem(code: "fr-FR", displayName: "French"),
+        SupportedLanguageItem(code: "de-DE", displayName: "German"),
+        SupportedLanguageItem(code: "it-IT", displayName: "Italian"),
+        SupportedLanguageItem(code: "pt-BR", displayName: "Portuguese (Brazil)"),
+        SupportedLanguageItem(code: "ja-JP", displayName: "Japanese"),
+        SupportedLanguageItem(code: "ko-KR", displayName: "Korean"),
+        SupportedLanguageItem(code: "zh-CN", displayName: "Chinese (Simplified)"),
+        SupportedLanguageItem(code: "ru-RU", displayName: "Russian"),
+        SupportedLanguageItem(code: "uk-UA", displayName: "Ukrainian"),
+        SupportedLanguageItem(code: "ar-SA", displayName: "Arabic"),
+        SupportedLanguageItem(code: "he-IL", displayName: "Hebrew"),
+        SupportedLanguageItem(code: "hi-IN", displayName: "Hindi"),
+        SupportedLanguageItem(code: "id-ID", displayName: "Indonesian"),
+        SupportedLanguageItem(code: "pl-PL", displayName: "Polish"),
+        SupportedLanguageItem(code: "nl-NL", displayName: "Dutch"),
+        SupportedLanguageItem(code: "tr-TR", displayName: "Turkish"),
+        SupportedLanguageItem(code: "th-TH", displayName: "Thai"),
+        SupportedLanguageItem(code: "vi-VN", displayName: "Vietnamese"),
+        SupportedLanguageItem(code: "sv-SE", displayName: "Swedish"),
+        SupportedLanguageItem(code: "da-DK", displayName: "Danish"),
+        SupportedLanguageItem(code: "fi-FI", displayName: "Finnish"),
+        SupportedLanguageItem(code: "nb-NO", displayName: "Norwegian"),
+        SupportedLanguageItem(code: "cs-CZ", displayName: "Czech"),
+        SupportedLanguageItem(code: "el-GR", displayName: "Greek"),
+        SupportedLanguageItem(code: "ro-RO", displayName: "Romanian"),
+        SupportedLanguageItem(code: "hu-HU", displayName: "Hungarian")
+    ]
+}
+
 struct DialogView: View {
     let avatarType: AvatarType
 
@@ -43,6 +82,9 @@ struct DialogView: View {
     @AppStorage("ttsSpeed") private var ttsSpeed: Double = 0.5
     @AppStorage("ttsPitch") private var ttsPitch: Double = 0.5
     @AppStorage("ttsVolume") private var ttsVolume: Double = 1.0
+    @AppStorage("selectedLanguage") private var selectedLanguage = "system"
+    @AppStorage("cloudTTSEnabled") private var cloudTTSEnabled = false
+    @AppStorage("cloudTTSProvider") private var cloudTTSProvider = "off"
 
     private let maxHistoryCount = 500
     private let chatHistoryKey = "chatHistory"
@@ -53,7 +95,11 @@ struct DialogView: View {
         appMode == .support ? supportHistoryKey : chatHistoryKey
     }
 
-    private var dialogLanguage: String { DialogAPIService.getDeviceLanguage() }
+    private var dialogLanguage: String {
+        if appMode == .support { return "en-US" }
+        if selectedLanguage == "system" { return DialogAPIService.getDeviceLanguage() }
+        return selectedLanguage
+    }
 
     @State private var keyboardHeight: CGFloat = 0
 
@@ -646,8 +692,7 @@ struct DialogView: View {
             messages.append(msg)
             startTypewriter(messageId: msg.id, fullText: greeting)
             if voiceOutputEnabled {
-                let preferMale = genderMatchedVoice ? (avatarType == .male) : nil
-                tts.speak(greeting, language: dialogLanguage, preferMale: preferMale, rate: ttsRate, pitch: ttsPitchValue, volume: ttsVolumeValue)
+                speakResponse(greeting)
             }
         }
     }
@@ -665,7 +710,7 @@ struct DialogView: View {
                 errorMessage = stt.errorMessage ?? "Microphone access needed."
                 avatarState = .idle; return
             }
-            stt.startRecording { text in
+            stt.startRecording(language: dialogLanguage) { text in
                 if let text = text, !text.isEmpty {
                     inputText = text
                     sendMessage(text, fromVoice: true)
@@ -708,8 +753,7 @@ struct DialogView: View {
                         typingMessageId = botMsg.id
                         typingDisplayedCount = 0
                         avatarState = .speaking
-                        let preferMale = genderMatchedVoice ? (avatarType == .male) : nil
-                        tts.speak(ttsText, language: dialogLanguage, preferMale: preferMale, rate: ttsRate, pitch: ttsPitchValue, volume: ttsVolumeValue) {
+                        speakResponse(ttsText) {
                             typingDisplayedCount = displayText.count
                             typingMessageId = nil
                             avatarState = .idle
@@ -776,6 +820,27 @@ struct DialogView: View {
     private func retryLastMessage() {
         guard let text = lastFailedMessage else { return }
         sendMessage(text, fromVoice: wasVoiceInput, isRetry: true)
+    }
+
+    private func speakResponse(_ text: String, completion: (() -> Void)? = nil) {
+        let preferMale = genderMatchedVoice ? (avatarType == .male) : nil
+        let isFemale = preferMale == false
+        switch cloudTTSProvider {
+        case "google":
+            CloudTTSService.shared.speak(text: text, language: dialogLanguage, isFemale: isFemale, completion: completion)
+        case "azure":
+            AzureTTSService.shared.speak(text: text, language: dialogLanguage, isFemale: isFemale, completion: completion)
+        default:
+            tts.speak(
+                text,
+                language: dialogLanguage,
+                preferMale: preferMale,
+                rate: ttsRate,
+                pitch: ttsPitchValue,
+                volume: ttsVolumeValue,
+                completion: completion
+            )
+        }
     }
 
     private func startTypewriter(messageId: UUID, fullText: String, wordByWord: Bool = false, msPerWord: Int = 0) {
@@ -956,6 +1021,59 @@ struct DialogView: View {
                 }
                 .disabled(!voiceOutputEnabled)
                 .opacity(voiceOutputEnabled ? 1.0 : 0.5)
+
+                Section(header: Text("Language")) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "globe")
+                            .font(.system(size: 18))
+                            .foregroundColor(.appPrimary)
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Communication Language")
+                                .font(.system(size: 15))
+                            Text("Used for speech recognition and voice output")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 2)
+
+                    Picker("Language", selection: $selectedLanguage) {
+                        ForEach(SupportedLanguages.all, id: \.code) { lang in
+                            Text(lang.displayName).tag(lang.code)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                Section(header: Text("Cloud TTS")) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "cloud")
+                            .font(.system(size: 18))
+                            .foregroundColor(.appPrimary)
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("TTS Provider")
+                                .font(.system(size: 15))
+                            Text("Cloud voices sound more natural. Off uses local iOS TTS.")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 2)
+
+                    Picker("Provider", selection: $cloudTTSProvider) {
+                        Text("Off (Local TTS)").tag("off")
+                        Text("Google Cloud TTS").tag("google")
+                        Text("Microsoft Azure TTS").tag("azure")
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: cloudTTSProvider) { newValue in
+                        cloudTTSEnabled = newValue != "off"
+                    }
+                }
 
                 Section(header: Text("Data Management")) {
                     HStack {
@@ -1153,7 +1271,7 @@ final class AppStoreWebViewStore {
             components?.queryItems = items
             finalURL = components?.url ?? url
 
-            let domain = url.host ?? "app-store.inango.com"
+            let domain = url.host ?? "appstore-demo.inango.com"
             if let cookie = HTTPCookie(properties: [
                 .domain: domain,
                 .path: "/",
