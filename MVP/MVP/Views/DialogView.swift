@@ -1350,11 +1350,6 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
 }
 
 final class AppStoreWebViewStore {
-    private struct AppStoreAuthBootstrap {
-        let token: String?
-        let cookies: [HTTPCookie]
-    }
-
     static let shared = AppStoreWebViewStore()
     private(set) var webView: WKWebView?
     private var loadedToken: String?
@@ -1406,7 +1401,7 @@ final class AppStoreWebViewStore {
             appStoreAuthTask?.cancel()
             appStoreAuthTask = Task { [weak self, weak webView] in
                 guard let self = self else { return }
-                let bootstrap = await self.fetchAppStoreAuthBootstrap(email: email, password: password)
+                let bootstrap = await AppStoreAuthService.shared.login(email: email, password: password)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     guard let webView = webView else { return }
@@ -1423,39 +1418,6 @@ final class AppStoreWebViewStore {
         applySessionAndLoad(url: url, token: token, in: webView)
     }
 
-    private func fetchAppStoreAuthBootstrap(email: String, password: String) async -> AppStoreAuthBootstrap? {
-        let paths = ["/api/auth/login", "/api/v1/auth/login"]
-        let methods = ["POST", "PUT"]
-        let body: [String: String] = ["email": email, "password": password]
-        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
-
-        for path in paths {
-            guard let loginURL = URL(string: APIConfig.appStoreURL + path) else { continue }
-            for method in methods {
-                var request = URLRequest(url: loginURL)
-                request.httpMethod = method
-                request.timeoutInterval = 12
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.setValue("application/json", forHTTPHeaderField: "Accept")
-                request.httpBody = bodyData
-
-                do {
-                    let (data, response) = try await URLSession.shared.data(for: request)
-                    guard let http = response as? HTTPURLResponse else { continue }
-                    guard (200...299).contains(http.statusCode) else { continue }
-                    let cookies = extractCookies(from: http, for: loginURL)
-                    let token = parseToken(from: data)
-                    if token != nil || !cookies.isEmpty {
-                        return AppStoreAuthBootstrap(token: token, cookies: cookies)
-                    }
-                } catch {
-                    continue
-                }
-            }
-        }
-        return nil
-    }
-
     private func applyServerCookies(_ cookies: [HTTPCookie], in webView: WKWebView, completion: @escaping () -> Void) {
         guard !cookies.isEmpty else {
             completion()
@@ -1470,50 +1432,6 @@ final class AppStoreWebViewStore {
             }
         }
         cookieGroup.notify(queue: .main, execute: completion)
-    }
-
-    private func extractCookies(from response: HTTPURLResponse, for url: URL) -> [HTTPCookie] {
-        var headers: [String: String] = [:]
-        for (key, value) in response.allHeaderFields {
-            guard let keyString = key as? String, let valueString = value as? String else { continue }
-            headers[keyString] = valueString
-        }
-        return HTTPCookie.cookies(withResponseHeaderFields: headers, for: url)
-    }
-
-    private func parseToken(from data: Data) -> String? {
-        if let text = String(data: data, encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-           text.contains("."),
-           text.count > 40,
-           !text.hasPrefix("{"),
-           !text.hasPrefix("[") {
-            return text
-        }
-        guard let json = try? JSONSerialization.jsonObject(with: data) else { return nil }
-        return findToken(in: json)
-    }
-
-    private func findToken(in value: Any) -> String? {
-        if let dict = value as? [String: Any] {
-            for key in ["token", "access_token", "access", "jwt"] {
-                if let token = dict[key] as? String, !token.isEmpty {
-                    return token
-                }
-            }
-            for child in dict.values {
-                if let token = findToken(in: child) {
-                    return token
-                }
-            }
-        } else if let arr = value as? [Any] {
-            for child in arr {
-                if let token = findToken(in: child) {
-                    return token
-                }
-            }
-        }
-        return nil
     }
 
     private func applySessionAndLoad(url: URL, token: String?, in webView: WKWebView) {
