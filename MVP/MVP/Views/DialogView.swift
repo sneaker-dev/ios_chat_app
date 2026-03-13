@@ -1529,7 +1529,7 @@ final class AppStoreWebViewStore {
             var request = URLRequest(url: finalURL)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-            let domain = url.host ?? "appstore-demo.inango.com"
+            let domain = url.host ?? URL(string: APIConfig.appStoreURL)?.host ?? "appstore-demo.inango.com"
             let cookieNames = ["token", "access_token", "jwt", "next-auth.session-token"]
             let cookieStore = webView.configuration.websiteDataStore.httpCookieStore
             let cookieGroup = DispatchGroup()
