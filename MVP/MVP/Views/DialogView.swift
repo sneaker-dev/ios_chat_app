@@ -1324,14 +1324,12 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
             let password = savedPassword, !password.isEmpty
         else { return }
 
-        let escapedEmail = email
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
-        let escapedPassword = password
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
+        let emailB64 = Data(email.utf8).base64EncodedString()
+        let pwdB64 = Data(password.utf8).base64EncodedString()
         let js = """
         (function() {
+            var email = atob('\(emailB64)');
+            var pwd = atob('\(pwdB64)');
             var desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement && window.HTMLInputElement.prototype, 'value');
             var setter = desc && desc.set;
             var inputs = document.querySelectorAll('input');
@@ -1344,18 +1342,25 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
                 }
             }
             for (var i = 0; i < inputs.length; i++) {
-                if (inputs[i].type === 'password') { p = inputs[i]; break; }
+                var inp = inputs[i];
+                if (inp.type === 'password' || (inp.placeholder || '').toLowerCase().indexOf('password') !== -1 || (inp.name || '').toLowerCase().indexOf('password') !== -1 || (inp.autocomplete || '').indexOf('password') !== -1) {
+                    p = inp; break;
+                }
             }
             if (!e) e = document.querySelector('input[type="email"],input[name="email"],#lf_email');
-            if (!p) p = document.querySelector('input[type="password"],input[name="password"],#lf_pass');
+            if (!p) p = document.querySelector('input[type="password"],input[name="password"],input[autocomplete*="password"],#lf_pass');
             if (!e || !p) return false;
             if ((e.value || '').length > 0 && (p.value || '').length > 0) return false;
-            if (setter) { setter.call(e, '\(escapedEmail)'); setter.call(p, '\(escapedPassword)'); }
-            else { e.value = '\(escapedEmail)'; p.value = '\(escapedPassword)'; }
-            e.dispatchEvent(new Event('input', { bubbles: true }));
-            p.dispatchEvent(new Event('change', { bubbles: true }));
-            p.dispatchEvent(new Event('input', { bubbles: true }));
-            p.dispatchEvent(new Event('change', { bubbles: true }));
+            function fillInp(inp, val) {
+                if (setter) setter.call(inp, val);
+                else inp.value = val;
+                inp.focus();
+                inp.dispatchEvent(new Event('input', { bubbles: true }));
+                inp.dispatchEvent(new Event('change', { bubbles: true }));
+                inp.dispatchEvent(new Event('blur', { bubbles: true }));
+            }
+            fillInp(e, email);
+            fillInp(p, pwd);
             var btn = document.querySelector('button[type="submit"],button#lf_btn,.btn');
             if (!btn) {
                 var btns = document.querySelectorAll('button');
@@ -1366,7 +1371,7 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
                     }
                 }
             }
-            if (btn) setTimeout(function() { btn.click(); }, 500);
+            if (btn) setTimeout(function() { p.focus(); btn.click(); }, 600);
             return true;
         })();
         """
