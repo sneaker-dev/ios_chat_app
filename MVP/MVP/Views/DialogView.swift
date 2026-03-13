@@ -1232,13 +1232,9 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
     var authToken: String?
     var savedEmail: String?
     var savedPassword: String?
-    private var didReloadAfterAuthInjection = false
     private var didAttemptCredentialAutoLogin = false
 
-    func resetAuthInjectionReloadFlag() {
-        didReloadAfterAuthInjection = false
-    }
-
+    func resetAuthInjectionReloadFlag() {}
     func resetCredentialAutoLoginFlag() {
         didAttemptCredentialAutoLogin = false
     }
