@@ -1280,7 +1280,7 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         injectAuthSession(webView)
-        injectCredentialAutoLogin(webView)
+        scheduleCredentialAutoLogin(webView)
         guard isLandscape else { return }
         guard let currentURL = webView.url?.absoluteString else { return }
         if currentURL.contains("token=") { return }
@@ -1306,6 +1306,17 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
         webView.evaluateJavaScript(js)
     }
 
+    private func scheduleCredentialAutoLogin(_ webView: WKWebView) {
+        guard !didAttemptCredentialAutoLogin else { return }
+        guard savedEmail != nil, !(savedEmail ?? "").isEmpty,
+              savedPassword != nil, !(savedPassword ?? "").isEmpty
+        else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self, weak webView] in
+            guard let self, let webView, !self.didAttemptCredentialAutoLogin else { return }
+            self.injectCredentialAutoLogin(webView)
+        }
+    }
+
     private func injectCredentialAutoLogin(_ webView: WKWebView) {
         guard !didAttemptCredentialAutoLogin else { return }
         guard
@@ -1321,22 +1332,47 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
             .replacingOccurrences(of: "'", with: "\\'")
         let js = """
         (function() {
-            var e = document.querySelector('input[type="email"],input[name="email"],#lf_email');
-            var p = document.querySelector('input[type="password"],input[name="password"],#lf_pass');
-            var b = document.querySelector('button[type="submit"],button#lf_btn,.btn');
-            if (!e || !p || !b) { return false; }
-            if ((e.value || '').length > 0 && (p.value || '').length > 0) { return false; }
-            e.value = '\(escapedEmail)';
-            p.value = '\(escapedPassword)';
+            var desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement && window.HTMLInputElement.prototype, 'value');
+            var setter = desc && desc.set;
+            var inputs = document.querySelectorAll('input');
+            var e = null, p = null;
+            for (var i = 0; i < inputs.length; i++) {
+                var inp = inputs[i];
+                if ((inp.type === 'email' || inp.type === 'text') &&
+                    ((inp.placeholder || '').toLowerCase().indexOf('email') !== -1 || inp.name === 'email' || (inp.id || '').toLowerCase().indexOf('email') !== -1)) {
+                    e = inp; break;
+                }
+            }
+            for (var i = 0; i < inputs.length; i++) {
+                if (inputs[i].type === 'password') { p = inputs[i]; break; }
+            }
+            if (!e) e = document.querySelector('input[type="email"],input[name="email"],#lf_email');
+            if (!p) p = document.querySelector('input[type="password"],input[name="password"],#lf_pass');
+            if (!e || !p) return false;
+            if ((e.value || '').length > 0 && (p.value || '').length > 0) return false;
+            if (setter) { setter.call(e, '\(escapedEmail)'); setter.call(p, '\(escapedPassword)'); }
+            else { e.value = '\(escapedEmail)'; p.value = '\(escapedPassword)'; }
             e.dispatchEvent(new Event('input', { bubbles: true }));
+            p.dispatchEvent(new Event('change', { bubbles: true }));
             p.dispatchEvent(new Event('input', { bubbles: true }));
-            setTimeout(function() { b.click(); }, 80);
+            p.dispatchEvent(new Event('change', { bubbles: true }));
+            var btn = document.querySelector('button[type="submit"],button#lf_btn,.btn');
+            if (!btn) {
+                var btns = document.querySelectorAll('button');
+                for (var j = 0; j < btns.length; j++) {
+                    var txt = (btns[j].textContent || '').trim().toLowerCase();
+                    if (txt === 'continue' || txt === 'login' || txt === 'sign in' || txt === 'log in') {
+                        btn = btns[j]; break;
+                    }
+                }
+            }
+            if (btn) setTimeout(function() { btn.click(); }, 500);
             return true;
         })();
         """
-        webView.evaluateJavaScript(js) { result, _ in
+        webView.evaluateJavaScript(js) { [weak self] result, _ in
             if let didSubmit = result as? Bool, didSubmit {
-                self.didAttemptCredentialAutoLogin = true
+                self?.didAttemptCredentialAutoLogin = true
             }
         }
     }
