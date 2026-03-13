@@ -1271,7 +1271,7 @@ final class AppStoreWebViewStore {
             components?.queryItems = items
             finalURL = components?.url ?? url
 
-            let domain = url.host ?? "app-store.inango.com"
+            let domain = url.host ?? "appstore-demo.inango.com"
             if let cookie = HTTPCookie(properties: [
                 .domain: domain,
                 .path: "/",
