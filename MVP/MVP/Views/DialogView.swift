@@ -6,6 +6,28 @@ enum AppMode: String, CaseIterable {
     case chat = "Chat"
     case support = "Support"
     case appStore = "AppStore"
+
+    var iconAssetName: String {
+        switch self {
+        case .chat:
+            return "TabChat"
+        case .support:
+            return "TabSupport"
+        case .appStore:
+            return "TabAppStore"
+        }
+    }
+
+    var iconSystemName: String {
+        switch self {
+        case .chat:
+            return "message.fill"
+        case .support:
+            return "person.2.fill"
+        case .appStore:
+            return "cart.fill"
+        }
+    }
 }
 
 struct SupportedLanguageItem {
@@ -112,7 +134,7 @@ struct DialogView: View {
                 let winTop = UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }
                     .first?.windows.first?.safeAreaInsets.top ?? 47
-                return winTop + 6 + 90
+                return (winTop + 6) / 2 + 187
             }()
 
             ZStack {
@@ -165,7 +187,7 @@ struct DialogView: View {
                         .compactMap { $0 as? UIWindowScene }
                         .first?.windows.first?.safeAreaInsets.top ?? 47
                     VStack {
-                        topBar.frame(width: w).padding(.top, winTop2 + 6)
+                        topBar.frame(width: w).padding(.top, (winTop2 + 6) / 2)
                         Spacer()
                     }
                 }
@@ -229,7 +251,7 @@ struct DialogView: View {
         let windowBottom = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.windows.first?.safeAreaInsets.bottom ?? 34
-        let topBarH: CGFloat = 90
+        let topBarH: CGFloat = 160
         let keyboardUp = keyboardHeight > 0 && showSoftwareKeyboard
         let topBarBottom = windowTop + 6 + topBarH
         let availableH: CGFloat = keyboardUp ? h - keyboardHeight : h
@@ -240,10 +262,10 @@ struct DialogView: View {
         return ZStack(alignment: .top) {
             if appMode != .appStore {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
-                    .frame(width: w, height: h * 0.75)
+                    .frame(width: w, height: h * 0.65)
                     .clipped()
                     .allowsHitTesting(false)
-                    .padding(.top, topBarBottom)
+                    .padding(.top, topBarBottom + 20)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -319,114 +341,160 @@ struct DialogView: View {
 
     private var landscapeFullWidthTopBar: some View {
         VStack(spacing: 4) {
-            HStack(spacing: 6) {
-                Text("inango")
-                    .font(.system(size: 24, weight: .bold))
-                    .tracking(2)
-                    .foregroundColor(.white.opacity(0.35))
-                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+            HStack(spacing: 0) {
+                brandLogo(width: 107, height: 43)
+                    .padding(.leading, 16)
 
                 Spacer()
 
-                Button {
-                    NotificationCenter.default.post(name: .changeAvatar, object: nil)
-                } label: {
-                    Image(systemName: "person.crop.circle")
-                        .font(.system(size: 20))
-                        .foregroundColor(.white)
-                        .frame(width: 40, height: 40)
-                        .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
-                }
+                HStack(spacing: 4) {
+                    Button {
+                        NotificationCenter.default.post(name: .changeAvatar, object: nil)
+                    } label: {
+                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 173, buttonSize: 173)
+                    }
 
-                Button { showSettings = true } label: {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 18))
-                        .foregroundColor(.white)
-                        .frame(width: 40, height: 40)
-                        .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
+                    Button { showSettings = true } label: {
+                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 173, buttonSize: 173)
+                    }
                 }
             }
 
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 ForEach(AppMode.allCases, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        Text(mode.rawValue)
-                            .font(.system(size: 14, weight: appMode == mode ? .semibold : .regular))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 7)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
-                            )
+                        modeTabButton(mode: mode, isLandscape: true)
                     }
                 }
             }
-            .padding(3)
-            .background(Color.white.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .padding(4)
+            .background(Color.clear)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
         .background(Color.black.opacity(0.25))
     }
 
     private var topBar: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 4) {
-                Text("inango")
-                    .font(.system(size: 28, weight: .bold))
-                    .tracking(2)
-                    .foregroundColor(.white.opacity(0.35))
-                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                brandLogo(width: 120, height: 48)
+                    .padding(.leading, 16)
 
                 Spacer()
 
-                Button {
-                    NotificationCenter.default.post(name: .changeAvatar, object: nil)
-                } label: {
-                    Image(systemName: "person.crop.circle")
-                        .font(.system(size: 22))
-                        .foregroundColor(.white)
-                        .frame(width: 44, height: 44)
-                        .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
-                }
+                HStack(spacing: 4) {
+                    Button {
+                        NotificationCenter.default.post(name: .changeAvatar, object: nil)
+                    } label: {
+                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 96, buttonSize: 96)
+                    }
 
-                Button { showSettings = true } label: {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.white)
-                        .frame(width: 44, height: 44)
-                        .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
+                    Button { showSettings = true } label: {
+                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 96, buttonSize: 96)
+                    }
                 }
             }
 
-            HStack(spacing: 2) {
+            HStack(spacing: 6) {
                 ForEach(AppMode.allCases, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        Text(mode.rawValue)
-                            .font(.system(size: 13, weight: appMode == mode ? .semibold : .regular))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(
-                                RoundedRectangle(cornerRadius: 7)
-                                    .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
-                            )
+                        modeTabButton(mode: mode, isLandscape: false)
                     }
                 }
             }
-            .padding(3)
-            .background(Color.white.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 4)
+            .padding(.bottom, 4)
+            .background(Color.clear)
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 6)
+        .padding(.bottom, 4)
         .background(Color.black.opacity(0.55))
+    }
+
+    private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
+        let buttonWidth: CGFloat = isLandscape ? 157 : 117
+        let iconSize: CGFloat = isLandscape ? 132 : 115
+        let textSize: CGFloat = isLandscape ? 19 : 18
+        let buttonHeight: CGFloat = isLandscape ? 92 : 80
+
+        return ZStack(alignment: .bottom) {
+            tabIcon(for: mode, size: iconSize)
+                .padding(.bottom, 20)
+            Text(mode.rawValue)
+                .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .padding(.bottom, 29)
+        }
+        .frame(width: buttonWidth, height: buttonHeight)
+        .background(
+            RoundedRectangle(cornerRadius: 9)
+                .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 9))
+    }
+
+    @ViewBuilder
+    private func brandLogo(width: CGFloat, height: CGFloat) -> some View {
+        if UIImage(named: "InangoTopbarLogo") != nil {
+            Image("InangoTopbarLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: width, height: height)
+                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+        } else if UIImage(named: "InangoLogo") != nil {
+            Image("InangoLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: width, height: height)
+                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+        } else {
+            Text("inango")
+                .font(.system(size: 28, weight: .bold))
+                .tracking(2)
+                .foregroundColor(.white.opacity(0.35))
+                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+        }
+    }
+
+    @ViewBuilder
+    private func tabIcon(for mode: AppMode, size: CGFloat) -> some View {
+        if UIImage(named: mode.iconAssetName) != nil {
+            Image(mode.iconAssetName)
+                .resizable()
+                .renderingMode(.original)
+                .scaledToFit()
+                .frame(width: size, height: size)
+        } else {
+            Image(systemName: mode.iconSystemName)
+                .font(.system(size: size * 0.9, weight: .semibold))
+        }
+    }
+
+    @ViewBuilder
+    private func topActionIcon(assetName: String, fallbackSystemName: String, iconSize: CGFloat, buttonSize: CGFloat) -> some View {
+        if UIImage(named: assetName) != nil {
+            Image(assetName)
+                .resizable()
+                .renderingMode(.original)
+                .scaledToFit()
+                .frame(width: iconSize, height: iconSize)
+                .frame(width: buttonSize, height: buttonSize)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(color: .black.opacity(0.45), radius: 4, y: 2)
+        } else {
+            Image(systemName: fallbackSystemName)
+                .font(.system(size: iconSize, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: buttonSize, height: buttonSize)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(color: .black.opacity(0.45), radius: 4, y: 2)
+        }
     }
 
     private var chatSection: some View {
