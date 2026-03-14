@@ -51,38 +51,14 @@ final class AppStoreAuthService {
         return HTTPCookie.cookies(withResponseHeaderFields: headers, for: url)
     }
 
+    /// The backend returns the JWT as a bare string in the response body.
     private func parseToken(from data: Data) -> String? {
-        if let text = String(data: data, encoding: .utf8)?
+        guard let text = String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines),
-           text.contains("."),
-           text.count > 40,
-           !text.hasPrefix("{"),
-           !text.hasPrefix("[") {
-            return text
-        }
-        guard let json = try? JSONSerialization.jsonObject(with: data) else { return nil }
-        return findToken(in: json)
-    }
-
-    private func findToken(in value: Any) -> String? {
-        if let dict = value as? [String: Any] {
-            for key in ["token", "access_token", "access", "jwt"] {
-                if let token = dict[key] as? String, !token.isEmpty {
-                    return token
-                }
-            }
-            for child in dict.values {
-                if let token = findToken(in: child) {
-                    return token
-                }
-            }
-        } else if let arr = value as? [Any] {
-            for child in arr {
-                if let token = findToken(in: child) {
-                    return token
-                }
-            }
-        }
-        return nil
+              text.contains("."),
+              text.count > 40,
+              !text.hasPrefix("{"),
+              !text.hasPrefix("[") else { return nil }
+        return text
     }
 }
