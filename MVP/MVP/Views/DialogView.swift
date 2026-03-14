@@ -30,6 +30,45 @@ enum AppMode: String, CaseIterable {
     }
 }
 
+struct SupportedLanguageItem {
+    let code: String
+    let displayName: String
+}
+
+struct SupportedLanguages {
+    static let all: [SupportedLanguageItem] = [
+        SupportedLanguageItem(code: "system", displayName: "System Default"),
+        SupportedLanguageItem(code: "en-US", displayName: "English (US)"),
+        SupportedLanguageItem(code: "es-ES", displayName: "Spanish"),
+        SupportedLanguageItem(code: "fr-FR", displayName: "French"),
+        SupportedLanguageItem(code: "de-DE", displayName: "German"),
+        SupportedLanguageItem(code: "it-IT", displayName: "Italian"),
+        SupportedLanguageItem(code: "pt-BR", displayName: "Portuguese (Brazil)"),
+        SupportedLanguageItem(code: "ja-JP", displayName: "Japanese"),
+        SupportedLanguageItem(code: "ko-KR", displayName: "Korean"),
+        SupportedLanguageItem(code: "zh-CN", displayName: "Chinese (Simplified)"),
+        SupportedLanguageItem(code: "ru-RU", displayName: "Russian"),
+        SupportedLanguageItem(code: "uk-UA", displayName: "Ukrainian"),
+        SupportedLanguageItem(code: "ar-SA", displayName: "Arabic"),
+        SupportedLanguageItem(code: "he-IL", displayName: "Hebrew"),
+        SupportedLanguageItem(code: "hi-IN", displayName: "Hindi"),
+        SupportedLanguageItem(code: "id-ID", displayName: "Indonesian"),
+        SupportedLanguageItem(code: "pl-PL", displayName: "Polish"),
+        SupportedLanguageItem(code: "nl-NL", displayName: "Dutch"),
+        SupportedLanguageItem(code: "tr-TR", displayName: "Turkish"),
+        SupportedLanguageItem(code: "th-TH", displayName: "Thai"),
+        SupportedLanguageItem(code: "vi-VN", displayName: "Vietnamese"),
+        SupportedLanguageItem(code: "sv-SE", displayName: "Swedish"),
+        SupportedLanguageItem(code: "da-DK", displayName: "Danish"),
+        SupportedLanguageItem(code: "fi-FI", displayName: "Finnish"),
+        SupportedLanguageItem(code: "nb-NO", displayName: "Norwegian"),
+        SupportedLanguageItem(code: "cs-CZ", displayName: "Czech"),
+        SupportedLanguageItem(code: "el-GR", displayName: "Greek"),
+        SupportedLanguageItem(code: "ro-RO", displayName: "Romanian"),
+        SupportedLanguageItem(code: "hu-HU", displayName: "Hungarian")
+    ]
+}
+
 struct DialogView: View {
     let avatarType: AvatarType
 
@@ -65,6 +104,9 @@ struct DialogView: View {
     @AppStorage("ttsSpeed") private var ttsSpeed: Double = 0.5
     @AppStorage("ttsPitch") private var ttsPitch: Double = 0.5
     @AppStorage("ttsVolume") private var ttsVolume: Double = 1.0
+    @AppStorage("selectedLanguage") private var selectedLanguage = "system"
+    @AppStorage("cloudTTSEnabled") private var cloudTTSEnabled = false
+    @AppStorage("cloudTTSProvider") private var cloudTTSProvider = "off"
 
     private let maxHistoryCount = 500
     private let chatHistoryKey = "chatHistory"
@@ -75,7 +117,11 @@ struct DialogView: View {
         appMode == .support ? supportHistoryKey : chatHistoryKey
     }
 
-    private var dialogLanguage: String { DialogAPIService.getDeviceLanguage() }
+    private var dialogLanguage: String {
+        if appMode == .support { return "en-US" }
+        if selectedLanguage == "system" { return DialogAPIService.getDeviceLanguage() }
+        return selectedLanguage
+    }
 
     @State private var keyboardHeight: CGFloat = 0
 
@@ -714,8 +760,7 @@ struct DialogView: View {
             messages.append(msg)
             startTypewriter(messageId: msg.id, fullText: greeting)
             if voiceOutputEnabled {
-                let preferMale = genderMatchedVoice ? (avatarType == .male) : nil
-                tts.speak(greeting, language: dialogLanguage, preferMale: preferMale, rate: ttsRate, pitch: ttsPitchValue, volume: ttsVolumeValue)
+                speakResponse(greeting)
             }
         }
     }
@@ -733,7 +778,7 @@ struct DialogView: View {
                 errorMessage = stt.errorMessage ?? "Microphone access needed."
                 avatarState = .idle; return
             }
-            stt.startRecording { text in
+            stt.startRecording(language: dialogLanguage) { text in
                 if let text = text, !text.isEmpty {
                     inputText = text
                     sendMessage(text, fromVoice: true)
@@ -776,8 +821,7 @@ struct DialogView: View {
                         typingMessageId = botMsg.id
                         typingDisplayedCount = 0
                         avatarState = .speaking
-                        let preferMale = genderMatchedVoice ? (avatarType == .male) : nil
-                        tts.speak(ttsText, language: dialogLanguage, preferMale: preferMale, rate: ttsRate, pitch: ttsPitchValue, volume: ttsVolumeValue) {
+                        speakResponse(ttsText) {
                             typingDisplayedCount = displayText.count
                             typingMessageId = nil
                             avatarState = .idle
@@ -844,6 +888,27 @@ struct DialogView: View {
     private func retryLastMessage() {
         guard let text = lastFailedMessage else { return }
         sendMessage(text, fromVoice: wasVoiceInput, isRetry: true)
+    }
+
+    private func speakResponse(_ text: String, completion: (() -> Void)? = nil) {
+        let preferMale = genderMatchedVoice ? (avatarType == .male) : nil
+        let isFemale = preferMale == false
+        switch cloudTTSProvider {
+        case "google":
+            CloudTTSService.shared.speak(text: text, language: dialogLanguage, isFemale: isFemale, completion: completion)
+        case "azure":
+            AzureTTSService.shared.speak(text: text, language: dialogLanguage, isFemale: isFemale, completion: completion)
+        default:
+            tts.speak(
+                text,
+                language: dialogLanguage,
+                preferMale: preferMale,
+                rate: ttsRate,
+                pitch: ttsPitchValue,
+                volume: ttsVolumeValue,
+                completion: completion
+            )
+        }
     }
 
     private func startTypewriter(messageId: UUID, fullText: String, wordByWord: Bool = false, msPerWord: Int = 0) {
@@ -1025,6 +1090,59 @@ struct DialogView: View {
                 .disabled(!voiceOutputEnabled)
                 .opacity(voiceOutputEnabled ? 1.0 : 0.5)
 
+                Section(header: Text("Language")) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "globe")
+                            .font(.system(size: 18))
+                            .foregroundColor(.appPrimary)
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Communication Language")
+                                .font(.system(size: 15))
+                            Text("Used for speech recognition and voice output")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 2)
+
+                    Picker("Language", selection: $selectedLanguage) {
+                        ForEach(SupportedLanguages.all, id: \.code) { lang in
+                            Text(lang.displayName).tag(lang.code)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                Section(header: Text("Cloud TTS")) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "cloud")
+                            .font(.system(size: 18))
+                            .foregroundColor(.appPrimary)
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("TTS Provider")
+                                .font(.system(size: 15))
+                            Text("Cloud voices sound more natural. Off uses local iOS TTS.")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 2)
+
+                    Picker("Provider", selection: $cloudTTSProvider) {
+                        Text("Off (Local TTS)").tag("off")
+                        Text("Google Cloud TTS").tag("google")
+                        Text("Microsoft Azure TTS").tag("azure")
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: cloudTTSProvider) { newValue in
+                        cloudTTSEnabled = newValue != "off"
+                    }
+                }
+
                 Section(header: Text("Data Management")) {
                     HStack {
                         Label("Chat History", systemImage: "clock.arrow.circlepath")
@@ -1111,19 +1229,6 @@ struct DialogView: View {
 
 final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
     var isLandscape: Bool = false
-    var authToken: String?
-    var savedEmail: String?
-    var savedPassword: String?
-    private var didReloadAfterAuthInjection = false
-    private var didAttemptCredentialAutoLogin = false
-
-    func resetAuthInjectionReloadFlag() {
-        didReloadAfterAuthInjection = false
-    }
-
-    func resetCredentialAutoLoginFlag() {
-        didAttemptCredentialAutoLogin = false
-    }
 
     private let landscapeFormHTML = """
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -1161,66 +1266,10 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
     """
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        injectAuthSession(webView)
-        injectCredentialAutoLogin(webView)
         guard isLandscape else { return }
         guard let currentURL = webView.url?.absoluteString else { return }
         if currentURL.contains("token=") { return }
         injectLandscapeForm(webView)
-    }
-
-    private func injectAuthSession(_ webView: WKWebView) {
-        guard let token = authToken, !token.isEmpty else { return }
-        let escapedToken = token
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
-        let js = """
-        try {
-            window.localStorage.setItem('token', '\(escapedToken)');
-            window.localStorage.setItem('access_token', '\(escapedToken)');
-            window.localStorage.setItem('jwt', '\(escapedToken)');
-            document.cookie = 'token=\(escapedToken); path=/; secure; samesite=lax';
-            document.cookie = 'access_token=\(escapedToken); path=/; secure; samesite=lax';
-            document.cookie = 'jwt=\(escapedToken); path=/; secure; samesite=lax';
-            document.cookie = 'next-auth.session-token=\(escapedToken); path=/; secure; samesite=lax';
-        } catch (e) {}
-        """
-        webView.evaluateJavaScript(js)
-    }
-
-    private func injectCredentialAutoLogin(_ webView: WKWebView) {
-        guard !didAttemptCredentialAutoLogin else { return }
-        guard
-            let email = savedEmail, !email.isEmpty,
-            let password = savedPassword, !password.isEmpty
-        else { return }
-
-        let escapedEmail = email
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
-        let escapedPassword = password
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
-        let js = """
-        (function() {
-            var e = document.querySelector('input[type="email"],input[name="email"],#lf_email');
-            var p = document.querySelector('input[type="password"],input[name="password"],#lf_pass');
-            var b = document.querySelector('button[type="submit"],button#lf_btn,.btn');
-            if (!e || !p || !b) { return false; }
-            if ((e.value || '').length > 0 && (p.value || '').length > 0) { return false; }
-            e.value = '\(escapedEmail)';
-            p.value = '\(escapedPassword)';
-            e.dispatchEvent(new Event('input', { bubbles: true }));
-            p.dispatchEvent(new Event('input', { bubbles: true }));
-            setTimeout(function() { b.click(); }, 80);
-            return true;
-        })();
-        """
-        webView.evaluateJavaScript(js) { result, _ in
-            if let didSubmit = result as? Bool, didSubmit {
-                self.didAttemptCredentialAutoLogin = true
-            }
-        }
     }
 
     func webView(
@@ -1263,22 +1312,13 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
 }
 
 final class AppStoreWebViewStore {
-    private struct AppStoreAuthBootstrap {
-        let token: String?
-        let cookies: [HTTPCookie]
-    }
-
     static let shared = AppStoreWebViewStore()
     private(set) var webView: WKWebView?
     private var loadedToken: String?
-    private var appStoreAuthTask: Task<Void, Never>?
     let navDelegate = AppStoreNavDelegate()
 
     func getOrCreate(url: URL, token: String?) -> WKWebView {
-        if let wv = webView {
-            syncSession(url: url, token: token, in: wv)
-            return wv
-        }
+        if let wv = webView { return wv }
 
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
@@ -1291,193 +1331,39 @@ final class AppStoreWebViewStore {
         wv.scrollView.contentInsetAdjustmentBehavior = .always
         wv.navigationDelegate = navDelegate
 
-        webView = wv
-        syncSession(url: url, token: token, in: wv, forceReload: true)
-        return wv
-    }
-
-    func syncSession(url: URL, token: String?, in webView: WKWebView? = nil, forceReload: Bool = false) {
-        let target = webView ?? self.webView
-        guard let target else { return }
-        if token != loadedToken {
-            navDelegate.resetAuthInjectionReloadFlag()
-            navDelegate.resetCredentialAutoLoginFlag()
-        }
-        navDelegate.authToken = token
-        navDelegate.savedEmail = KeychainService.shared.getLastEmail()
-        navDelegate.savedPassword = KeychainService.shared.getLastPassword()
-        guard forceReload || loadedToken != token else { return }
-
-        load(url: url, token: token, in: target)
-        loadedToken = token
-    }
-
-    private func load(url: URL, token: String?, in webView: WKWebView) {
-        if let email = navDelegate.savedEmail, !email.isEmpty,
-           let password = navDelegate.savedPassword, !password.isEmpty {
-            let fallbackToken = token
-            appStoreAuthTask?.cancel()
-            appStoreAuthTask = Task { [weak self, weak webView] in
-                guard let self = self else { return }
-                let bootstrap = await self.fetchAppStoreAuthBootstrap(email: email, password: password)
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    guard let webView = webView else { return }
-                    let effectiveToken = bootstrap?.token ?? fallbackToken
-                    self.applyServerCookies(bootstrap?.cookies ?? [], in: webView) {
-                        self.navDelegate.authToken = effectiveToken
-                        self.applySessionAndLoad(url: url, token: effectiveToken, in: webView)
-                    }
-                }
-            }
-            return
-        }
-
-        applySessionAndLoad(url: url, token: token, in: webView)
-    }
-
-    private func fetchAppStoreAuthBootstrap(email: String, password: String) async -> AppStoreAuthBootstrap? {
-        let paths = ["/api/auth/login", "/api/v1/auth/login"]
-        let methods = ["POST", "PUT"]
-        let body: [String: String] = ["email": email, "password": password]
-        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
-
-        for path in paths {
-            guard let loginURL = URL(string: APIConfig.appStoreURL + path) else { continue }
-            for method in methods {
-                var request = URLRequest(url: loginURL)
-                request.httpMethod = method
-                request.timeoutInterval = 12
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.setValue("application/json", forHTTPHeaderField: "Accept")
-                request.httpBody = bodyData
-
-                do {
-                    let (data, response) = try await URLSession.shared.data(for: request)
-                    guard let http = response as? HTTPURLResponse else { continue }
-                    guard (200...299).contains(http.statusCode) else { continue }
-                    let cookies = extractCookies(from: http, for: loginURL)
-                    let token = parseToken(from: data)
-                    if token != nil || !cookies.isEmpty {
-                        return AppStoreAuthBootstrap(token: token, cookies: cookies)
-                    }
-                } catch {
-                    continue
-                }
-            }
-        }
-        return nil
-    }
-
-    private func applyServerCookies(_ cookies: [HTTPCookie], in webView: WKWebView, completion: @escaping () -> Void) {
-        guard !cookies.isEmpty else {
-            completion()
-            return
-        }
-        let cookieStore = webView.configuration.websiteDataStore.httpCookieStore
-        let cookieGroup = DispatchGroup()
-        for cookie in cookies {
-            cookieGroup.enter()
-            cookieStore.setCookie(cookie) {
-                cookieGroup.leave()
-            }
-        }
-        cookieGroup.notify(queue: .main, execute: completion)
-    }
-
-    private func extractCookies(from response: HTTPURLResponse, for url: URL) -> [HTTPCookie] {
-        var headers: [String: String] = [:]
-        for (key, value) in response.allHeaderFields {
-            guard let keyString = key as? String, let valueString = value as? String else { continue }
-            headers[keyString] = valueString
-        }
-        return HTTPCookie.cookies(withResponseHeaderFields: headers, for: url)
-    }
-
-    private func parseToken(from data: Data) -> String? {
-        if let text = String(data: data, encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-           text.contains("."),
-           text.count > 40,
-           !text.hasPrefix("{"),
-           !text.hasPrefix("[") {
-            return text
-        }
-        guard let json = try? JSONSerialization.jsonObject(with: data) else { return nil }
-        return findToken(in: json)
-    }
-
-    private func findToken(in value: Any) -> String? {
-        if let dict = value as? [String: Any] {
-            for key in ["token", "access_token", "access", "jwt"] {
-                if let token = dict[key] as? String, !token.isEmpty {
-                    return token
-                }
-            }
-            for child in dict.values {
-                if let token = findToken(in: child) {
-                    return token
-                }
-            }
-        } else if let arr = value as? [Any] {
-            for child in arr {
-                if let token = findToken(in: child) {
-                    return token
-                }
-            }
-        }
-        return nil
-    }
-
-    private func applySessionAndLoad(url: URL, token: String?, in webView: WKWebView) {
         var finalURL = url
         if let token = token {
             var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
             var items = components?.queryItems ?? []
-            items.removeAll { $0.name == "token" }
             items.append(URLQueryItem(name: "token", value: token))
             components?.queryItems = items
             finalURL = components?.url ?? url
 
+            let domain = url.host ?? URL(string: APIConfig.appStoreURL)?.host ?? "appstore-demo.inango.com"
+            if let cookie = HTTPCookie(properties: [
+                .domain: domain,
+                .path: "/",
+                .name: "token",
+                .value: token,
+                .secure: "TRUE",
+                .expires: Date(timeIntervalSinceNow: 86400)
+            ]) {
+                config.websiteDataStore.httpCookieStore.setCookie(cookie)
+            }
+
             var request = URLRequest(url: finalURL)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-            let domain = url.host ?? "app-store.inango.com"
-            let cookieNames = ["token", "access_token", "jwt", "next-auth.session-token"]
-            let cookieStore = webView.configuration.websiteDataStore.httpCookieStore
-            let cookieGroup = DispatchGroup()
-            var didSetAnyCookie = false
-            for cookieName in cookieNames {
-                if let cookie = HTTPCookie(properties: [
-                    .domain: domain,
-                    .path: "/",
-                    .name: cookieName,
-                    .value: token,
-                    .secure: "TRUE",
-                    .expires: Date(timeIntervalSinceNow: 86400)
-                ]) {
-                    didSetAnyCookie = true
-                    cookieGroup.enter()
-                    cookieStore.setCookie(cookie) {
-                        cookieGroup.leave()
-                    }
-                }
-            }
-            if didSetAnyCookie {
-                cookieGroup.notify(queue: .main) {
-                    webView.load(request)
-                }
-            } else {
-                webView.load(request)
-            }
+            wv.load(request)
         } else {
-            webView.load(URLRequest(url: finalURL))
+            wv.load(URLRequest(url: finalURL))
         }
+
+        loadedToken = token
+        webView = wv
+        return wv
     }
 
     func reset() {
-        appStoreAuthTask?.cancel()
-        appStoreAuthTask = nil
         webView = nil
         loadedToken = nil
     }
@@ -1498,7 +1384,6 @@ struct AppStoreWebView: UIViewRepresentable {
         let store = AppStoreWebViewStore.shared
         store.navDelegate.isLandscape = isLandscape
         DispatchQueue.main.async {
-            store.syncSession(url: url, token: token, in: webView)
             webView.setNeedsLayout()
             webView.layoutIfNeeded()
             if isLandscape {
