@@ -1,6 +1,7 @@
 import Foundation
 import Speech
 import AVFoundation
+import os
 
 final class SpeechToTextService: NSObject, ObservableObject {
     @Published var isRecording = false
@@ -19,21 +20,27 @@ final class SpeechToTextService: NSObject, ObservableObject {
     }
 
     func requestAuthorization(completion: @escaping (Bool) -> Void) {
+        AppLogger.stt.info("requesting speech recognition authorization")
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
             DispatchQueue.main.async {
                 switch status {
                 case .authorized:
+                    AppLogger.stt.info("speech recognition authorized")
                     self?.requestMicrophonePermission(completion: completion)
                 case .denied:
+                    AppLogger.stt.warning("speech recognition denied by user")
                     self?.errorMessage = "Speech recognition denied. Enable in Settings."
                     completion(false)
                 case .restricted:
+                    AppLogger.stt.warning("speech recognition restricted on this device")
                     self?.errorMessage = "Speech recognition restricted"
                     completion(false)
                 case .notDetermined:
+                    AppLogger.stt.warning("speech recognition permission not determined")
                     self?.errorMessage = "Speech recognition not determined"
                     completion(false)
                 @unknown default:
+                    AppLogger.stt.error("speech recognition unknown authorization status")
                     completion(false)
                 }
             }
@@ -43,11 +50,14 @@ final class SpeechToTextService: NSObject, ObservableObject {
     private func requestMicrophonePermission(completion: @escaping (Bool) -> Void) {
         let session = AVAudioSession.sharedInstance()
         if session.recordPermission == .granted {
+            AppLogger.stt.info("microphone already granted")
             completion(true)
             return
         }
+        AppLogger.stt.info("requesting microphone permission")
         session.requestRecordPermission { [weak self] granted in
             DispatchQueue.main.async {
+                AppLogger.stt.info("microphone permission result=\(granted, privacy: .public)")
                 if !granted {
                     self?.errorMessage = "Microphone access denied. Enable in Settings."
                 }
@@ -113,11 +123,13 @@ final class SpeechToTextService: NSObject, ObservableObject {
         recognitionTask = nil
         recordingCompletion = completion
 
+        AppLogger.stt.info("beginRecognitionSession onDevice=\(preferOnDevice && canUseOnDeviceRecognition, privacy: .public)")
         let audioSession = AVAudioSession.sharedInstance()
         do {
             try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
+            AppLogger.stt.error("audio session setup failed: \(error.localizedDescription, privacy: .public)")
             errorMessage = "Audio session error: \(error.localizedDescription)"
             recordingCompletion = nil
             completion(nil)
@@ -142,7 +154,9 @@ final class SpeechToTextService: NSObject, ObservableObject {
         audioEngine.prepare()
         do {
             try audioEngine.start()
+            AppLogger.stt.info("audio engine started")
         } catch {
+            AppLogger.stt.error("audio engine start failed: \(error.localizedDescription, privacy: .public)")
             inputNode.removeTap(onBus: 0)
             errorMessage = "Microphone error: \(error.localizedDescription)"
             recordingCompletion = nil
@@ -171,11 +185,14 @@ final class SpeechToTextService: NSObject, ObservableObject {
                     self.cancelSilenceTimeout()
                     let isCancelled = (error as NSError).code == 216
                     if !isCancelled {
+                        AppLogger.stt.error("recognition error code=\(( error as NSError).code, privacy: .public) msg=\(error.localizedDescription, privacy: .public) onDevice=\(request.requiresOnDeviceRecognition, privacy: .public)")
                         self.errorMessage = self.resolveRecognitionError(
                             error,
                             usedOnDeviceRecognition: request.requiresOnDeviceRecognition,
                             hasTranscribedText: !self.transcribedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         )
+                    } else {
+                        AppLogger.stt.info("recognition task cancelled (code 216)")
                     }
                     self.finishRecording(with: self.transcribedText.isEmpty ? nil : self.transcribedText)
                 }
@@ -246,6 +263,7 @@ final class SpeechToTextService: NSObject, ObservableObject {
 
     private func finishRecording(with text: String?) {
         guard isRecording else { return }
+        AppLogger.stt.info("finishRecording hasText=\(text != nil, privacy: .public) textLength=\(text?.count ?? 0, privacy: .public)")
         cancelSilenceTimeout()
         recognitionRequest?.endAudio()
         recognitionRequest = nil

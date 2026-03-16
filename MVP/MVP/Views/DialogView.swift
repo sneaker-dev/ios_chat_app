@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import AVFoundation
+import os
 
 enum AppMode: String, CaseIterable {
     case chat = "Chat"
@@ -230,6 +231,9 @@ struct DialogView: View {
         }
         .onAppear {
             guard ensureAuthenticatedOrRedirect() else { return }
+            let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+            let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+            AppLogger.navigation.info("DialogView appeared version=\(version, privacy: .public) build=\(build, privacy: .public) avatar=\(avatarType.rawValue, privacy: .public)")
             loadAllHistories()
             messages = chatMessages
             setupTTSCallbacks()
@@ -237,6 +241,7 @@ struct DialogView: View {
         }
         .onChange(of: appMode) { newMode in
             guard ensureAuthenticatedOrRedirect() else { return }
+            AppLogger.navigation.info("tab switched to=\(newMode.rawValue, privacy: .public)")
             if newMode == .chat {
                 supportMessages = messages
                 messages = chatMessages
@@ -813,6 +818,7 @@ struct DialogView: View {
 
     private func startVoiceInput() {
         guard ensureAuthenticatedOrRedirect() else { return }
+        AppLogger.stt.info("startVoiceInput mode=\(appMode.rawValue, privacy: .public)")
         tts.stop()
         CloudTTSService.shared.stop()
         AzureTTSService.shared.stop()
@@ -821,14 +827,19 @@ struct DialogView: View {
         wasVoiceInput = true
         stt.requestAuthorization { granted in
             guard granted else {
+                AppLogger.stt.warning("startVoiceInput authorization denied")
                 errorMessage = stt.errorMessage ?? "Microphone access needed."
                 avatarState = .idle; return
             }
             stt.startRecording(language: dialogLanguage) { text in
                 if let text = text, !text.isEmpty {
+                    AppLogger.stt.info("voice input captured textLength=\(text.count, privacy: .public)")
                     inputText = text
                     sendMessage(text, fromVoice: true)
-                } else { avatarState = .idle }
+                } else {
+                    AppLogger.stt.info("voice input captured no text")
+                    avatarState = .idle
+                }
             }
         }
     }
@@ -841,6 +852,7 @@ struct DialogView: View {
         tts.stop()
         CloudTTSService.shared.stop()
         AzureTTSService.shared.stop()
+        AppLogger.dialog.info("sendMessage mode=\(appMode.rawValue, privacy: .public) fromVoice=\(fromVoice, privacy: .public) isRetry=\(isRetry, privacy: .public) textLength=\(trimmed.count, privacy: .public)")
         wasVoiceInput = fromVoice
         if !isRetry {
             inputText = ""
@@ -884,6 +896,7 @@ struct DialogView: View {
                 }
             } catch {
                 await MainActor.run {
+                    AppLogger.dialog.error("sendMessage failed mode=\(appMode.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
                     stopLongRequestNoticeTimer()
                     showTypingIndicator = false; isLoading = false
                     errorMessage = error.localizedDescription; lastFailedMessage = trimmed; avatarState = .idle
@@ -1001,7 +1014,9 @@ struct DialogView: View {
         let currentBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
         let fullVersion = "\(currentVersion).\(currentBuild)"
         let lastVersion = UserDefaults.standard.string(forKey: lastVersionKey) ?? ""
+        AppLogger.navigation.info("loadAllHistories currentVersion=\(fullVersion, privacy: .public) lastVersion=\(lastVersion, privacy: .public)")
         if fullVersion != lastVersion {
+            AppLogger.navigation.info("version changed — clearing chat history and resetting avatar")
             UserDefaults.standard.removeObject(forKey: chatHistoryKey)
             UserDefaults.standard.removeObject(forKey: supportHistoryKey)
             UserDefaults.standard.set(fullVersion, forKey: lastVersionKey)
