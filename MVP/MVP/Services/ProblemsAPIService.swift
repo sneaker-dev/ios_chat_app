@@ -47,7 +47,7 @@ final class ProblemsAPIService {
     // MARK: - Private helpers
 
     private func makeRequest(path: String, method: String, requiresAuth: Bool) throws -> URLRequest {
-        guard let url = URL(string: APIConfig.problemsBaseURL + path) else {
+        guard let url = buildProblemsURL(path: path) else {
             throw ProblemsAPIError.invalidURL
         }
         var request = URLRequest(url: url)
@@ -65,6 +65,23 @@ final class ProblemsAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         return request
+    }
+
+    private func buildProblemsURL(path: String) -> URL? {
+        let rawBase = APIConfig.problemsBaseURL
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = rawBase.hasSuffix("/")
+            ? String(rawBase.dropLast())
+            : rawBase
+
+        var normalizedPath = path
+        // Support both forms of base URL:
+        // - https://dash-emulator.inango.com
+        // - https://dash-emulator.inango.com/api/v1
+        if base.hasSuffix("/api/v1"), normalizedPath.hasPrefix("/api/v1/") {
+            normalizedPath.removeFirst("/api/v1".count)
+        }
+        return URL(string: base + normalizedPath)
     }
 
     private func get<T: Decodable>(path: String, requiresAuth: Bool = true) async throws -> T {
