@@ -117,6 +117,8 @@ struct DialogView: View {
     private let chatHistoryKey = "chatHistory"
     private let supportHistoryKey = "supportHistory"
     private let lastVersionKey = "lastAppVersion"
+    private var tabSpacing: CGFloat { visibleModes.count >= 4 ? 4 : 6 }
+    private var tabHorizontalInset: CGFloat { visibleModes.count >= 4 ? 8 : 4 }
 
     private var historyKey: String {
         appMode == .support ? supportHistoryKey : chatHistoryKey
@@ -382,16 +384,18 @@ struct DialogView: View {
                 }
             }
 
-            HStack(spacing: 6) {
+            HStack(spacing: tabSpacing) {
                 ForEach(visibleModes, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
                         modeTabButton(mode: mode, isLandscape: true, modeCount: visibleModes.count)
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            .padding(4)
+            .padding(.horizontal, tabHorizontalInset)
+            .padding(.vertical, 4)
             .background(Color.clear)
         }
         .padding(.horizontal, 20)
@@ -420,16 +424,17 @@ struct DialogView: View {
                 }
             }
 
-            HStack(spacing: 6) {
+            HStack(spacing: tabSpacing) {
                 ForEach(visibleModes, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
                         modeTabButton(mode: mode, isLandscape: false, modeCount: visibleModes.count)
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, tabHorizontalInset)
             .padding(.bottom, 4)
             .background(Color.clear)
         }
@@ -440,12 +445,27 @@ struct DialogView: View {
 
     private func modeTabButton(mode: AppMode, isLandscape: Bool, modeCount: Int) -> some View {
         let scale: CGFloat = modeCount >= 4 ? 1.0 / 1.2 : 1.0
-        let buttonWidth: CGFloat = (isLandscape ? 157 : 117) * scale
+        let baseButtonWidth: CGFloat = (isLandscape ? 157 : 117) * scale
         let iconSize: CGFloat = (isLandscape ? 132 : 115) * scale
         let textSize: CGFloat = (isLandscape ? 19 : 18) * scale
         let buttonHeight: CGFloat = (isLandscape ? 92 : 80) * scale
         let iconPaddingBottom: CGFloat = 20 * scale
         let textPaddingBottom: CGFloat = 29 * scale
+        let screenWidth = UIScreen.main.bounds.width
+        let horizontalReserved: CGFloat = isLandscape ? 56 : 48
+        let rowSpacing: CGFloat = modeCount >= 4 ? 4 : 6
+        let sideGutter: CGFloat = modeCount >= 4 ? 10 : 4
+        let maxRowWidth = max(
+            0,
+            screenWidth
+                - horizontalReserved
+                - (sideGutter * 2)
+                - rowSpacing * CGFloat(max(modeCount - 1, 0))
+        )
+        let fittedButtonWidth = floor(maxRowWidth / CGFloat(max(modeCount, 1)))
+        let buttonWidth: CGFloat = modeCount >= 4
+            ? min(baseButtonWidth, fittedButtonWidth)
+            : baseButtonWidth
 
         return ZStack(alignment: .bottom) {
             tabIcon(for: mode, size: iconSize)
