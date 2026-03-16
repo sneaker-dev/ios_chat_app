@@ -1498,16 +1498,8 @@ final class AppStoreWebViewStore {
     }
 
     private func applySessionAndLoad(url: URL, token: String?, in webView: WKWebView) {
-        var finalURL = url
         if let token = token {
-            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            var items = components?.queryItems ?? []
-            items.removeAll { $0.name == "token" }
-            items.append(URLQueryItem(name: "token", value: token))
-            components?.queryItems = items
-            finalURL = components?.url ?? url
-
-            var request = URLRequest(url: finalURL)
+            var request = URLRequest(url: url)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
             let domain = url.host ?? URL(string: APIConfig.appStoreURL)?.host ?? "appstore-demo.inango.com"
@@ -1539,7 +1531,7 @@ final class AppStoreWebViewStore {
                 webView.load(request)
             }
         } else {
-            webView.load(URLRequest(url: finalURL))
+            webView.load(URLRequest(url: url))
         }
     }
 
