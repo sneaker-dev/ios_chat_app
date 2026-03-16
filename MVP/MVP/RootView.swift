@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import Combine
+import os
 
 extension Color {
     static let appPrimary = Color(red: 0xE5/255, green: 0x5C/255, blue: 0x38/255)
@@ -114,8 +115,9 @@ struct RootView: View {
 
             case .login:
                 LoginView()
-                    .transition(.opacity)	
+                    .transition(.opacity)
                     .onReceive(NotificationCenter.default.publisher(for: .userDidLogin)) { _ in
+                        AppLogger.navigation.info("userDidLogin -> navigateAfterLogin")
                         withAnimation { navigateAfterLogin() }
                     }
 
@@ -143,9 +145,11 @@ struct RootView: View {
                 DialogView(avatarType: selectedAvatar)
                     .transition(.opacity)
                     .onReceive(NotificationCenter.default.publisher(for: .userDidLogout)) { _ in
+                        AppLogger.navigation.info("userDidLogout -> forceNavigateToLogin")
                         withAnimation { forceNavigateToLogin() }
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .changeAvatar)) { _ in
+                        AppLogger.navigation.info("changeAvatar → avatarChange")
                         withAnimation { currentScreen = .avatarChange }
                     }
             }
@@ -159,15 +163,21 @@ struct RootView: View {
     }
 
     private func navigateAfterSplash() {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        AppLogger.navigation.info("app launched version=\(version, privacy: .public) build=\(build, privacy: .public)")
         if AuthService.shared.isLoggedIn {
             if KeychainService.shared.hasSeenAvatarSelection(),
                let saved = KeychainService.shared.getSelectedAvatar() {
                 selectedAvatar = saved
+                AppLogger.navigation.info("navigateAfterSplash → dialog avatar=\(saved.rawValue, privacy: .public)")
                 currentScreen = .dialog
             } else {
+                AppLogger.navigation.info("navigateAfterSplash → avatarSelection (first time)")
                 currentScreen = .avatarSelection
             }
         } else {
+            AppLogger.navigation.info("navigateAfterSplash → login (not authenticated)")
             currentScreen = .login
         }
     }

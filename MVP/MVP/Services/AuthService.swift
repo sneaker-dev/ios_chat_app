@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 final class SessionManager {
     static let shared = SessionManager()
@@ -96,19 +97,35 @@ final class AuthService {
     var isLoggedIn: Bool { keychain.getToken() != nil }
 
     func register(email: String, password: String, deviceId: String) async throws {
+        AppLogger.auth.info("register attempt email=\(email, privacy: .private(mask: .hash))")
+        if APIConfig.useDemoMode {
+            AppLogger.auth.info("register: demo mode — skipping server call")
+            keychain.saveToken("demo-token-\(email)")
+            return
+        }
         let body = RegisterRequest(email: email, password: password, device_id: deviceId)
         let token = try await postAuth(path: APIConfig.registerPath, body: body)
         keychain.saveToken(token)
+        AppLogger.auth.info("register success")
     }
 
     func login(email: String, password: String, deviceId: String) async throws {
+        AppLogger.auth.info("login attempt email=\(email, privacy: .private(mask: .hash)) deviceId=\(deviceId, privacy: .private(mask: .hash))")
+        if APIConfig.useDemoMode {
+            AppLogger.auth.info("login: demo mode — skipping server call")
+            keychain.saveToken("demo-token-\(email)")
+            SessionManager.shared.markAuthenticated()
+            return
+        }
         let body = LoginRequest(email: email, password: password)
         let token = try await postAuth(path: APIConfig.loginPath, body: body)
         keychain.saveToken(token)
         SessionManager.shared.markAuthenticated()
+        AppLogger.auth.info("login success")
     }
 
     func logout(resetUnauthorizedFlag: Bool = true) {
+        AppLogger.auth.info("logout — clearing keychain")
         keychain.clearAll()
         SessionManager.shared.markLoggedOut(resetUnauthorizedFlag: resetUnauthorizedFlag)
     }
@@ -124,14 +141,21 @@ final class AuthService {
         let appVersion = "1.3.26"
         request.setValue("InangoChatApp/\(appVersion) (device_id=\(deviceId); platform=iOS)", forHTTPHeaderField: "User-Agent")
         request.httpBody = try JSONEncoder().encode(body)
+        AppLogger.auth.info("postAuth url=\(url.absoluteString, privacy: .public)")
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw AuthError.invalidResponse }
+        guard let http = response as? HTTPURLResponse else {
+            AppLogger.auth.error("postAuth: invalid response type")
+            throw AuthError.invalidResponse
+        }
+        AppLogger.auth.info("postAuth status=\(http.statusCode, privacy: .public)")
         if http.statusCode == 401 {
+            AppLogger.auth.warning("postAuth 401 — removing token")
             SessionManager.shared.handleUnauthorized()
             throw AuthError.serverError("Invalid credentials")
         }
         if http.statusCode >= 400 {
             let message = userFacingServerMessage(data: data, statusCode: http.statusCode)
+            AppLogger.auth.error("postAuth error status=\(http.statusCode, privacy: .public) message=\(message, privacy: .public)")
             throw AuthError.serverError(message)
         }
         return try parseToken(from: data)
