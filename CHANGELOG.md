@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 [Unreleased]
 
  Added
+- Board problems emulation tab on iOS (#44889):
+  - New Problems tab in the main mode selector (visible to @inango-systems.com accounts only)
+  - `ProblemsAPIService` with catalog, active state, enable/disable endpoints
+  - `ProblemsViewModel` with concurrent fetch, optimistic toggle, and rollback on error
+  - `ProblemsView` with loading, error/retry, and per-item toggle states
+  - Problems API base URL configurable via `MVP_PROBLEMS_BASE_URL` env override
+  - Problems API always uses authenticated Bearer token (demo-token fallback removed)
 - Structured crash diagnostics logging across iOS services (#44935):
   - Introduce centralized `AppLogger` categories (auth, keychain, dialog, stt, tts, appstore, navigation)
   - Add contextual log breadcrumbs for app launch/navigation, auth flows, dialog requests, and voice interactions
