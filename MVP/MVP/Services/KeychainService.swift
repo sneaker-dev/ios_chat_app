@@ -8,6 +8,7 @@ final class KeychainService {
     private let avatarKey = "com.mvp.selectedAvatar"
     private let hasSeenAvatarSelectionKey = "com.mvp.hasSeenAvatarSelection"
     private let lastEmailKey = "com.mvp.lastEmail"
+    private let lastPasswordKey = "com.mvp.lastPassword"
     private let deviceIdKey = "com.mvp.deviceId"
 
     private init() {}
@@ -48,6 +49,7 @@ final class KeychainService {
 
     func clearAll() {
         removeToken()
+        delete(key: lastPasswordKey)
     }
 
     func saveLastEmail(_ email: String) {
@@ -56,6 +58,14 @@ final class KeychainService {
 
     func getLastEmail() -> String? {
         load(key: lastEmailKey)
+    }
+
+    func saveLastPassword(_ password: String) {
+        save(key: lastPasswordKey, value: password)
+    }
+
+    func getLastPassword() -> String? {
+        load(key: lastPasswordKey)
     }
 
     func getOrCreateDeviceId() -> String {

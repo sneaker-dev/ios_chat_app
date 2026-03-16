@@ -1229,6 +1229,15 @@ struct DialogView: View {
 
 final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
     var isLandscape: Bool = false
+    var authToken: String?
+    var savedEmail: String?
+    var savedPassword: String?
+    private var didAttemptCredentialAutoLogin = false
+
+    func resetAuthInjectionReloadFlag() {}
+    func resetCredentialAutoLoginFlag() {
+        didAttemptCredentialAutoLogin = false
+    }
 
     private let landscapeFormHTML = """
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -1266,10 +1275,102 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
     """
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        injectAuthSession(webView)
+        scheduleCredentialAutoLogin(webView)
         guard isLandscape else { return }
         guard let currentURL = webView.url?.absoluteString else { return }
         if currentURL.contains("token=") { return }
         injectLandscapeForm(webView)
+    }
+
+    private func injectAuthSession(_ webView: WKWebView) {
+        guard let token = authToken, !token.isEmpty else { return }
+        let escapedToken = token
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+        let js = """
+        try {
+            window.localStorage.setItem('token', '\(escapedToken)');
+            document.cookie = 'token=\(escapedToken); path=/; secure; samesite=lax';
+        } catch (e) {}
+        """
+        webView.evaluateJavaScript(js)
+    }
+
+    private func scheduleCredentialAutoLogin(_ webView: WKWebView) {
+        guard !didAttemptCredentialAutoLogin else { return }
+        guard savedEmail != nil, !(savedEmail ?? "").isEmpty,
+              savedPassword != nil, !(savedPassword ?? "").isEmpty
+        else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self, weak webView] in
+            guard let self, let webView, !self.didAttemptCredentialAutoLogin else { return }
+            self.injectCredentialAutoLogin(webView)
+        }
+    }
+
+    private func injectCredentialAutoLogin(_ webView: WKWebView) {
+        guard !didAttemptCredentialAutoLogin else { return }
+        guard
+            let email = savedEmail, !email.isEmpty,
+            let password = savedPassword, !password.isEmpty
+        else { return }
+
+        let emailB64 = Data(email.utf8).base64EncodedString()
+        let pwdB64 = Data(password.utf8).base64EncodedString()
+        let js = """
+        (function() {
+            var email = atob('\(emailB64)');
+            var pwd = atob('\(pwdB64)');
+            var desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement && window.HTMLInputElement.prototype, 'value');
+            var setter = desc && desc.set;
+            var inputs = document.querySelectorAll('input');
+            var e = null, p = null;
+            for (var i = 0; i < inputs.length; i++) {
+                var inp = inputs[i];
+                if ((inp.type === 'email' || inp.type === 'text') &&
+                    ((inp.placeholder || '').toLowerCase().indexOf('email') !== -1 || inp.name === 'email' || (inp.id || '').toLowerCase().indexOf('email') !== -1)) {
+                    e = inp; break;
+                }
+            }
+            for (var i = 0; i < inputs.length; i++) {
+                var inp = inputs[i];
+                if (inp.type === 'password' || (inp.placeholder || '').toLowerCase().indexOf('password') !== -1 || (inp.name || '').toLowerCase().indexOf('password') !== -1 || (inp.autocomplete || '').indexOf('password') !== -1) {
+                    p = inp; break;
+                }
+            }
+            if (!e) e = document.querySelector('input[type="email"],input[name="email"],#lf_email');
+            if (!p) p = document.querySelector('input[type="password"],input[name="password"],input[autocomplete*="password"],#lf_pass');
+            if (!e || !p) return false;
+            if ((e.value || '').length > 0 && (p.value || '').length > 0) return false;
+            function fillInp(inp, val) {
+                if (setter) setter.call(inp, val);
+                else inp.value = val;
+                inp.focus();
+                inp.dispatchEvent(new Event('input', { bubbles: true }));
+                inp.dispatchEvent(new Event('change', { bubbles: true }));
+                inp.dispatchEvent(new Event('blur', { bubbles: true }));
+            }
+            fillInp(e, email);
+            fillInp(p, pwd);
+            var btn = document.querySelector('button[type="submit"],button#lf_btn,.btn');
+            if (!btn) {
+                var btns = document.querySelectorAll('button');
+                for (var j = 0; j < btns.length; j++) {
+                    var txt = (btns[j].textContent || '').trim().toLowerCase();
+                    if (txt === 'continue' || txt === 'login' || txt === 'sign in' || txt === 'log in') {
+                        btn = btns[j]; break;
+                    }
+                }
+            }
+            if (btn) setTimeout(function() { p.focus(); btn.click(); }, 600);
+            return true;
+        })();
+        """
+        webView.evaluateJavaScript(js) { [weak self] result, _ in
+            if let didSubmit = result as? Bool, didSubmit {
+                self?.didAttemptCredentialAutoLogin = true
+            }
+        }
     }
 
     func webView(
@@ -1315,10 +1416,14 @@ final class AppStoreWebViewStore {
     static let shared = AppStoreWebViewStore()
     private(set) var webView: WKWebView?
     private var loadedToken: String?
+    private var appStoreAuthTask: Task<Void, Never>?
     let navDelegate = AppStoreNavDelegate()
 
     func getOrCreate(url: URL, token: String?) -> WKWebView {
-        if let wv = webView { return wv }
+        if let wv = webView {
+            syncSession(url: url, token: token, in: wv)
+            return wv
+        }
 
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
@@ -1331,39 +1436,108 @@ final class AppStoreWebViewStore {
         wv.scrollView.contentInsetAdjustmentBehavior = .always
         wv.navigationDelegate = navDelegate
 
-        var finalURL = url
-        if let token = token {
-            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            var items = components?.queryItems ?? []
-            items.append(URLQueryItem(name: "token", value: token))
-            components?.queryItems = items
-            finalURL = components?.url ?? url
-
-            let domain = url.host ?? URL(string: APIConfig.appStoreURL)?.host ?? "appstore-demo.inango.com"
-            if let cookie = HTTPCookie(properties: [
-                .domain: domain,
-                .path: "/",
-                .name: "token",
-                .value: token,
-                .secure: "TRUE",
-                .expires: Date(timeIntervalSinceNow: 86400)
-            ]) {
-                config.websiteDataStore.httpCookieStore.setCookie(cookie)
-            }
-
-            var request = URLRequest(url: finalURL)
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            wv.load(request)
-        } else {
-            wv.load(URLRequest(url: finalURL))
-        }
-
-        loadedToken = token
         webView = wv
+        syncSession(url: url, token: token, in: wv, forceReload: true)
         return wv
     }
 
+    func syncSession(url: URL, token: String?, in webView: WKWebView? = nil, forceReload: Bool = false) {
+        let target = webView ?? self.webView
+        guard let target else { return }
+        if token != loadedToken {
+            navDelegate.resetAuthInjectionReloadFlag()
+            navDelegate.resetCredentialAutoLoginFlag()
+        }
+        navDelegate.authToken = token
+        navDelegate.savedEmail = KeychainService.shared.getLastEmail()
+        navDelegate.savedPassword = KeychainService.shared.getLastPassword()
+        guard forceReload || loadedToken != token else { return }
+
+        load(url: url, token: token, in: target)
+        loadedToken = token
+    }
+
+    private func load(url: URL, token: String?, in webView: WKWebView) {
+        if let email = navDelegate.savedEmail, !email.isEmpty,
+           let password = navDelegate.savedPassword, !password.isEmpty {
+            let fallbackToken = token
+            appStoreAuthTask?.cancel()
+            appStoreAuthTask = Task { [weak self, weak webView] in
+                guard let self = self else { return }
+                let bootstrap = await AppStoreAuthService.shared.login(email: email, password: password)
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    guard let webView = webView else { return }
+                    let effectiveToken = bootstrap?.token ?? fallbackToken
+                    self.applyServerCookies(bootstrap?.cookies ?? [], in: webView) {
+                        self.navDelegate.authToken = effectiveToken
+                        self.applySessionAndLoad(url: url, token: effectiveToken, in: webView)
+                    }
+                }
+            }
+            return
+        }
+
+        applySessionAndLoad(url: url, token: token, in: webView)
+    }
+
+    private func applyServerCookies(_ cookies: [HTTPCookie], in webView: WKWebView, completion: @escaping () -> Void) {
+        guard !cookies.isEmpty else {
+            completion()
+            return
+        }
+        let cookieStore = webView.configuration.websiteDataStore.httpCookieStore
+        let cookieGroup = DispatchGroup()
+        for cookie in cookies {
+            cookieGroup.enter()
+            cookieStore.setCookie(cookie) {
+                cookieGroup.leave()
+            }
+        }
+        cookieGroup.notify(queue: .main, execute: completion)
+    }
+
+    private func applySessionAndLoad(url: URL, token: String?, in webView: WKWebView) {
+        if let token = token {
+            var request = URLRequest(url: url)
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+            let domain = url.host ?? URL(string: APIConfig.appStoreURL)?.host ?? "appstore-demo.inango.com"
+            let cookieNames = ["token"]
+            let cookieStore = webView.configuration.websiteDataStore.httpCookieStore
+            let cookieGroup = DispatchGroup()
+            var didSetAnyCookie = false
+            for cookieName in cookieNames {
+                if let cookie = HTTPCookie(properties: [
+                    .domain: domain,
+                    .path: "/",
+                    .name: cookieName,
+                    .value: token,
+                    .secure: "TRUE",
+                    .expires: Date(timeIntervalSinceNow: 86400)
+                ]) {
+                    didSetAnyCookie = true
+                    cookieGroup.enter()
+                    cookieStore.setCookie(cookie) {
+                        cookieGroup.leave()
+                    }
+                }
+            }
+            if didSetAnyCookie {
+                cookieGroup.notify(queue: .main) {
+                    webView.load(request)
+                }
+            } else {
+                webView.load(request)
+            }
+        } else {
+            webView.load(URLRequest(url: url))
+        }
+    }
+
     func reset() {
+        appStoreAuthTask?.cancel()
+        appStoreAuthTask = nil
         webView = nil
         loadedToken = nil
     }

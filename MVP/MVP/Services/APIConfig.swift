@@ -17,6 +17,10 @@ enum APIConfig {
         ProcessInfo.processInfo.environment["MVP_APP_STORE_URL"] ?? "https://appstore-demo.inango.com"
     }
 
+    static var appStoreLoginPath: String {
+        ProcessInfo.processInfo.environment["MVP_APP_STORE_LOGIN_PATH"] ?? "/api/auth/login"
+    }
+
     static var useDemoMode: Bool {
         baseURL.contains("api.example.com")
     }
