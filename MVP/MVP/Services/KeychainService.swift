@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import os
 
 final class KeychainService {
     static let shared = KeychainService()
@@ -78,7 +79,10 @@ final class KeychainService {
     }
 
     private func save(key: String, value: String) {
-        guard let data = value.data(using: .utf8) else { return }
+        guard let data = value.data(using: .utf8) else {
+            AppLogger.keychain.error("save failed: UTF-8 encoding error key=\(key, privacy: .public)")
+            return
+        }
         delete(key: key)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -86,7 +90,10 @@ final class KeychainService {
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
-        SecItemAdd(query as CFDictionary, nil)
+        let status = SecItemAdd(query as CFDictionary, nil)
+        if status != errSecSuccess {
+            AppLogger.keychain.error("save failed key=\(key, privacy: .public) status=\(status, privacy: .public)")
+        }
     }
 
     private func load(key: String) -> String? {
@@ -98,7 +105,14 @@ final class KeychainService {
         ]
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess, let data = result as? Data else { return nil }
+        if status == errSecItemNotFound {
+            return nil
+        }
+        if status != errSecSuccess {
+            AppLogger.keychain.warning("load: unexpected status key=\(key, privacy: .public) status=\(status, privacy: .public)")
+            return nil
+        }
+        guard let data = result as? Data else { return nil }
         return String(data: data, encoding: .utf8)
     }
 

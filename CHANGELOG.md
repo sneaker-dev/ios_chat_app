@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 [Unreleased]
 
  Added
+- Structured crash diagnostics logging across iOS services (#44935):
+  - Introduce centralized `AppLogger` categories (auth, keychain, dialog, stt, tts, appstore, navigation)
+  - Add contextual log breadcrumbs for app launch/navigation, auth flows, dialog requests, and voice interactions
+  - Keep sensitive values masked while improving failure visibility for post-crash investigation
+
 - App Store tab auto-login with saved credentials (#44921):
   - Password persisted in Keychain on successful login
   - Native HTTP login attempt on App Store tab open; credential injection as fallback

@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import os
 
 final class TextToSpeechService: NSObject, ObservableObject, @unchecked Sendable {
     private let synthesizer = AVSpeechSynthesizer()
@@ -16,11 +17,10 @@ final class TextToSpeechService: NSObject, ObservableObject, @unchecked Sendable
     func speak(_ text: String, language: String? = nil, preferMale: Bool? = nil, rate: Float? = nil, pitch: Float? = nil, volume: Float? = nil, completion: (() -> Void)? = nil) {
         if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
         let lang = normalizeLocale(language ?? Locale.current.languageCode ?? "en")
+        AppLogger.tts.info("speak lang=\(lang, privacy: .public) preferMale=\(String(describing: preferMale), privacy: .public) textLength=\(text.count, privacy: .public)")
         let voice = voiceForLanguage(lang, preferMale: preferMale)
         if voice == nil {
-            #if DEBUG
-            print("[MVP] TTS: No voice for '\(lang)'. Skipping.")
-            #endif
+            AppLogger.tts.warning("no voice found for lang=\(lang, privacy: .public) — skipping TTS")
             isSpeaking = false; completion?(); return
         }
         let utterance = AVSpeechUtterance(string: text)
@@ -38,9 +38,7 @@ final class TextToSpeechService: NSObject, ObservableObject, @unchecked Sendable
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.duckOthers])
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
-            #if DEBUG
-            print("[MVP] TTS audio session error: \(error)")
-            #endif
+            AppLogger.tts.error("audio session setup failed: \(error.localizedDescription, privacy: .public)")
         }
         synthesizer.speak(utterance)
     }
@@ -124,6 +122,7 @@ final class TextToSpeechService: NSObject, ObservableObject, @unchecked Sendable
 
 extension TextToSpeechService: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_ s: AVSpeechSynthesizer, didStart u: AVSpeechUtterance) {
+        AppLogger.tts.info("didStart textLength=\(u.speechString.count, privacy: .public)")
         DispatchQueue.main.async { [weak self] in self?.spokenCharacterCount = 0; self?.isSpeaking = true; self?.onSpeakingStarted?() }
     }
     func speechSynthesizer(_ s: AVSpeechSynthesizer, willSpeakRangeOfSpeechString characterRange: NSRange, utterance u: AVSpeechUtterance) {
