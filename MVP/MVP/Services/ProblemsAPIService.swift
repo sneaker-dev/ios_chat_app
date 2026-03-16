@@ -55,7 +55,11 @@ final class ProblemsAPIService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         if requiresAuth {
-            guard let token = AuthService.shared.token(), !token.isEmpty else {
+            // Problems API uses the AppStore JWT; fall back to the main app JWT if the user
+            // has not visited the AppStore tab yet (AppStore login hasn't run).
+            let token = KeychainService.shared.getAppStoreToken()
+                ?? AuthService.shared.token()
+            guard let token, !token.isEmpty else {
                 throw ProblemsAPIError.notAuthenticated
             }
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

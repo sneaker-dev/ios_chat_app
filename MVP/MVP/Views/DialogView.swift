@@ -387,7 +387,7 @@ struct DialogView: View {
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        modeTabButton(mode: mode, isLandscape: true)
+                        modeTabButton(mode: mode, isLandscape: true, modeCount: visibleModes.count)
                     }
                 }
             }
@@ -425,7 +425,7 @@ struct DialogView: View {
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        modeTabButton(mode: mode, isLandscape: false)
+                        modeTabButton(mode: mode, isLandscape: false, modeCount: visibleModes.count)
                     }
                 }
             }
@@ -438,20 +438,23 @@ struct DialogView: View {
         .background(Color.black.opacity(0.55))
     }
 
-    private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
-        let buttonWidth: CGFloat = isLandscape ? 157 : 117
-        let iconSize: CGFloat = isLandscape ? 132 : 115
-        let textSize: CGFloat = isLandscape ? 19 : 18
-        let buttonHeight: CGFloat = isLandscape ? 92 : 80
+    private func modeTabButton(mode: AppMode, isLandscape: Bool, modeCount: Int) -> some View {
+        let scale: CGFloat = modeCount >= 4 ? 1.0 / 1.2 : 1.0
+        let buttonWidth: CGFloat = (isLandscape ? 157 : 117) * scale
+        let iconSize: CGFloat = (isLandscape ? 132 : 115) * scale
+        let textSize: CGFloat = (isLandscape ? 19 : 18) * scale
+        let buttonHeight: CGFloat = (isLandscape ? 92 : 80) * scale
+        let iconPaddingBottom: CGFloat = 20 * scale
+        let textPaddingBottom: CGFloat = 29 * scale
 
         return ZStack(alignment: .bottom) {
             tabIcon(for: mode, size: iconSize)
-                .padding(.bottom, 20)
+                .padding(.bottom, iconPaddingBottom)
             Text(mode.rawValue)
                 .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
                 .foregroundColor(.white)
                 .lineLimit(1)
-                .padding(.bottom, 29)
+                .padding(.bottom, textPaddingBottom)
         }
         .frame(width: buttonWidth, height: buttonHeight)
         .background(
@@ -1501,6 +1504,9 @@ final class AppStoreWebViewStore {
                 await MainActor.run {
                     guard let webView = webView else { return }
                     let effectiveToken = bootstrap?.token ?? fallbackToken
+                    if let t = bootstrap?.token {
+                        KeychainService.shared.saveAppStoreToken(t)
+                    }
                     self.applyServerCookies(bootstrap?.cookies ?? [], in: webView) {
                         self.navDelegate.authToken = effectiveToken
                         self.applySessionAndLoad(url: url, token: effectiveToken, in: webView)
