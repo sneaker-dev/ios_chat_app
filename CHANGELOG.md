@@ -11,6 +11,10 @@ All notable changes to this project are documented in this file.
   - `ProblemsView` with loading, error/retry, and per-item toggle states
   - Problems API base URL configurable via `MVP_PROBLEMS_BASE_URL` env override
   - Problems API always uses authenticated Bearer token (demo-token fallback removed)
+  - 4-tab layout tuned for iOS: icon/text/button sizes scaled to fit without overflow
+  - Side padding and button width adjusted for balanced spacing in 4-tab mode
+  - Problems URL normalization added to prevent duplicated `/api/v1` segments
+  - Problems tab icon asset wired to `TabProblems` image set
 - Structured crash diagnostics logging across iOS services (#44935):
   - Introduce centralized `AppLogger` categories (auth, keychain, dialog, stt, tts, appstore, navigation)
   - Add contextual log breadcrumbs for app launch/navigation, auth flows, dialog requests, and voice interactions
