@@ -10,7 +10,7 @@ enum APIConfig {
     }
 
     static var supportBaseURL: String {
-        ProcessInfo.processInfo.environment["MVP_SUPPORT_BASE_URL"] ?? "https://support-demo.inango.com"
+        ProcessInfo.processInfo.environment["MVP_SUPPORT_BASE_URL"] ?? baseURL
     }
 
     static var appStoreURL: String {
