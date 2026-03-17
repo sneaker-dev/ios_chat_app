@@ -118,7 +118,7 @@ struct DialogView: View {
     private let supportHistoryKey = "supportHistory"
     private let lastVersionKey = "lastAppVersion"
     private var tabSpacing: CGFloat { visibleModes.count >= 4 ? 4 : 6 }
-    private var tabHorizontalInset: CGFloat { visibleModes.count >= 4 ? 8 : 4 }
+    private var tabHorizontalInset: CGFloat { visibleModes.count >= 4 ? 6 : 4 }
 
     private var historyKey: String {
         appMode == .support ? supportHistoryKey : chatHistoryKey
@@ -452,9 +452,9 @@ struct DialogView: View {
         let iconPaddingBottom: CGFloat = 20 * scale
         let textPaddingBottom: CGFloat = 29 * scale
         let screenWidth = UIScreen.main.bounds.width
-        let horizontalReserved: CGFloat = isLandscape ? 56 : 48
+        let horizontalReserved: CGFloat = isLandscape ? 52 : 44
         let rowSpacing: CGFloat = modeCount >= 4 ? 4 : 6
-        let sideGutter: CGFloat = modeCount >= 4 ? 10 : 4
+        let sideGutter: CGFloat = modeCount >= 4 ? 6 : 4
         let maxRowWidth = max(
             0,
             screenWidth
@@ -463,8 +463,9 @@ struct DialogView: View {
                 - rowSpacing * CGFloat(max(modeCount - 1, 0))
         )
         let fittedButtonWidth = floor(maxRowWidth / CGFloat(max(modeCount, 1)))
+        let requestedButtonWidth = baseButtonWidth * (modeCount >= 4 ? 1.05 : 1.0)
         let buttonWidth: CGFloat = modeCount >= 4
-            ? min(baseButtonWidth, fittedButtonWidth)
+            ? min(requestedButtonWidth, fittedButtonWidth)
             : baseButtonWidth
 
         return ZStack(alignment: .bottom) {
