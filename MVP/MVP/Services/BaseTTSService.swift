@@ -5,7 +5,7 @@ import AVFoundation
 /// Handles text chunking, sequential chunk playback, stop/cancel logic,
 /// and AVAudioPlayerDelegate. Subclasses implement only synthesiseChunk()
 /// and maxChunkLength to provide the API-specific synthesis logic.
-class BaseTTSService: NSObject, AVAudioPlayerDelegate {
+class BaseTTSService: NSObject, AVAudioPlayerDelegate, ObservableObject {
 
     // MARK: - Subclass interface (must override)
 
@@ -24,15 +24,41 @@ class BaseTTSService: NSObject, AVAudioPlayerDelegate {
     var currentTask: Task<Void, Never>?
     var playbackContinuation: CheckedContinuation<Void, Never>?
 
-    var isSpeaking: Bool { player?.isPlaying == true }
+    @Published private(set) var isSpeaking = false
+    @Published private(set) var spokenCharacterCount: Int = 0
+    var onSpeakingStarted: (() -> Void)?
+    var onSpeakingCompleted: (() -> Void)?
+
+    private var progressTimer: Timer?
+    private var totalCharacters: Int = 0
+    private var completedCharacters: Int = 0
+    private var currentChunkLength: Int = 0
 
     // MARK: - Public API
 
     func speak(text: String, language: String = "en-US", isFemale: Bool = true, completion: (() -> Void)? = nil) {
         stop()
+        let total = text.count
+        Task { @MainActor in
+            totalCharacters = total
+            completedCharacters = 0
+            currentChunkLength = 0
+            spokenCharacterCount = 0
+            isSpeaking = total > 0
+            if total > 0 { onSpeakingStarted?() }
+        }
         currentTask = Task { [weak self] in
             await self?.speakChunks(text: text, language: language, isFemale: isFemale)
-            await MainActor.run { completion?() }
+            await MainActor.run {
+                guard let self else { return }
+                self.stopProgressTimer()
+                self.currentTask = nil
+                self.completedCharacters = self.totalCharacters
+                self.spokenCharacterCount = self.totalCharacters
+                self.isSpeaking = false
+                completion?()
+                self.onSpeakingCompleted?()
+            }
         }
     }
 
@@ -44,6 +70,10 @@ class BaseTTSService: NSObject, AVAudioPlayerDelegate {
         if let cont = playbackContinuation {
             playbackContinuation = nil
             cont.resume()
+        }
+        Task { @MainActor in
+            stopProgressTimer()
+            isSpeaking = false
         }
     }
 
@@ -71,6 +101,9 @@ class BaseTTSService: NSObject, AVAudioPlayerDelegate {
         let chunks = splitIntoChunks(text)
         for chunk in chunks {
             guard !Task.isCancelled else { return }
+            await MainActor.run {
+                currentChunkLength = chunk.count
+            }
             var data: Data?
             for attempt in 1...2 {
                 if let d = try? await synthesiseChunk(chunk, language: language, isFemale: isFemale) {
@@ -86,6 +119,11 @@ class BaseTTSService: NSObject, AVAudioPlayerDelegate {
             guard !Task.isCancelled else { return }
             await playAudioData(audioData)
             guard !Task.isCancelled else { return }
+            await MainActor.run {
+                completedCharacters = min(completedCharacters + chunk.count, totalCharacters)
+                spokenCharacterCount = completedCharacters
+                currentChunkLength = 0
+            }
         }
     }
 
@@ -101,16 +139,41 @@ class BaseTTSService: NSObject, AVAudioPlayerDelegate {
                 playbackContinuation = cont
                 player = ap
                 ap.play()
+                startProgressTimer()
             } catch {
                 cont.resume()
             }
         }
     }
 
+    @MainActor
+    private func startProgressTimer() {
+        stopProgressTimer()
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            guard let player = self.player else { return }
+            guard player.duration > 0 else { return }
+            let ratio = min(max(player.currentTime / player.duration, 0), 1)
+            let chunkChars = Int((Double(self.currentChunkLength) * ratio).rounded(.down))
+            let current = min(self.completedCharacters + chunkChars, self.totalCharacters)
+            self.spokenCharacterCount = current
+        }
+        if let timer = progressTimer {
+            RunLoop.main.add(timer, forMode: .common)
+        }
+    }
+
+    @MainActor
+    private func stopProgressTimer() {
+        progressTimer?.invalidate()
+        progressTimer = nil
+    }
+
     // MARK: - AVAudioPlayerDelegate
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         DispatchQueue.main.async { [weak self] in
+            self?.stopProgressTimer()
             self?.player = nil
             let cont = self?.playbackContinuation
             self?.playbackContinuation = nil
@@ -120,6 +183,7 @@ class BaseTTSService: NSObject, AVAudioPlayerDelegate {
 
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
         DispatchQueue.main.async { [weak self] in
+            self?.stopProgressTimer()
             self?.player = nil
             let cont = self?.playbackContinuation
             self?.playbackContinuation = nil

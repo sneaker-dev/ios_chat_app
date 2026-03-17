@@ -72,6 +72,8 @@ struct DialogView: View {
 
     @StateObject private var stt = SpeechToTextService()
     @StateObject private var tts = TextToSpeechService()
+    @StateObject private var cloudTTS = CloudTTSService.shared
+    @StateObject private var azureTTS = AzureTTSService.shared
 
     @State private var messages: [ChatMessage] = []
     @State private var chatMessages: [ChatMessage] = []
@@ -83,6 +85,7 @@ struct DialogView: View {
     @State private var hasPlayedGreeting = false
     @State private var typingMessageId: UUID?
     @State private var typingDisplayedCount: Int = 0
+    @State private var typingTargetCount: Int = 0
     @State private var avatarState: AvatarAnimState = .idle
     @State private var wasVoiceInput = false
     @State private var showTypingIndicator = false
@@ -123,6 +126,10 @@ struct DialogView: View {
 
     private var historyKey: String {
         appMode == .support ? supportHistoryKey : chatHistoryKey
+    }
+
+    private var isAnyTTSPlaying: Bool {
+        tts.isSpeaking || cloudTTS.isSpeaking || azureTTS.isSpeaking
     }
 
     private var dialogLanguage: String {
@@ -250,12 +257,12 @@ struct DialogView: View {
                 messages = supportMessages
             }
             // .appStore and .problems don't use the chat message list
-            tts.stop()
             typingMessageId = nil
             showTypingIndicator = false
             stopLongRequestNoticeTimer()
             isLoading = false
             errorMessage = nil
+            typingTargetCount = 0
         }
         .onChange(of: showSoftwareKeyboard) { newValue in
             if !newValue {
@@ -265,7 +272,17 @@ struct DialogView: View {
         }
         .onChange(of: tts.spokenCharacterCount) { newCount in
             if typingMessageId != nil {
-                typingDisplayedCount = newCount
+                typingDisplayedCount = min(newCount, typingTargetCount)
+            }
+        }
+        .onChange(of: cloudTTS.spokenCharacterCount) { newCount in
+            if typingMessageId != nil && cloudTTS.isSpeaking {
+                typingDisplayedCount = min(newCount, typingTargetCount)
+            }
+        }
+        .onChange(of: azureTTS.spokenCharacterCount) { newCount in
+            if typingMessageId != nil && azureTTS.isSpeaking {
+                typingDisplayedCount = min(newCount, typingTargetCount)
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -629,7 +646,7 @@ struct DialogView: View {
                         .clipShape(Circle())
                         .opacity(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
                 }
-                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
+                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading || isAnyTTSPlaying)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -667,7 +684,7 @@ struct DialogView: View {
                     .background(stt.isRecording ? Color.speakActive1 : Color.speakNormal1)
                     .clipShape(Circle())
             }
-            .disabled(isLoading)
+            .disabled(isLoading || isAnyTTSPlaying)
 
             Button {
                 wasVoiceInput = false
@@ -680,7 +697,7 @@ struct DialogView: View {
                     .background(Color.appPrimary)
                     .clipShape(Circle())
             }
-            .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
+            .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading || isAnyTTSPlaying)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 8)
@@ -750,8 +767,8 @@ struct DialogView: View {
             )
             .clipShape(Capsule())
             .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
-                }
-                .disabled(isLoading)
+        }
+        .disabled(isLoading || isAnyTTSPlaying)
     }
 
     private var ttsRate: Float {
@@ -789,6 +806,20 @@ struct DialogView: View {
     private func setupTTSCallbacks() {
         tts.onSpeakingStarted = { avatarState = .speaking }
         tts.onSpeakingCompleted = { avatarState = .idle }
+        CloudTTSService.shared.onSpeakingStarted = { avatarState = .speaking }
+        CloudTTSService.shared.onSpeakingCompleted = {
+            typingDisplayedCount = typingTargetCount
+            typingMessageId = nil
+            typingTargetCount = 0
+            avatarState = .idle
+        }
+        AzureTTSService.shared.onSpeakingStarted = { avatarState = .speaking }
+        AzureTTSService.shared.onSpeakingCompleted = {
+            typingDisplayedCount = typingTargetCount
+            typingMessageId = nil
+            typingTargetCount = 0
+            avatarState = .idle
+        }
     }
 
     /// Guard protected flows while user is inside Dialog screen.
@@ -820,6 +851,7 @@ struct DialogView: View {
     private func startVoiceInput() {
         guard ensureAuthenticatedOrRedirect() else { return }
         AppLogger.stt.info("startVoiceInput mode=\(appMode.rawValue, privacy: .public)")
+        guard !isAnyTTSPlaying else { return }
         tts.stop()
         CloudTTSService.shared.stop()
         AzureTTSService.shared.stop()
@@ -849,10 +881,10 @@ struct DialogView: View {
         guard ensureAuthenticatedOrRedirect() else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        // Stop any ongoing TTS before starting a new request (#44825).
-        tts.stop()
-        CloudTTSService.shared.stop()
-        AzureTTSService.shared.stop()
+        guard !isAnyTTSPlaying else {
+            errorMessage = "Please wait for the current voice response to finish."
+            return
+        }
         AppLogger.dialog.info("sendMessage mode=\(appMode.rawValue, privacy: .public) fromVoice=\(fromVoice, privacy: .public) isRetry=\(isRetry, privacy: .public) textLength=\(trimmed.count, privacy: .public)")
         wasVoiceInput = fromVoice
         if !isRetry {
@@ -879,21 +911,12 @@ struct DialogView: View {
                     if shouldSpeak {
                         typingMessageId = botMsg.id
                         typingDisplayedCount = 0
+                        typingTargetCount = displayText.count
                         avatarState = .speaking
-                        let usingCloudTTS = cloudTTSProvider == "google" || cloudTTSProvider == "azure"
-                        if usingCloudTTS {
-                            // Cloud providers don't expose incremental spoken character callbacks on iOS,
-                            // so stream text word-by-word at the configured speech pace.
-                            startTypewriter(
-                                messageId: botMsg.id,
-                                fullText: displayText,
-                                wordByWord: true,
-                                msPerWord: tts.millisecondsPerWord(isFemale: avatarType.isFemale)
-                            )
-                        }
                         speakResponse(ttsText) {
                             typingDisplayedCount = displayText.count
                             typingMessageId = nil
+                            typingTargetCount = 0
                             avatarState = .idle
                         }
                     } else {
