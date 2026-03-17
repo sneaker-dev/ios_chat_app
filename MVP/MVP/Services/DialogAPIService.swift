@@ -57,7 +57,7 @@ final class DialogAPIService {
         let locale = TextToSpeechService.formatLocale(lang)
         AppLogger.dialog.info("sendMessage language=\(lang, privacy: .public) locale=\(locale, privacy: .public) baseURL=\(baseURL ?? APIConfig.baseURL, privacy: .public) textLength=\(text.count, privacy: .public)")
         let body = InangoGenericRequest(locale: locale, queryText: text)
-        let effectiveBaseURL = baseURL ?? APIConfig.baseURL
+        let effectiveBaseURL = normalizedBaseURL(baseURL ?? APIConfig.baseURL)
         guard let url = URL(string: effectiveBaseURL + APIConfig.dialogPath) else { throw DialogAPIError.invalidURL }
 
         var request = URLRequest(url: url)
@@ -141,5 +141,15 @@ final class DialogAPIService {
             return "Voice server is temporarily unavailable. Tap Try again or send another message."
         }
         return detail.isEmpty ? "Something went wrong. Please try again." : detail
+    }
+
+    private func normalizedBaseURL(_ baseURL: String) -> String {
+        let trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let noTrailingSlash = trimmed.hasSuffix("/") ? String(trimmed.dropLast()) : trimmed
+        // Support backend should use host root; older config used "/support".
+        if noTrailingSlash.hasSuffix("/support"), APIConfig.dialogPath.hasPrefix("/api/") {
+            return String(noTrailingSlash.dropLast("/support".count))
+        }
+        return noTrailingSlash
     }
 }
