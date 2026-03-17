@@ -10,7 +10,7 @@ enum APIConfig {
     }
 
     static var supportBaseURL: String {
-        ProcessInfo.processInfo.environment["MVP_SUPPORT_BASE_URL"] ?? "https://support-demo.inango.com/support"
+        ProcessInfo.processInfo.environment["MVP_SUPPORT_BASE_URL"] ?? "https://support-demo.inango.com/api/v1/support/chat"
     }
 
     static var appStoreURL: String {
@@ -19,6 +19,10 @@ enum APIConfig {
 
     static var appStoreLoginPath: String {
         ProcessInfo.processInfo.environment["MVP_APP_STORE_LOGIN_PATH"] ?? "/api/auth/login"
+    }
+
+    static var problemsBaseURL: String {
+        ProcessInfo.processInfo.environment["MVP_PROBLEMS_BASE_URL"] ?? "https://dash-emulator.inango.com/api/v1/problems"
     }
 
     static var useDemoMode: Bool {

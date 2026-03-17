@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 struct InangoGenericRequest: Encodable {
     let locale: String
@@ -55,10 +54,13 @@ final class DialogAPIService {
 
         let lang = language ?? DialogAPIService.getDeviceLanguage()
         let locale = TextToSpeechService.formatLocale(lang)
-        AppLogger.dialog.info("sendMessage language=\(lang, privacy: .public) locale=\(locale, privacy: .public) baseURL=\(baseURL ?? APIConfig.baseURL, privacy: .public) textLength=\(text.count, privacy: .public)")
+        
+        #if DEBUG
+        print("[MVP] Dialog API: language=\(lang), formatted locale=\(locale), baseURL=\(baseURL ?? APIConfig.baseURL)")
+        #endif
+        
         let body = InangoGenericRequest(locale: locale, queryText: text)
-        let effectiveBaseURL = baseURL ?? APIConfig.baseURL
-        guard let url = URL(string: effectiveBaseURL + APIConfig.dialogPath) else { throw DialogAPIError.invalidURL }
+        guard let url = resolveEndpointURL(baseURL: baseURL) else { throw DialogAPIError.invalidURL }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -73,18 +75,18 @@ final class DialogAPIService {
                 let (data, response) = try await URLSession.shared.data(for: request)
                 guard let http = response as? HTTPURLResponse else { throw DialogAPIError.invalidResponse }
 
-                AppLogger.dialog.info("sendMessage attempt=\(attempt, privacy: .public) status=\(http.statusCode, privacy: .public)")
                 if http.statusCode == 401 {
-                    AppLogger.dialog.warning("sendMessage 401 — logging out")
                     AuthService.shared.logout()
                     throw DialogAPIError.notAuthenticated
                 }
                 if http.statusCode >= 400 {
+                    #if DEBUG
                     let bodyPreview = String(data: data, encoding: .utf8) ?? ""
-                    AppLogger.dialog.error("sendMessage error status=\(http.statusCode, privacy: .public) url=\(url.absoluteString, privacy: .public) body=\(String(bodyPreview.prefix(300)), privacy: .public)")
+                    print("[MVP] Dialog API error: status=\(http.statusCode) url=\(url.absoluteString) body=\(bodyPreview.prefix(500))")
                     if http.statusCode == 500 && (bodyPreview.contains("users/user") || bodyPreview.contains("10.0.5.1")) {
-                        AppLogger.dialog.error("server-side: backend failed calling internal users service")
+                        print("[MVP] → Server-side: voice-demo.inango.com's backend failed calling its internal users service.")
                     }
+                    #endif
                     let msg = userFacingMessage(from: data, statusCode: http.statusCode)
                     if token.hasPrefix("demo-token-") {
                         return "You said: \"\(text)\". (Need real login to get answers from voice-demo.inango.com.)"
@@ -92,18 +94,17 @@ final class DialogAPIService {
                     lastError = .serverError(msg)
                     if http.statusCode >= 500 && attempt < maxRetries {
                         let delayNs = UInt64(2 + attempt) * 1_000_000_000
-                        AppLogger.dialog.info("sendMessage retrying in \(2 + attempt, privacy: .public)s attempt=\(attempt + 1, privacy: .public)/\(maxRetries, privacy: .public)")
                         try await Task.sleep(nanoseconds: delayNs)
                         continue
                     }
                     throw lastError!
                 }
 
-                let parsed = try parseQueryResponse(data: data)
-                AppLogger.dialog.info("sendMessage success responseLength=\(parsed.count, privacy: .public)")
-                return parsed
+                return try parseQueryResponse(data: data)
             } catch {
-                AppLogger.dialog.error("sendMessage request failed: \(error.localizedDescription, privacy: .public)")
+                #if DEBUG
+                print("[MVP] Dialog API request failed: \(error)")
+                #endif
                 throw error
             }
         }
@@ -141,5 +142,33 @@ final class DialogAPIService {
             return "Voice server is temporarily unavailable. Tap Try again or send another message."
         }
         return detail.isEmpty ? "Something went wrong. Please try again." : detail
+    }
+
+    private func normalizedBaseURL(_ baseURL: String) -> String {
+        var normalized = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalized.hasSuffix("/") {
+            normalized.removeLast()
+        }
+        // Keep Support API path stable even if base URL is configured with trailing /support.
+        if normalized.hasSuffix("/support"), APIConfig.dialogPath.hasPrefix("/api/") {
+            normalized = String(normalized.dropLast("/support".count))
+        }
+        return normalized
+    }
+
+    private func resolveEndpointURL(baseURL: String?) -> URL? {
+        guard let override = baseURL?.trimmingCharacters(in: .whitespacesAndNewlines), !override.isEmpty else {
+            let defaultBase = normalizedBaseURL(APIConfig.baseURL)
+            return URL(string: defaultBase + APIConfig.dialogPath)
+        }
+
+        let normalized = normalizedBaseURL(override)
+        guard let parsed = URL(string: normalized) else { return nil }
+        // Android Support uses a full endpoint URL. If override already contains an API path,
+        // use it as-is; otherwise append default dialog path.
+        if parsed.path.hasPrefix("/api/") {
+            return parsed
+        }
+        return URL(string: normalized + APIConfig.dialogPath)
     }
 }
