@@ -119,7 +119,7 @@ struct DialogView: View {
     private let supportHistoryKey = "supportHistory"
     private let lastVersionKey = "lastAppVersion"
     private var tabSpacing: CGFloat { visibleModes.count >= 4 ? 4 : 6 }
-    private var tabHorizontalInset: CGFloat { visibleModes.count >= 4 ? 6 : 4 }
+    private var tabHorizontalInset: CGFloat { visibleModes.count >= 4 ? 2 : 4 }
 
     private var historyKey: String {
         appMode == .support ? supportHistoryKey : chatHistoryKey
@@ -403,7 +403,7 @@ struct DialogView: View {
             .padding(.vertical, 4)
             .background(Color.clear)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 12)
         .padding(.vertical, 4)
         .background(Color.black.opacity(0.25))
     }
@@ -443,7 +443,7 @@ struct DialogView: View {
             .padding(.bottom, 4)
             .background(Color.clear)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 12)
         .padding(.bottom, 4)
         .background(Color.black.opacity(0.55))
     }
@@ -457,9 +457,9 @@ struct DialogView: View {
         let iconPaddingBottom: CGFloat = 20 * scale
         let textPaddingBottom: CGFloat = 29 * scale
         let screenWidth = UIScreen.main.bounds.width
-        let horizontalReserved: CGFloat = isLandscape ? 52 : 44
+        let horizontalReserved: CGFloat = isLandscape ? 28 : 24
         let rowSpacing: CGFloat = modeCount >= 4 ? 4 : 6
-        let sideGutter: CGFloat = modeCount >= 4 ? 6 : 4
+        let sideGutter: CGFloat = modeCount >= 4 ? 0 : 4
         let maxRowWidth = max(
             0,
             screenWidth
@@ -469,8 +469,9 @@ struct DialogView: View {
         )
         let fittedButtonWidth = floor(maxRowWidth / CGFloat(max(modeCount, 1)))
         let requestedButtonWidth = baseButtonWidth * (modeCount >= 4 ? 1.05 : 1.0)
+        let widenedFittedButtonWidth = floor(fittedButtonWidth * (modeCount >= 4 ? 1.05 : 1.0))
         let buttonWidth: CGFloat = modeCount >= 4
-            ? min(requestedButtonWidth, fittedButtonWidth)
+            ? min(requestedButtonWidth, widenedFittedButtonWidth)
             : baseButtonWidth
 
         return ZStack(alignment: .bottom) {
