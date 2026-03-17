@@ -57,8 +57,7 @@ final class DialogAPIService {
         let locale = TextToSpeechService.formatLocale(lang)
         AppLogger.dialog.info("sendMessage language=\(lang, privacy: .public) locale=\(locale, privacy: .public) baseURL=\(baseURL ?? APIConfig.baseURL, privacy: .public) textLength=\(text.count, privacy: .public)")
         let body = InangoGenericRequest(locale: locale, queryText: text)
-        let effectiveBaseURL = normalizedBaseURL(baseURL ?? APIConfig.baseURL)
-        guard let url = URL(string: effectiveBaseURL + APIConfig.dialogPath) else { throw DialogAPIError.invalidURL }
+        guard let url = resolveEndpointURL(baseURL: baseURL) else { throw DialogAPIError.invalidURL }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -153,5 +152,21 @@ final class DialogAPIService {
             normalized = String(normalized.dropLast("/support".count))
         }
         return normalized
+    }
+
+    private func resolveEndpointURL(baseURL: String?) -> URL? {
+        guard let override = baseURL?.trimmingCharacters(in: .whitespacesAndNewlines), !override.isEmpty else {
+            let defaultBase = normalizedBaseURL(APIConfig.baseURL)
+            return URL(string: defaultBase + APIConfig.dialogPath)
+        }
+
+        let normalized = normalizedBaseURL(override)
+        guard let parsed = URL(string: normalized) else { return nil }
+        // Android Support uses a full endpoint URL. If override already contains an API path,
+        // use it as-is; otherwise append default dialog path.
+        if parsed.path.hasPrefix("/api/") {
+            return parsed
+        }
+        return URL(string: normalized + APIConfig.dialogPath)
     }
 }
