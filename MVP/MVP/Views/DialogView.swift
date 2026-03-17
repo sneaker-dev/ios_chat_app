@@ -1,32 +1,28 @@
 import SwiftUI
 import WebKit
 import AVFoundation
-import os
 
 enum AppMode: String, CaseIterable {
     case chat = "Chat"
     case support = "Support"
     case appStore = "AppStore"
+    case problems = "Problems"
 
     var iconAssetName: String {
         switch self {
-        case .chat:
-            return "TabChat"
-        case .support:
-            return "TabSupport"
-        case .appStore:
-            return "TabAppStore"
+        case .chat:    return "TabChat"
+        case .support: return "TabSupport"
+        case .appStore: return "TabAppStore"
+        case .problems: return "TabProblems"
         }
     }
 
     var iconSystemName: String {
         switch self {
-        case .chat:
-            return "message.fill"
-        case .support:
-            return "person.2.fill"
-        case .appStore:
-            return "cart.fill"
+        case .chat:    return "message.fill"
+        case .support: return "person.2.fill"
+        case .appStore: return "cart.fill"
+        case .problems: return "exclamationmark.triangle.fill"
         }
     }
 }
@@ -75,6 +71,8 @@ struct DialogView: View {
 
     @StateObject private var stt = SpeechToTextService()
     @StateObject private var tts = TextToSpeechService()
+    @StateObject private var cloudTTS = CloudTTSService.shared
+    @StateObject private var azureTTS = AzureTTSService.shared
 
     @State private var messages: [ChatMessage] = []
     @State private var chatMessages: [ChatMessage] = []
@@ -86,6 +84,7 @@ struct DialogView: View {
     @State private var hasPlayedGreeting = false
     @State private var typingMessageId: UUID?
     @State private var typingDisplayedCount: Int = 0
+    @State private var typingTargetCount: Int = 0
     @State private var avatarState: AvatarAnimState = .idle
     @State private var wasVoiceInput = false
     @State private var showTypingIndicator = false
@@ -93,6 +92,14 @@ struct DialogView: View {
     @State private var longRequestNoticeTask: Task<Void, Never>?
     @State private var showSettings = false
     @State private var appMode: AppMode = .chat
+
+    private var isInangoUser: Bool {
+        KeychainService.shared.getLastEmail()?.hasSuffix("@inango-systems.com") == true
+    }
+
+    private var visibleModes: [AppMode] {
+        AppMode.allCases.filter { $0 != .problems || isInangoUser }
+    }
 
     @AppStorage("voiceOutputEnabled") private var voiceOutputEnabled = true
     @AppStorage("alwaysVoiceResponse") private var alwaysVoiceResponse = false
@@ -113,9 +120,15 @@ struct DialogView: View {
     private let chatHistoryKey = "chatHistory"
     private let supportHistoryKey = "supportHistory"
     private let lastVersionKey = "lastAppVersion"
+    private var tabSpacing: CGFloat { visibleModes.count >= 4 ? 4 : 6 }
+    private var tabHorizontalInset: CGFloat { visibleModes.count >= 4 ? 6 : 4 }
 
     private var historyKey: String {
         appMode == .support ? supportHistoryKey : chatHistoryKey
+    }
+
+    private var isAnyTTSPlaying: Bool {
+        tts.isSpeaking || cloudTTS.isSpeaking || azureTTS.isSpeaking
     }
 
     private var dialogLanguage: String {
@@ -130,7 +143,7 @@ struct DialogView: View {
         GeometryReader { geo in
             let w = geo.size.width
             let screenH = UIScreen.main.bounds.height
-            let isLandscape = w > screenH
+            let isLandscape = w > geo.size.height
             let webViewTopPad: CGFloat = isLandscape ? 90 : {
                 let winTop = UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }
@@ -175,7 +188,23 @@ struct DialogView: View {
                     }
                 }
 
-                if isLandscape && appMode == .appStore {
+                // Problems screen — sits at the same layer as the AppStore WebView
+                if appMode == .problems {
+                    let landscapeBarH: CGFloat = 72
+                    if isLandscape {
+                        VStack(spacing: 0) {
+                            Spacer().frame(height: landscapeBarH)
+                            ProblemsView()
+                                .frame(width: w, height: screenH - landscapeBarH)
+                        }
+                    } else {
+                        ProblemsView()
+                            .frame(width: w, height: screenH - webViewTopPad)
+                            .padding(.top, webViewTopPad)
+                    }
+                }
+
+                if isLandscape && (appMode == .appStore || appMode == .problems) {
                     VStack {
                         landscapeFullWidthTopBar
                             .frame(width: w)
@@ -208,9 +237,6 @@ struct DialogView: View {
         }
         .onAppear {
             guard ensureAuthenticatedOrRedirect() else { return }
-            let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-            let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-            AppLogger.navigation.info("DialogView appeared version=\(version, privacy: .public) build=\(build, privacy: .public) avatar=\(avatarType.rawValue, privacy: .public)")
             loadAllHistories()
             messages = chatMessages
             setupTTSCallbacks()
@@ -218,7 +244,6 @@ struct DialogView: View {
         }
         .onChange(of: appMode) { newMode in
             guard ensureAuthenticatedOrRedirect() else { return }
-            AppLogger.navigation.info("tab switched to=\(newMode.rawValue, privacy: .public)")
             if newMode == .chat {
                 supportMessages = messages
                 messages = chatMessages
@@ -226,12 +251,13 @@ struct DialogView: View {
                 chatMessages = messages
                 messages = supportMessages
             }
-            tts.stop()
+            // .appStore and .problems don't use the chat message list
             typingMessageId = nil
             showTypingIndicator = false
             stopLongRequestNoticeTimer()
             isLoading = false
             errorMessage = nil
+            typingTargetCount = 0
         }
         .onChange(of: showSoftwareKeyboard) { newValue in
             if !newValue {
@@ -241,7 +267,17 @@ struct DialogView: View {
         }
         .onChange(of: tts.spokenCharacterCount) { newCount in
             if typingMessageId != nil {
-                typingDisplayedCount = newCount
+                typingDisplayedCount = min(newCount, typingTargetCount)
+            }
+        }
+        .onChange(of: cloudTTS.spokenCharacterCount) { newCount in
+            if typingMessageId != nil && cloudTTS.isSpeaking {
+                typingDisplayedCount = min(newCount, typingTargetCount)
+            }
+        }
+        .onChange(of: azureTTS.spokenCharacterCount) { newCount in
+            if typingMessageId != nil && azureTTS.isSpeaking {
+                typingDisplayedCount = min(newCount, typingTargetCount)
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -265,7 +301,7 @@ struct DialogView: View {
             : h * 0.55
 
         return ZStack(alignment: .top) {
-            if appMode != .appStore {
+            if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
                     .frame(width: w, height: h * 0.65)
                     .clipped()
@@ -275,8 +311,8 @@ struct DialogView: View {
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
 
-            VStack(spacing: 0) {
-                chatSection
+                    VStack(spacing: 0) {
+                        chatSection
 
                         if showTypingIndicator && typingIndicatorEnabled {
                             typingIndicatorView
@@ -307,7 +343,7 @@ struct DialogView: View {
         let bottomH: CGFloat = h * 0.45
 
         return ZStack(alignment: .top) {
-            if appMode != .appStore {
+            if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
                     .frame(width: w, height: h)
                     .offset(y: topBarH * 0.75)
@@ -365,16 +401,18 @@ struct DialogView: View {
                 }
             }
 
-            HStack(spacing: 6) {
-                ForEach(AppMode.allCases, id: \.self) { mode in
+            HStack(spacing: tabSpacing) {
+                ForEach(visibleModes, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        modeTabButton(mode: mode, isLandscape: true)
+                        modeTabButton(mode: mode, isLandscape: true, modeCount: visibleModes.count)
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            .padding(4)
+            .padding(.horizontal, tabHorizontalInset)
+            .padding(.vertical, 4)
             .background(Color.clear)
         }
         .padding(.horizontal, 20)
@@ -403,16 +441,17 @@ struct DialogView: View {
                 }
             }
 
-            HStack(spacing: 6) {
-                ForEach(AppMode.allCases, id: \.self) { mode in
+            HStack(spacing: tabSpacing) {
+                ForEach(visibleModes, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        modeTabButton(mode: mode, isLandscape: false)
+                        modeTabButton(mode: mode, isLandscape: false, modeCount: visibleModes.count)
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, tabHorizontalInset)
             .padding(.bottom, 4)
             .background(Color.clear)
         }
@@ -421,20 +460,39 @@ struct DialogView: View {
         .background(Color.black.opacity(0.55))
     }
 
-    private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
-        let buttonWidth: CGFloat = isLandscape ? 157 : 117
-        let iconSize: CGFloat = isLandscape ? 132 : 115
-        let textSize: CGFloat = isLandscape ? 19 : 18
-        let buttonHeight: CGFloat = isLandscape ? 92 : 80
+    private func modeTabButton(mode: AppMode, isLandscape: Bool, modeCount: Int) -> some View {
+        let scale: CGFloat = modeCount >= 4 ? 1.0 / 1.2 : 1.0
+        let baseButtonWidth: CGFloat = (isLandscape ? 157 : 117) * scale
+        let iconSize: CGFloat = (isLandscape ? 132 : 115) * scale
+        let textSize: CGFloat = (isLandscape ? 19 : 18) * scale
+        let buttonHeight: CGFloat = (isLandscape ? 92 : 80) * scale
+        let iconPaddingBottom: CGFloat = 20 * scale
+        let textPaddingBottom: CGFloat = 29 * scale
+        let screenWidth = UIScreen.main.bounds.width
+        let horizontalReserved: CGFloat = isLandscape ? 52 : 44
+        let rowSpacing: CGFloat = modeCount >= 4 ? 4 : 6
+        let sideGutter: CGFloat = modeCount >= 4 ? 6 : 4
+        let maxRowWidth = max(
+            0,
+            screenWidth
+                - horizontalReserved
+                - (sideGutter * 2)
+                - rowSpacing * CGFloat(max(modeCount - 1, 0))
+        )
+        let fittedButtonWidth = floor(maxRowWidth / CGFloat(max(modeCount, 1)))
+        let requestedButtonWidth = baseButtonWidth * (modeCount >= 4 ? 1.05 : 1.0)
+        let buttonWidth: CGFloat = modeCount >= 4
+            ? min(requestedButtonWidth, fittedButtonWidth)
+            : baseButtonWidth
 
         return ZStack(alignment: .bottom) {
             tabIcon(for: mode, size: iconSize)
-                .padding(.bottom, 20)
+                .padding(.bottom, iconPaddingBottom)
             Text(mode.rawValue)
                 .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
                 .foregroundColor(.white)
                 .lineLimit(1)
-                .padding(.bottom, 29)
+                .padding(.bottom, textPaddingBottom)
         }
         .frame(width: buttonWidth, height: buttonHeight)
         .background(
@@ -503,16 +561,16 @@ struct DialogView: View {
     }
 
     private var chatSection: some View {
-            ScrollViewReader { proxy in
-                ScrollView {
+        ScrollViewReader { proxy in
+            ScrollView {
                 LazyVStack(spacing: 10) {
-                        ForEach(messages) { msg in
-                            ChatBubbleView(
-                                message: msg,
-                                displayedCharacterCount: msg.isFromUser ? nil : (msg.id == typingMessageId ? typingDisplayedCount : nil)
-                            )
-                        }
+                    ForEach(messages) { msg in
+                        ChatBubbleView(
+                            message: msg,
+                            displayedCharacterCount: msg.isFromUser ? nil : (msg.id == typingMessageId ? typingDisplayedCount : nil)
+                        )
                     }
+                }
                 .padding(.top, 8)
                 .padding(.bottom, 8)
             }
@@ -582,7 +640,7 @@ struct DialogView: View {
                         .clipShape(Circle())
                         .opacity(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
                 }
-                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
+                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading || isAnyTTSPlaying)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -609,7 +667,7 @@ struct DialogView: View {
                     else if val.isEmpty && avatarState == .thinking && !stt.isRecording { avatarState = .idle }
                 }
 
-                Button {
+            Button {
                 if stt.isRecording { stt.stopRecording() }
                 else { startVoiceInput() }
             } label: {
@@ -620,12 +678,12 @@ struct DialogView: View {
                     .background(stt.isRecording ? Color.speakActive1 : Color.speakNormal1)
                     .clipShape(Circle())
             }
-            .disabled(isLoading)
+            .disabled(isLoading || isAnyTTSPlaying)
 
             Button {
                 wasVoiceInput = false
                 sendMessage(inputText, fromVoice: false)
-                } label: {
+            } label: {
                 Image(systemName: "paperplane.fill")
                     .font(.system(size: 18))
                     .foregroundColor(.white)
@@ -633,7 +691,7 @@ struct DialogView: View {
                     .background(Color.appPrimary)
                     .clipShape(Circle())
             }
-            .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
+            .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading || isAnyTTSPlaying)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 8)
@@ -703,8 +761,8 @@ struct DialogView: View {
             )
             .clipShape(Capsule())
             .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
-                }
-                .disabled(isLoading)
+        }
+        .disabled(isLoading || isAnyTTSPlaying)
     }
 
     private var ttsRate: Float {
@@ -742,6 +800,20 @@ struct DialogView: View {
     private func setupTTSCallbacks() {
         tts.onSpeakingStarted = { avatarState = .speaking }
         tts.onSpeakingCompleted = { avatarState = .idle }
+        CloudTTSService.shared.onSpeakingStarted = { avatarState = .speaking }
+        CloudTTSService.shared.onSpeakingCompleted = {
+            typingDisplayedCount = typingTargetCount
+            typingMessageId = nil
+            typingTargetCount = 0
+            avatarState = .idle
+        }
+        AzureTTSService.shared.onSpeakingStarted = { avatarState = .speaking }
+        AzureTTSService.shared.onSpeakingCompleted = {
+            typingDisplayedCount = typingTargetCount
+            typingMessageId = nil
+            typingTargetCount = 0
+            avatarState = .idle
+        }
     }
 
     /// Guard protected flows while user is inside Dialog screen.
@@ -772,7 +844,7 @@ struct DialogView: View {
 
     private func startVoiceInput() {
         guard ensureAuthenticatedOrRedirect() else { return }
-        AppLogger.stt.info("startVoiceInput mode=\(appMode.rawValue, privacy: .public)")
+        guard !isAnyTTSPlaying else { return }
         tts.stop()
         CloudTTSService.shared.stop()
         AzureTTSService.shared.stop()
@@ -781,19 +853,14 @@ struct DialogView: View {
         wasVoiceInput = true
         stt.requestAuthorization { granted in
             guard granted else {
-                AppLogger.stt.warning("startVoiceInput authorization denied")
                 errorMessage = stt.errorMessage ?? "Microphone access needed."
                 avatarState = .idle; return
             }
             stt.startRecording(language: dialogLanguage) { text in
                 if let text = text, !text.isEmpty {
-                    AppLogger.stt.info("voice input captured textLength=\(text.count, privacy: .public)")
                     inputText = text
                     sendMessage(text, fromVoice: true)
-                } else {
-                    AppLogger.stt.info("voice input captured no text")
-                    avatarState = .idle
-                }
+                } else { avatarState = .idle }
             }
         }
     }
@@ -802,11 +869,10 @@ struct DialogView: View {
         guard ensureAuthenticatedOrRedirect() else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        // Stop any ongoing TTS before starting a new request (#44825).
-        tts.stop()
-        CloudTTSService.shared.stop()
-        AzureTTSService.shared.stop()
-        AppLogger.dialog.info("sendMessage mode=\(appMode.rawValue, privacy: .public) fromVoice=\(fromVoice, privacy: .public) isRetry=\(isRetry, privacy: .public) textLength=\(trimmed.count, privacy: .public)")
+        guard !isAnyTTSPlaying else {
+            errorMessage = "Please wait for the current voice response to finish."
+            return
+        }
         wasVoiceInput = fromVoice
         if !isRetry {
             inputText = ""
@@ -832,10 +898,12 @@ struct DialogView: View {
                     if shouldSpeak {
                         typingMessageId = botMsg.id
                         typingDisplayedCount = 0
+                        typingTargetCount = displayText.count
                         avatarState = .speaking
                         speakResponse(ttsText) {
                             typingDisplayedCount = displayText.count
                             typingMessageId = nil
+                            typingTargetCount = 0
                             avatarState = .idle
                         }
                     } else {
@@ -850,7 +918,6 @@ struct DialogView: View {
                 }
             } catch {
                 await MainActor.run {
-                    AppLogger.dialog.error("sendMessage failed mode=\(appMode.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
                     stopLongRequestNoticeTimer()
                     showTypingIndicator = false; isLoading = false
                     errorMessage = error.localizedDescription; lastFailedMessage = trimmed; avatarState = .idle
@@ -968,9 +1035,7 @@ struct DialogView: View {
         let currentBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
         let fullVersion = "\(currentVersion).\(currentBuild)"
         let lastVersion = UserDefaults.standard.string(forKey: lastVersionKey) ?? ""
-        AppLogger.navigation.info("loadAllHistories currentVersion=\(fullVersion, privacy: .public) lastVersion=\(lastVersion, privacy: .public)")
         if fullVersion != lastVersion {
-            AppLogger.navigation.info("version changed — clearing chat history and resetting avatar")
             UserDefaults.standard.removeObject(forKey: chatHistoryKey)
             UserDefaults.standard.removeObject(forKey: supportHistoryKey)
             UserDefaults.standard.set(fullVersion, forKey: lastVersionKey)
@@ -1484,6 +1549,9 @@ final class AppStoreWebViewStore {
                 await MainActor.run {
                     guard let webView = webView else { return }
                     let effectiveToken = bootstrap?.token ?? fallbackToken
+                    if let t = bootstrap?.token {
+                        KeychainService.shared.saveAppStoreToken(t)
+                    }
                     self.applyServerCookies(bootstrap?.cookies ?? [], in: webView) {
                         self.navDelegate.authToken = effectiveToken
                         self.applySessionAndLoad(url: url, token: effectiveToken, in: webView)
