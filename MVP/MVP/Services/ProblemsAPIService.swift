@@ -78,8 +78,13 @@ final class ProblemsAPIService {
         // Support both forms of base URL:
         // - https://dash-emulator.inango.com
         // - https://dash-emulator.inango.com/api/v1
-        if base.hasSuffix("/api/v1"), normalizedPath.hasPrefix("/api/v1/") {
+        // - https://dash-emulator.inango.com/api/v1/problems
+        if base.hasSuffix("/api/v1/problems"), normalizedPath.hasPrefix("/api/v1/problems/") {
+            normalizedPath.removeFirst("/api/v1/problems".count)
+        } else if base.hasSuffix("/api/v1"), normalizedPath.hasPrefix("/api/v1/") {
             normalizedPath.removeFirst("/api/v1".count)
+        } else if base.hasSuffix("/problems"), normalizedPath.hasPrefix("/api/v1/problems/") {
+            normalizedPath.removeFirst("/api/v1/problems".count)
         }
         return URL(string: base + normalizedPath)
     }
@@ -116,7 +121,8 @@ final class ProblemsAPIService {
         guard (200...299).contains(http.statusCode) else {
             let message = (try? JSONDecoder().decode([String: String].self, from: data))?["detail"]
                 ?? HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
-            throw ProblemsAPIError.serverError(http.statusCode, message)
+            let requestPath = request.url?.absoluteString ?? "unknown URL"
+            throw ProblemsAPIError.serverError(http.statusCode, "\(message) (\(requestPath))")
         }
 
         do {
