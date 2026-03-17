@@ -144,12 +144,14 @@ final class DialogAPIService {
     }
 
     private func normalizedBaseURL(_ baseURL: String) -> String {
-        let trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        let noTrailingSlash = trimmed.hasSuffix("/") ? String(trimmed.dropLast()) : trimmed
-        // Support backend should use host root; older config used "/support".
-        if noTrailingSlash.hasSuffix("/support"), APIConfig.dialogPath.hasPrefix("/api/") {
-            return String(noTrailingSlash.dropLast("/support".count))
+        var normalized = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalized.hasSuffix("/") {
+            normalized.removeLast()
         }
-        return noTrailingSlash
+        // Keep Support API path stable even if base URL is configured with trailing /support.
+        if normalized.hasSuffix("/support"), APIConfig.dialogPath.hasPrefix("/api/") {
+            normalized = String(normalized.dropLast("/support".count))
+        }
+        return normalized
     }
 }

@@ -29,19 +29,19 @@ final class ProblemsAPIService {
     // MARK: - Public API
 
     func getCatalog() async throws -> ProblemCatalogResponse {
-        try await get(path: "/api/v1/problems/catalog", requiresAuth: true)
+        try await get(path: "catalog", requiresAuth: true)
     }
 
     func getActiveProblems() async throws -> DeviceProblemsResponse {
-        try await get(path: "/api/v1/problems/active", requiresAuth: true)
+        try await get(path: "active", requiresAuth: true)
     }
 
     func enableProblem(key: String) async throws -> ProblemToggleResponse {
-        try await put(path: "/api/v1/problems/\(key)/enable")
+        try await put(path: "\(key)/enable")
     }
 
     func disableProblem(key: String) async throws -> ProblemToggleResponse {
-        try await put(path: "/api/v1/problems/\(key)/disable")
+        try await put(path: "\(key)/disable")
     }
 
     // MARK: - Private helpers
@@ -73,20 +73,10 @@ final class ProblemsAPIService {
         let base = rawBase.hasSuffix("/")
             ? String(rawBase.dropLast())
             : rawBase
-
-        var normalizedPath = path
-        // Support both forms of base URL:
-        // - https://dash-emulator.inango.com
-        // - https://dash-emulator.inango.com/api/v1
-        // - https://dash-emulator.inango.com/api/v1/problems
-        if base.hasSuffix("/api/v1/problems"), normalizedPath.hasPrefix("/api/v1/problems/") {
-            normalizedPath.removeFirst("/api/v1/problems".count)
-        } else if base.hasSuffix("/api/v1"), normalizedPath.hasPrefix("/api/v1/") {
-            normalizedPath.removeFirst("/api/v1".count)
-        } else if base.hasSuffix("/problems"), normalizedPath.hasPrefix("/api/v1/problems/") {
-            normalizedPath.removeFirst("/api/v1/problems".count)
-        }
-        return URL(string: base + normalizedPath)
+        let relativePath = path.hasPrefix("/")
+            ? String(path.dropFirst())
+            : path
+        return URL(string: "\(base)/\(relativePath)")
     }
 
     private func get<T: Decodable>(path: String, requiresAuth: Bool = true) async throws -> T {

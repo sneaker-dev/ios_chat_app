@@ -7,6 +7,7 @@ struct LoginView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showPassword = false
+    @State private var keyboardHeight: CGFloat = 0
     @FocusState private var focusedField: Field?
     private enum Field { case email, password }
 
@@ -146,6 +147,7 @@ struct LoginView: View {
                         Spacer(minLength: isLandscape ? 12 : 40)
                     }
                     .frame(minHeight: screenH)
+                    .padding(.bottom, max(0, keyboardHeight - geo.safeAreaInsets.bottom) + 12)
                 }
             }
             .frame(width: w, height: screenH)
@@ -155,11 +157,22 @@ struct LoginView: View {
         .textFieldStyle(PlainTextFieldStyle())
         .onAppear {
             if email.isEmpty { email = KeychainService.shared.getLastEmail() ?? "" }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { focusedField = .email }
+            focusedField = nil
         }
         .onSubmit {
             if focusedField == .email { focusedField = .password }
             else if focusedField == .password { submit() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { note in
+            guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+            withAnimation(.easeOut(duration: 0.25)) {
+                keyboardHeight = frame.height
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.easeOut(duration: 0.25)) {
+                keyboardHeight = 0
+            }
         }
     }
 

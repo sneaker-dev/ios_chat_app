@@ -52,7 +52,11 @@ final class ProblemsViewModel: ObservableObject {
                     )
                 }
             } catch {
-                self.error = error.localizedDescription
+                if case let ProblemsAPIError.serverError(status, _) = error, status == 404 {
+                    self.error = "No board is linked to this account yet. Please verify account-device mapping and try again."
+                } else {
+                    self.error = error.localizedDescription
+                }
             }
             isLoading = false
         }

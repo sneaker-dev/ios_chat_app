@@ -137,7 +137,7 @@ struct DialogView: View {
         GeometryReader { geo in
             let w = geo.size.width
             let screenH = UIScreen.main.bounds.height
-            let isLandscape = w > screenH
+            let isLandscape = w > geo.size.height
             let webViewTopPad: CGFloat = isLandscape ? 90 : {
                 let winTop = UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }
@@ -880,6 +880,17 @@ struct DialogView: View {
                         typingMessageId = botMsg.id
                         typingDisplayedCount = 0
                         avatarState = .speaking
+                        let usingCloudTTS = cloudTTSProvider == "google" || cloudTTSProvider == "azure"
+                        if usingCloudTTS {
+                            // Cloud providers don't expose incremental spoken character callbacks on iOS,
+                            // so stream text word-by-word at the configured speech pace.
+                            startTypewriter(
+                                messageId: botMsg.id,
+                                fullText: displayText,
+                                wordByWord: true,
+                                msPerWord: tts.millisecondsPerWord(isFemale: avatarType.isFemale)
+                            )
+                        }
                         speakResponse(ttsText) {
                             typingDisplayedCount = displayText.count
                             typingMessageId = nil
