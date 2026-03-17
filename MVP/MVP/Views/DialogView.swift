@@ -392,14 +392,15 @@ struct DialogView: View {
                     Button {
                         NotificationCenter.default.post(name: .changeAvatar, object: nil)
                     } label: {
-                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 173, buttonSize: 173)
+                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 115, buttonSize: 115)
                     }
 
                     Button { showSettings = true } label: {
-                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 173, buttonSize: 173)
+                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 115, buttonSize: 115)
                     }
                 }
             }
+            .offset(y: -30)
 
             HStack(spacing: tabSpacing) {
                 ForEach(visibleModes, id: \.self) { mode in
@@ -411,6 +412,8 @@ struct DialogView: View {
                     .buttonStyle(.plain)
                 }
             }
+            .frame(maxWidth: .infinity)
+            .offset(y: -50)
             .padding(.horizontal, tabHorizontalInset)
             .padding(.vertical, 4)
             .background(Color.clear)
@@ -468,8 +471,10 @@ struct DialogView: View {
         let buttonHeight: CGFloat = (isLandscape ? 92 : 80) * scale
         let iconPaddingBottom: CGFloat = 20 * scale
         let textPaddingBottom: CGFloat = 29 * scale
-        let screenWidth = UIScreen.main.bounds.width
-        let horizontalReserved: CGFloat = isLandscape ? 52 : 44
+        let screenWidth = isLandscape
+            ? max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
+            : UIScreen.main.bounds.width
+        let horizontalReserved: CGFloat = isLandscape ? 32 : 44
         let rowSpacing: CGFloat = modeCount >= 4 ? 4 : 6
         let sideGutter: CGFloat = modeCount >= 4 ? 6 : 4
         let maxRowWidth = max(
@@ -480,7 +485,7 @@ struct DialogView: View {
                 - rowSpacing * CGFloat(max(modeCount - 1, 0))
         )
         let fittedButtonWidth = floor(maxRowWidth / CGFloat(max(modeCount, 1)))
-        let requestedButtonWidth = baseButtonWidth * (modeCount >= 4 ? 1.05 : 1.0)
+        let requestedButtonWidth = baseButtonWidth * (isLandscape ? 1.3 : (modeCount >= 4 ? 1.05 : 1.0))
         let buttonWidth: CGFloat = modeCount >= 4
             ? min(requestedButtonWidth, fittedButtonWidth)
             : baseButtonWidth
