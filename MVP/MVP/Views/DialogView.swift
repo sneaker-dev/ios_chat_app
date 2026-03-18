@@ -199,7 +199,7 @@ struct DialogView: View {
                 }
 
                 if let url = URL(string: APIConfig.appStoreURL) {
-                    let landscapeBarH: CGFloat = landscapeTopContentInset
+                    let landscapeBarH: CGFloat = landscapeTopContentInset + 14
                     if isLandscape {
                         VStack(spacing: 0) {
                             Spacer().frame(height: landscapeBarH)
@@ -536,7 +536,7 @@ struct DialogView: View {
         .frame(width: buttonWidth, height: buttonHeight)
         .background(
             RoundedRectangle(cornerRadius: 9)
-                .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.34))
+                .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.45))
         )
         .clipShape(RoundedRectangle(cornerRadius: 9))
     }
