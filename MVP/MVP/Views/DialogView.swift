@@ -92,6 +92,7 @@ struct DialogView: View {
     @State private var showLongRequestNotice = false
     @State private var longRequestNoticeTask: Task<Void, Never>?
     @State private var showSettings = false
+    @SceneStorage("dialogViewAppMode") private var persistedAppMode = AppMode.chat.rawValue
     @State private var appMode: AppMode = .chat
 
     private var isInangoUser: Bool {
@@ -265,6 +266,9 @@ struct DialogView: View {
         }
         .onAppear {
             guard ensureAuthenticatedOrRedirect() else { return }
+            if let restoredMode = AppMode(rawValue: persistedAppMode) {
+                appMode = restoredMode
+            }
             let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
             let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
             AppLogger.navigation.info("DialogView appeared version=\(version, privacy: .public) build=\(build, privacy: .public) avatar=\(avatarType.rawValue, privacy: .public)")
@@ -276,6 +280,7 @@ struct DialogView: View {
         .onChange(of: appMode) { newMode in
             guard ensureAuthenticatedOrRedirect() else { return }
             AppLogger.navigation.info("tab switched to=\(newMode.rawValue, privacy: .public)")
+            persistedAppMode = newMode.rawValue
             if newMode == .chat || newMode == .support {
                 messages = messages(for: newMode)
             }
@@ -308,6 +313,11 @@ struct DialogView: View {
                 typingDisplayedCount = min(newCount, typingTargetCount)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+            if appMode == .chat || appMode == .support {
+                messages = messages(for: appMode)
+            }
+        }
         .sheet(isPresented: $showSettings) {
             settingsSheet
         }
@@ -333,7 +343,6 @@ struct DialogView: View {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
                     .scaleEffect(1.15)
                     .frame(width: w, height: h * 0.65)
-                    .clipped()
                     .allowsHitTesting(false)
                     .padding(.top, topBarBottom + 6)
                     .zIndex(10)
@@ -378,7 +387,6 @@ struct DialogView: View {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
                     .frame(width: w, height: h)
                     .offset(y: topBarH * 0.20 + 38)
-                    .clipped()
                     .allowsHitTesting(false)
                     .zIndex(10)
 
