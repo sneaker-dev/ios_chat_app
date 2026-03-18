@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import AVFoundation
+import os
 
 enum AppMode: String, CaseIterable {
     case chat = "Chat"
@@ -121,7 +122,7 @@ struct DialogView: View {
     private let supportHistoryKey = "supportHistory"
     private let lastVersionKey = "lastAppVersion"
     private var tabSpacing: CGFloat { visibleModes.count >= 4 ? 4 : 6 }
-    private var tabHorizontalInset: CGFloat { visibleModes.count >= 4 ? 6 : 4 }
+    private var tabHorizontalInset: CGFloat { visibleModes.count >= 4 ? 2 : 4 }
 
     private func messages(for mode: AppMode) -> [ChatMessage] {
         switch mode {
@@ -235,6 +236,7 @@ struct DialogView: View {
                             .frame(width: w)
                         Spacer()
                     }
+                    .zIndex(5)
                 }
 
                 if !isLandscape {
@@ -245,6 +247,7 @@ struct DialogView: View {
                         topBar.frame(width: w).padding(.top, (winTop2 + 6) / 2)
                         Spacer()
                     }
+                    .zIndex(5)
                 }
             }
             .frame(width: w, height: screenH)
@@ -262,6 +265,9 @@ struct DialogView: View {
         }
         .onAppear {
             guard ensureAuthenticatedOrRedirect() else { return }
+            let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+            let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+            AppLogger.navigation.info("DialogView appeared version=\(version, privacy: .public) build=\(build, privacy: .public) avatar=\(avatarType.rawValue, privacy: .public)")
             loadAllHistories()
             messages = messages(for: appMode)
             setupTTSCallbacks()
@@ -269,6 +275,7 @@ struct DialogView: View {
         }
         .onChange(of: appMode) { newMode in
             guard ensureAuthenticatedOrRedirect() else { return }
+            AppLogger.navigation.info("tab switched to=\(newMode.rawValue, privacy: .public)")
             if newMode == .chat || newMode == .support {
                 messages = messages(for: newMode)
             }
@@ -328,13 +335,14 @@ struct DialogView: View {
                     .frame(width: w, height: h * 0.65)
                     .clipped()
                     .allowsHitTesting(false)
-                    .padding(.top, topBarBottom + 20)
+                    .padding(.top, topBarBottom - 38)
+                    .zIndex(20)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
 
-                    VStack(spacing: 0) {
-                        chatSection
+            VStack(spacing: 0) {
+                chatSection
 
                         if showTypingIndicator && typingIndicatorEnabled {
                             typingIndicatorView
@@ -368,9 +376,10 @@ struct DialogView: View {
             if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
                     .frame(width: w, height: h)
-                    .offset(y: topBarH * 0.75)
+                    .offset(y: topBarH * 0.35)
                     .clipped()
                     .allowsHitTesting(false)
+                    .zIndex(20)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -397,6 +406,7 @@ struct DialogView: View {
             if appMode != .appStore && appMode != .problems {
                 landscapeFullWidthTopBar
                     .frame(width: w)
+                    .zIndex(5)
             }
         }
         .frame(width: w, height: h)
@@ -480,7 +490,7 @@ struct DialogView: View {
             .padding(.bottom, 4)
             .background(Color.clear)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 12)
         .padding(.bottom, 4)
         .background(Color.black.opacity(0.55))
     }
@@ -591,16 +601,16 @@ struct DialogView: View {
     }
 
     private var chatSection: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
+            ScrollViewReader { proxy in
+                ScrollView {
                 LazyVStack(spacing: 10) {
-                    ForEach(messages) { msg in
-                        ChatBubbleView(
-                            message: msg,
-                            displayedCharacterCount: msg.isFromUser ? nil : (msg.id == typingMessageId ? typingDisplayedCount : nil)
-                        )
+                        ForEach(messages) { msg in
+                            ChatBubbleView(
+                                message: msg,
+                                displayedCharacterCount: msg.isFromUser ? nil : (msg.id == typingMessageId ? typingDisplayedCount : nil)
+                            )
+                        }
                     }
-                }
                 .padding(.top, 8)
                 .padding(.bottom, 8)
             }
@@ -697,7 +707,7 @@ struct DialogView: View {
                     else if val.isEmpty && avatarState == .thinking && !stt.isRecording { avatarState = .idle }
                 }
 
-            Button {
+                Button {
                 if stt.isRecording { stt.stopRecording() }
                 else { startVoiceInput() }
             } label: {
@@ -713,7 +723,7 @@ struct DialogView: View {
             Button {
                 wasVoiceInput = false
                 sendMessage(inputText, fromVoice: false)
-            } label: {
+                } label: {
                 Image(systemName: "paperplane.fill")
                     .font(.system(size: 18))
                     .foregroundColor(.white)
@@ -874,6 +884,7 @@ struct DialogView: View {
 
     private func startVoiceInput() {
         guard ensureAuthenticatedOrRedirect() else { return }
+        AppLogger.stt.info("startVoiceInput mode=\(appMode.rawValue, privacy: .public)")
         guard !isAnyTTSPlaying else { return }
         tts.stop()
         CloudTTSService.shared.stop()
@@ -883,14 +894,19 @@ struct DialogView: View {
         wasVoiceInput = true
         stt.requestAuthorization { granted in
             guard granted else {
+                AppLogger.stt.warning("startVoiceInput authorization denied")
                 errorMessage = stt.errorMessage ?? "Microphone access needed."
                 avatarState = .idle; return
             }
             stt.startRecording(language: dialogLanguage) { text in
                 if let text = text, !text.isEmpty {
+                    AppLogger.stt.info("voice input captured textLength=\(text.count, privacy: .public)")
                     inputText = text
                     sendMessage(text, fromVoice: true)
-                } else { avatarState = .idle }
+                } else {
+                    AppLogger.stt.info("voice input captured no text")
+                    avatarState = .idle
+                }
             }
         }
     }
@@ -905,6 +921,7 @@ struct DialogView: View {
             errorMessage = "Please wait for the current voice response to finish."
             return
         }
+        AppLogger.dialog.info("sendMessage mode=\(appMode.rawValue, privacy: .public) fromVoice=\(fromVoice, privacy: .public) isRetry=\(isRetry, privacy: .public) textLength=\(trimmed.count, privacy: .public)")
         wasVoiceInput = fromVoice
         if !isRetry {
             inputText = ""
@@ -958,6 +975,7 @@ struct DialogView: View {
                 }
             } catch {
                 await MainActor.run {
+                    AppLogger.dialog.error("sendMessage failed mode=\(appMode.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
                     stopLongRequestNoticeTimer()
                     showTypingIndicator = false; isLoading = false
                     errorMessage = error.localizedDescription; lastFailedMessage = trimmed; avatarState = .idle
@@ -1077,7 +1095,9 @@ struct DialogView: View {
         let currentBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
         let fullVersion = "\(currentVersion).\(currentBuild)"
         let lastVersion = UserDefaults.standard.string(forKey: lastVersionKey) ?? ""
+        AppLogger.navigation.info("loadAllHistories currentVersion=\(fullVersion, privacy: .public) lastVersion=\(lastVersion, privacy: .public)")
         if fullVersion != lastVersion {
+            AppLogger.navigation.info("version changed — clearing chat history and resetting avatar")
             UserDefaults.standard.removeObject(forKey: chatHistoryKey)
             UserDefaults.standard.removeObject(forKey: supportHistoryKey)
             UserDefaults.standard.set(fullVersion, forKey: lastVersionKey)
@@ -1474,7 +1494,12 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
         let js = """
         try {
             window.localStorage.setItem('token', '\(escapedToken)');
+            window.localStorage.setItem('access_token', '\(escapedToken)');
+            window.localStorage.setItem('jwt', '\(escapedToken)');
             document.cookie = 'token=\(escapedToken); path=/; secure; samesite=lax';
+            document.cookie = 'access_token=\(escapedToken); path=/; secure; samesite=lax';
+            document.cookie = 'jwt=\(escapedToken); path=/; secure; samesite=lax';
+            document.cookie = 'next-auth.session-token=\(escapedToken); path=/; secure; samesite=lax';
         } catch (e) {}
         """
         webView.evaluateJavaScript(js)
@@ -1596,6 +1621,11 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
 }
 
 final class AppStoreWebViewStore {
+    private struct AppStoreAuthBootstrap {
+        let token: String?
+        let cookies: [HTTPCookie]
+    }
+
     static let shared = AppStoreWebViewStore()
     private(set) var webView: WKWebView?
     private var loadedToken: String?
@@ -1669,7 +1699,7 @@ final class AppStoreWebViewStore {
             appStoreAuthTask?.cancel()
             appStoreAuthTask = Task { [weak self, weak webView] in
                 guard let self = self else { return }
-                let bootstrap = await AppStoreAuthService.shared.login(email: email, password: password)
+                let bootstrap = await self.fetchAppStoreAuthBootstrap(email: email, password: password)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     guard let webView = webView else { return }
@@ -1689,6 +1719,39 @@ final class AppStoreWebViewStore {
         applySessionAndLoad(url: url, token: token, in: webView)
     }
 
+    private func fetchAppStoreAuthBootstrap(email: String, password: String) async -> AppStoreAuthBootstrap? {
+        let paths = ["/api/auth/login", "/api/v1/auth/login"]
+        let methods = ["POST", "PUT"]
+        let body: [String: String] = ["email": email, "password": password]
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
+
+        for path in paths {
+            guard let loginURL = URL(string: APIConfig.appStoreURL + path) else { continue }
+            for method in methods {
+                var request = URLRequest(url: loginURL)
+                request.httpMethod = method
+                request.timeoutInterval = 12
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.setValue("application/json", forHTTPHeaderField: "Accept")
+                request.httpBody = bodyData
+
+                do {
+                    let (data, response) = try await URLSession.shared.data(for: request)
+                    guard let http = response as? HTTPURLResponse else { continue }
+                    guard (200...299).contains(http.statusCode) else { continue }
+                    let cookies = extractCookies(from: http, for: loginURL)
+                    let token = parseToken(from: data)
+                    if token != nil || !cookies.isEmpty {
+                        return AppStoreAuthBootstrap(token: token, cookies: cookies)
+                    }
+                } catch {
+                    continue
+                }
+            }
+        }
+        return nil
+    }
+
     private func applyServerCookies(_ cookies: [HTTPCookie], in webView: WKWebView, completion: @escaping () -> Void) {
         guard !cookies.isEmpty else {
             completion()
@@ -1705,13 +1768,65 @@ final class AppStoreWebViewStore {
         cookieGroup.notify(queue: .main, execute: completion)
     }
 
+    private func extractCookies(from response: HTTPURLResponse, for url: URL) -> [HTTPCookie] {
+        var headers: [String: String] = [:]
+        for (key, value) in response.allHeaderFields {
+            guard let keyString = key as? String, let valueString = value as? String else { continue }
+            headers[keyString] = valueString
+        }
+        return HTTPCookie.cookies(withResponseHeaderFields: headers, for: url)
+    }
+
+    private func parseToken(from data: Data) -> String? {
+        if let text = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           text.contains("."),
+           text.count > 40,
+           !text.hasPrefix("{"),
+           !text.hasPrefix("[") {
+            return text
+        }
+        guard let json = try? JSONSerialization.jsonObject(with: data) else { return nil }
+        return findToken(in: json)
+    }
+
+    private func findToken(in value: Any) -> String? {
+        if let dict = value as? [String: Any] {
+            for key in ["token", "access_token", "access", "jwt"] {
+                if let token = dict[key] as? String, !token.isEmpty {
+                    return token
+                }
+            }
+            for child in dict.values {
+                if let token = findToken(in: child) {
+                    return token
+                }
+            }
+        } else if let arr = value as? [Any] {
+            for child in arr {
+                if let token = findToken(in: child) {
+                    return token
+                }
+            }
+        }
+        return nil
+    }
+
     private func applySessionAndLoad(url: URL, token: String?, in webView: WKWebView) {
+        var finalURL = url
         if let token = token {
-            var request = URLRequest(url: url)
+            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            var items = components?.queryItems ?? []
+            items.removeAll { $0.name == "token" }
+            items.append(URLQueryItem(name: "token", value: token))
+            components?.queryItems = items
+            finalURL = components?.url ?? url
+
+            var request = URLRequest(url: finalURL)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-            let domain = url.host ?? URL(string: APIConfig.appStoreURL)?.host ?? "appstore-demo.inango.com"
-            let cookieNames = ["token"]
+            let domain = url.host ?? "appstore-demo.inango.com"
+            let cookieNames = ["token", "access_token", "jwt", "next-auth.session-token"]
             let cookieStore = webView.configuration.websiteDataStore.httpCookieStore
             let cookieGroup = DispatchGroup()
             var didSetAnyCookie = false
@@ -1739,7 +1854,7 @@ final class AppStoreWebViewStore {
                 webView.load(request)
             }
         } else {
-            webView.load(URLRequest(url: url))
+            webView.load(URLRequest(url: finalURL))
         }
     }
 
@@ -1768,6 +1883,7 @@ struct AppStoreWebView: UIViewRepresentable {
         store.syncSession(url: url, token: token, in: webView)
         store.updateOrientation(isLandscape, in: webView)
         DispatchQueue.main.async {
+            store.syncSession(url: url, token: token, in: webView)
             webView.setNeedsLayout()
             webView.layoutIfNeeded()
         }

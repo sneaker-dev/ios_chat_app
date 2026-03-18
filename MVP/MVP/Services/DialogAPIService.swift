@@ -149,10 +149,6 @@ final class DialogAPIService {
         if normalized.hasSuffix("/") {
             normalized.removeLast()
         }
-        // Keep Support API path stable even if base URL is configured with trailing /support.
-        if normalized.hasSuffix("/support"), APIConfig.dialogPath.hasPrefix("/api/") {
-            normalized = String(normalized.dropLast("/support".count))
-        }
         return normalized
     }
 
@@ -164,10 +160,17 @@ final class DialogAPIService {
 
         let normalized = normalizedBaseURL(override)
         guard let parsed = URL(string: normalized) else { return nil }
-        // Android Support uses a full endpoint URL. If override already contains an API path,
-        // use it as-is; otherwise append default dialog path.
+        // If override already contains an API path, use it as-is.
         if parsed.path.hasPrefix("/api/") {
             return parsed
+        }
+        // Harden Support routing: some environments provide host-only or /support path.
+        // Normalize these to the known support endpoint instead of generic intent path.
+        if let host = parsed.host?.lowercased(), host.contains("support-demo.inango.com") {
+            let path = parsed.path.lowercased()
+            if path.isEmpty || path == "/" || path == "/support" {
+                return URL(string: "https://support-demo.inango.com/api/v1/support/chat")
+            }
         }
         return URL(string: normalized + APIConfig.dialogPath)
     }
