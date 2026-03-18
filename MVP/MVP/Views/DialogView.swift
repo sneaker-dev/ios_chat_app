@@ -219,7 +219,7 @@ struct DialogView: View {
 
                 // Problems screen — sits at the same layer as the AppStore WebView
                 if appMode == .problems {
-                    let landscapeBarH: CGFloat = landscapeTopContentInset
+                    let landscapeBarH: CGFloat = landscapeTopContentInset + 14
                     if isLandscape {
                         VStack(spacing: 0) {
                             Spacer().frame(height: landscapeBarH)
@@ -233,7 +233,7 @@ struct DialogView: View {
                     }
                 }
 
-                if isLandscape && (appMode == .appStore || appMode == .problems) {
+                if isLandscape && appMode == .appStore {
                     VStack {
                         landscapeFullWidthTopBar
                             .frame(width: w)
@@ -497,7 +497,7 @@ struct DialogView: View {
         let baseButtonWidth: CGFloat = (isLandscape ? 157 : 117) * scale
         let iconSize: CGFloat = (isLandscape ? 109.2 : 115) * scale
         let textSize: CGFloat = (isLandscape ? 19 : 18) * scale
-        let buttonHeight: CGFloat = (isLandscape ? 76 : 80) * scale
+        let buttonHeight: CGFloat = ((isLandscape ? 76 : 80) + 3) * scale
         let iconPaddingBottom: CGFloat = (isLandscape ? 6 : 20) * scale
         let textPaddingBottom: CGFloat = (isLandscape ? 11 : 29) * scale
         let textLift: CGFloat = isLandscape ? -8 : 0
@@ -534,7 +534,7 @@ struct DialogView: View {
         .frame(width: buttonWidth, height: buttonHeight)
         .background(
             RoundedRectangle(cornerRadius: 9)
-                .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
+                .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.2))
         )
         .clipShape(RoundedRectangle(cornerRadius: 9))
     }
@@ -1563,12 +1563,14 @@ final class AppStoreWebViewStore {
     static let shared = AppStoreWebViewStore()
     private(set) var webView: WKWebView?
     private var loadedToken: String?
+    private var lastIsLandscape: Bool?
     private var appStoreAuthTask: Task<Void, Never>?
     let navDelegate = AppStoreNavDelegate()
 
-    func getOrCreate(url: URL, token: String?) -> WKWebView {
+    func getOrCreate(url: URL, token: String?, isLandscape: Bool) -> WKWebView {
         if let wv = webView {
             syncSession(url: url, token: token, in: wv)
+            updateOrientation(isLandscape, in: wv)
             return wv
         }
 
@@ -1584,8 +1586,36 @@ final class AppStoreWebViewStore {
         wv.navigationDelegate = navDelegate
 
         webView = wv
+        lastIsLandscape = isLandscape
+        navDelegate.isLandscape = isLandscape
         syncSession(url: url, token: token, in: wv, forceReload: true)
         return wv
+    }
+
+    func updateOrientation(_ isLandscape: Bool, in webView: WKWebView? = nil) {
+        let target = webView ?? self.webView
+        guard let target else { return }
+        navDelegate.isLandscape = isLandscape
+        let changed = (lastIsLandscape != nil && lastIsLandscape != isLandscape)
+        lastIsLandscape = isLandscape
+
+        // Force responsive pages inside WKWebView to reflow after rotation.
+        let reflowJS = """
+        (function () {
+            try {
+                window.dispatchEvent(new Event('orientationchange'));
+                window.dispatchEvent(new Event('resize'));
+                if (document && document.body) {
+                    document.body.style.width = '100vw';
+                    document.body.style.height = '100vh';
+                }
+            } catch (e) {}
+        })();
+        """
+        target.evaluateJavaScript(reflowJS, completionHandler: nil)
+        if changed {
+            target.reload()
+        }
     }
 
     func syncSession(url: URL, token: String?, in webView: WKWebView? = nil, forceReload: Bool = false) {
@@ -1775,6 +1805,7 @@ final class AppStoreWebViewStore {
         appStoreAuthTask = nil
         webView = nil
         loadedToken = nil
+        lastIsLandscape = nil
     }
 }
 
@@ -1784,14 +1815,15 @@ struct AppStoreWebView: UIViewRepresentable {
     var isLandscape: Bool = false
 
     func makeUIView(context: Context) -> WKWebView {
-        let wv = AppStoreWebViewStore.shared.getOrCreate(url: url, token: token)
+        let wv = AppStoreWebViewStore.shared.getOrCreate(url: url, token: token, isLandscape: isLandscape)
         AppStoreWebViewStore.shared.navDelegate.isLandscape = isLandscape
         return wv
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
         let store = AppStoreWebViewStore.shared
-        store.navDelegate.isLandscape = isLandscape
+        store.syncSession(url: url, token: token, in: webView)
+        store.updateOrientation(isLandscape, in: webView)
         DispatchQueue.main.async {
             store.syncSession(url: url, token: token, in: webView)
             webView.setNeedsLayout()
