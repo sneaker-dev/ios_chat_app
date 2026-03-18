@@ -470,8 +470,9 @@ struct DialogView: View {
         let iconSize: CGFloat = (isLandscape ? 109.2 : 115) * scale
         let textSize: CGFloat = (isLandscape ? 19 : 18) * scale
         let buttonHeight: CGFloat = (isLandscape ? 76 : 80) * scale
-        let iconPaddingBottom: CGFloat = (isLandscape ? 8 : 20) * scale
+        let iconPaddingBottom: CGFloat = (isLandscape ? 6 : 20) * scale
         let textPaddingBottom: CGFloat = (isLandscape ? 8 : 29) * scale
+        let textLift: CGFloat = isLandscape ? -8 : 0
         let screenWidth = isLandscape
             ? max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
             : UIScreen.main.bounds.width
@@ -486,8 +487,8 @@ struct DialogView: View {
                 - rowSpacing * CGFloat(max(modeCount - 1, 0))
         )
         let fittedButtonWidth = floor(maxRowWidth / CGFloat(max(modeCount, 1)))
-        let requestedButtonWidth = baseButtonWidth * (isLandscape ? 1.56 : (modeCount >= 4 ? 1.05 : 1.0))
-        let widenedFittedButtonWidth = floor(fittedButtonWidth * (isLandscape ? 1.2 : 1.0))
+        let requestedButtonWidth = baseButtonWidth * (isLandscape ? 1.56 : 1.1)
+        let widenedFittedButtonWidth = floor(fittedButtonWidth * (isLandscape ? 1.2 : 1.1))
         let buttonWidth: CGFloat = modeCount >= 4
             ? min(requestedButtonWidth, widenedFittedButtonWidth)
             : baseButtonWidth
@@ -500,6 +501,7 @@ struct DialogView: View {
                 .foregroundColor(.white)
                 .lineLimit(1)
                 .padding(.bottom, textPaddingBottom)
+                .offset(y: textLift)
         }
         .frame(width: buttonWidth, height: buttonHeight)
         .background(
