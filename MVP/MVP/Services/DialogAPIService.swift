@@ -47,16 +47,21 @@ final class DialogAPIService {
     }
 
     func sendMessage(_ text: String, language: String? = nil, baseURL: String? = nil) async throws -> String {
+        let normalizedText = sanitizeQueryText(text)
+        guard !normalizedText.isEmpty else {
+            throw DialogAPIError.serverError("Please say or type a message.")
+        }
+
         guard let token = auth.token() else { throw DialogAPIError.notAuthenticated }
 
         if APIConfig.useDemoMode {
-            return "You said: \"\(text)\". (Demo mode.)"
+            return "You said: \"\(normalizedText)\". (Demo mode.)"
         }
 
         let lang = language ?? DialogAPIService.getDeviceLanguage()
         let locale = TextToSpeechService.formatLocale(lang)
-        AppLogger.dialog.info("sendMessage language=\(lang, privacy: .public) locale=\(locale, privacy: .public) baseURL=\(baseURL ?? APIConfig.baseURL, privacy: .public) textLength=\(text.count, privacy: .public)")
-        let body = InangoGenericRequest(locale: locale, queryText: text)
+        AppLogger.dialog.info("sendMessage language=\(lang, privacy: .public) locale=\(locale, privacy: .public) baseURL=\(baseURL ?? APIConfig.baseURL, privacy: .public) textLength=\(normalizedText.count, privacy: .public)")
+        let body = InangoGenericRequest(locale: locale, queryText: normalizedText)
         guard let url = resolveEndpointURL(baseURL: baseURL) else { throw DialogAPIError.invalidURL }
         let isSupportRequest = isSupportURL(url)
 
@@ -65,10 +70,10 @@ final class DialogAPIService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONEncoder().encode(body)
-        request.timeoutInterval = isSupportRequest ? 12 : 25
+        request.timeoutInterval = isSupportRequest ? 18 : 25
 
-        // Support should fail fast so UI does not appear stuck in processing.
-        let maxRetries = isSupportRequest ? 0 : 4
+        // Support stays responsive but now allows one retry for transient server/network hiccups.
+        let maxRetries = isSupportRequest ? 1 : 4
         var lastError: DialogAPIError?
         for attempt in 0...maxRetries {
             do {
@@ -89,7 +94,7 @@ final class DialogAPIService {
                     }
                     let msg = userFacingMessage(from: data, statusCode: http.statusCode)
                     if token.hasPrefix("demo-token-") {
-                        return "You said: \"\(text)\". (Need real login to get answers from voice-demo.inango.com.)"
+                        return "You said: \"\(normalizedText)\". (Need real login to get answers from voice-demo.inango.com.)"
                     }
                     lastError = .serverError(msg)
                     if http.statusCode >= 500 && attempt < maxRetries {
@@ -180,5 +185,16 @@ final class DialogAPIService {
         let host = (url.host ?? "").lowercased()
         let path = url.path.lowercased()
         return host.contains("support-demo.inango.com") || path.contains("/support/chat")
+    }
+
+    private func sanitizeQueryText(_ text: String) -> String {
+        let collapsed = text.replacingOccurrences(
+            of: "\\s+",
+            with: " ",
+            options: .regularExpression
+        )
+        let cleanedScalars = collapsed.unicodeScalars.filter { !$0.properties.isControl }
+        return String(String.UnicodeScalarView(cleanedScalars))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
