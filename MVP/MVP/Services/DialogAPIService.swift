@@ -58,14 +58,17 @@ final class DialogAPIService {
         AppLogger.dialog.info("sendMessage language=\(lang, privacy: .public) locale=\(locale, privacy: .public) baseURL=\(baseURL ?? APIConfig.baseURL, privacy: .public) textLength=\(text.count, privacy: .public)")
         let body = InangoGenericRequest(locale: locale, queryText: text)
         guard let url = resolveEndpointURL(baseURL: baseURL) else { throw DialogAPIError.invalidURL }
+        let isSupportRequest = isSupportURL(url)
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONEncoder().encode(body)
+        request.timeoutInterval = isSupportRequest ? 12 : 25
 
-        let maxRetries = 4
+        // Support should fail fast so UI does not appear stuck in processing.
+        let maxRetries = isSupportRequest ? 0 : 4
         var lastError: DialogAPIError?
         for attempt in 0...maxRetries {
             do {
@@ -171,5 +174,11 @@ final class DialogAPIService {
             }
         }
         return URL(string: normalized + APIConfig.dialogPath)
+    }
+
+    private func isSupportURL(_ url: URL) -> Bool {
+        let host = (url.host ?? "").lowercased()
+        let path = url.path.lowercased()
+        return host.contains("support-demo.inango.com") || path.contains("/support/chat")
     }
 }
