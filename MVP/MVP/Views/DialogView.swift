@@ -197,7 +197,7 @@ struct DialogView: View {
                     portraitLayout(w: w, h: screenH)
                 }
 
-                if let url = URL(string: APIConfig.appStoreURL) {
+                if appMode == .appStore, let url = URL(string: APIConfig.appStoreURL) {
                     let landscapeBarH: CGFloat = landscapeTopContentInset + 14
                     if isLandscape {
                         VStack(spacing: 0) {
@@ -205,14 +205,10 @@ struct DialogView: View {
                             AppStoreWebView(url: url, token: AuthService.shared.token(), isLandscape: true)
                                 .frame(width: w, height: screenH - landscapeBarH)
                         }
-                        .opacity(appMode == .appStore ? 1 : 0)
-                        .allowsHitTesting(appMode == .appStore)
                     } else {
                         AppStoreWebView(url: url, token: AuthService.shared.token(), isLandscape: false)
                             .frame(width: w, height: screenH - webViewTopPad)
                             .padding(.top, webViewTopPad)
-                            .opacity(appMode == .appStore ? 1 : 0)
-                            .allowsHitTesting(appMode == .appStore)
                     }
                 }
 
@@ -327,11 +323,10 @@ struct DialogView: View {
         return ZStack(alignment: .top) {
             if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
-                    .scaleEffect(1.0 / 1.2)
                     .frame(width: w, height: h * 0.65)
                     .clipped()
                     .allowsHitTesting(false)
-                    .padding(.top, topBarBottom + 50)
+                    .padding(.top, topBarBottom + 20)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -370,9 +365,8 @@ struct DialogView: View {
         return ZStack(alignment: .top) {
             if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
-                    .scaleEffect(1.0 / 1.2)
                     .frame(width: w, height: h)
-                    .offset(y: topBarH * 0.75 + 30)
+                    .offset(y: topBarH * 0.75)
                     .clipped()
                     .allowsHitTesting(false)
 
@@ -930,7 +924,9 @@ struct DialogView: View {
                     let botMsg = ChatMessage(text: displayText, isFromUser: false, wasVoiceInput: fromVoice, language: dialogLanguage)
                     appendMessage(botMsg, to: requestMode)
                     isLoading = false
-                    let shouldSpeak = voiceOutputEnabled && !ttsText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    let shouldSpeak = voiceOutputEnabled
+                        && (fromVoice || alwaysVoiceResponse)
+                        && !ttsText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     if shouldSpeak {
                         if appMode == requestMode {
                             typingMessageId = botMsg.id
