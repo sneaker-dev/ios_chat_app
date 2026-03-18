@@ -332,10 +332,11 @@ struct DialogView: View {
         return ZStack(alignment: .top) {
             if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
+                    .scaleEffect(1.0 / 1.2)
                     .frame(width: w, height: h * 0.65)
                     .clipped()
                     .allowsHitTesting(false)
-                    .padding(.top, topBarBottom + 20)
+                    .padding(.top, topBarBottom + 50)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -374,8 +375,9 @@ struct DialogView: View {
         return ZStack(alignment: .top) {
             if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
+                    .scaleEffect(1.0 / 1.2)
                     .frame(width: w, height: h)
-                    .offset(y: topBarH * 0.75)
+                    .offset(y: topBarH * 0.75 + 30)
                     .clipped()
                     .allowsHitTesting(false)
 
@@ -534,7 +536,7 @@ struct DialogView: View {
         .frame(width: buttonWidth, height: buttonHeight)
         .background(
             RoundedRectangle(cornerRadius: 9)
-                .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.2))
+                .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.34))
         )
         .clipShape(RoundedRectangle(cornerRadius: 9))
     }
@@ -1599,7 +1601,7 @@ final class AppStoreWebViewStore {
         let changed = (lastIsLandscape == nil || lastIsLandscape != isLandscape)
         lastIsLandscape = isLandscape
 
-        // Keep page upright and responsive to container size (no forced rotation/reload).
+        // Keep page upright and responsive to container size.
         let responsiveJS = """
         (function () {
             try {
@@ -1621,6 +1623,8 @@ final class AppStoreWebViewStore {
                     document.body.style.transform = 'none';
                     document.documentElement.style.transformOrigin = 'center center';
                     document.body.style.transformOrigin = 'center center';
+                    document.documentElement.style.writingMode = 'horizontal-tb';
+                    document.body.style.writingMode = 'horizontal-tb';
                     document.body.style.width = '100%';
                     document.body.style.height = '100%';
                 }
@@ -1628,8 +1632,10 @@ final class AppStoreWebViewStore {
             } catch (e) {}
         })();
         """
+        target.evaluateJavaScript(responsiveJS, completionHandler: nil)
         if changed {
-            target.evaluateJavaScript(responsiveJS, completionHandler: nil)
+            // Rebuild page layout for the new device orientation.
+            target.reload()
         }
     }
 
