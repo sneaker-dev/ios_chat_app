@@ -236,6 +236,7 @@ struct DialogView: View {
                             .frame(width: w)
                         Spacer()
                     }
+                    .zIndex(5)
                 }
 
                 if !isLandscape {
@@ -246,6 +247,7 @@ struct DialogView: View {
                         topBar.frame(width: w).padding(.top, (winTop2 + 6) / 2)
                         Spacer()
                     }
+                    .zIndex(5)
                 }
             }
             .frame(width: w, height: screenH)
@@ -333,7 +335,8 @@ struct DialogView: View {
                     .frame(width: w, height: h * 0.65)
                     .clipped()
                     .allowsHitTesting(false)
-                    .padding(.top, topBarBottom + 20)
+                    .padding(.top, topBarBottom - 38)
+                    .zIndex(20)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -373,9 +376,10 @@ struct DialogView: View {
             if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
                     .frame(width: w, height: h)
-                    .offset(y: topBarH * 0.75)
+                    .offset(y: topBarH * 0.35)
                     .clipped()
                     .allowsHitTesting(false)
+                    .zIndex(20)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -402,6 +406,7 @@ struct DialogView: View {
             if appMode != .appStore && appMode != .problems {
                 landscapeFullWidthTopBar
                     .frame(width: w)
+                    .zIndex(5)
             }
         }
         .frame(width: w, height: h)
