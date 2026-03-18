@@ -1613,9 +1613,11 @@ final class AppStoreWebViewStore {
                         vp.setAttribute('name', 'viewport');
                         head.appendChild(vp);
                     }
+                    var vw = Math.max(window.innerWidth || 0, 1);
+                    var vh = Math.max(window.innerHeight || 0, 1);
                     vp.setAttribute(
                         'content',
-                        'width=device-width, height=device-height, initial-scale=1, maximum-scale=1, viewport-fit=cover'
+                        'width=' + vw + ', height=' + vh + ', initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
                     );
                 }
                 if (document && document.documentElement && document.body) {
@@ -1627,6 +1629,8 @@ final class AppStoreWebViewStore {
                     document.body.style.writingMode = 'horizontal-tb';
                     document.body.style.width = '100%';
                     document.body.style.height = '100%';
+                    document.documentElement.style.width = '100%';
+                    document.documentElement.style.height = '100%';
                 }
                 window.dispatchEvent(new Event('resize'));
             } catch (e) {}
