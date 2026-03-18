@@ -156,6 +156,10 @@ struct DialogView: View {
         setMessages(updated, for: mode)
     }
 
+    private var activeMessages: [ChatMessage] {
+        messages(for: appMode)
+    }
+
     private var isAnyTTSPlaying: Bool {
         tts.isSpeaking || cloudTTS.isSpeaking || azureTTS.isSpeaking
     }
@@ -178,8 +182,8 @@ struct DialogView: View {
                 let winTop = UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }
                     .first?.windows.first?.safeAreaInsets.top ?? 47
-                // Pull AppStore/Problems up in portrait so content starts at top-bar edge.
-                return (winTop + 6) / 2 + 175
+                // Align AppStore/Problems content exactly with portrait top-bar bottom edge.
+                return (winTop + 6) / 2 + 166
             }()
 
             ZStack {
@@ -344,7 +348,7 @@ struct DialogView: View {
                     .scaleEffect(1.15)
                     .frame(width: w, height: h * 0.65)
                     .allowsHitTesting(false)
-                    .padding(.top, topBarBottom + 6)
+                    .padding(.top, topBarBottom)
                     .zIndex(10)
 
                 VStack(spacing: 0) {
@@ -614,7 +618,7 @@ struct DialogView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                 LazyVStack(spacing: 10) {
-                        ForEach(messages) { msg in
+                        ForEach(activeMessages) { msg in
                             ChatBubbleView(
                                 message: msg,
                                 displayedCharacterCount: msg.isFromUser ? nil : (msg.id == typingMessageId ? typingDisplayedCount : nil)
@@ -624,14 +628,14 @@ struct DialogView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 8)
             }
-            .onChange(of: messages.count) { _ in scrollToBottom(proxy: proxy) }
+            .onChange(of: activeMessages.count) { _ in scrollToBottom(proxy: proxy) }
             .onChange(of: typingDisplayedCount) { _ in scrollToBottom(proxy: proxy) }
         }
         .frame(maxHeight: .infinity)
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy) {
-        if let last = messages.last {
+        if let last = activeMessages.last {
             withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(last.id, anchor: .bottom) }
         }
     }
@@ -884,7 +888,7 @@ struct DialogView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             let greeting = "Hello! How can I help you today?"
             let msg = ChatMessage(text: greeting, isFromUser: false)
-            messages.append(msg)
+            appendMessage(msg, to: appMode)
             startTypewriter(messageId: msg.id, fullText: greeting)
             if voiceOutputEnabled {
                 speakResponse(greeting)
@@ -1127,12 +1131,11 @@ struct DialogView: View {
     }
 
     private func clearChatHistory() {
-        messages.removeAll()
         if appMode == .chat {
-            chatMessages.removeAll()
+            setMessages([], for: .chat)
             UserDefaults.standard.removeObject(forKey: chatHistoryKey)
         } else if appMode == .support {
-            supportMessages.removeAll()
+            setMessages([], for: .support)
             UserDefaults.standard.removeObject(forKey: supportHistoryKey)
         }
     }
@@ -1299,7 +1302,7 @@ struct DialogView: View {
                     HStack {
                         Label("Chat History", systemImage: "clock.arrow.circlepath")
                         Spacer()
-                        Text("\(messages.count) messages")
+                        Text("\(activeMessages.count) messages")
                             .font(.system(size: 13))
                             .foregroundColor(.secondary)
                     }
@@ -1307,7 +1310,7 @@ struct DialogView: View {
                     Button(role: .destructive) { clearChatHistory() } label: {
                         Label("Clear Chat History", systemImage: "trash")
                     }
-                    .disabled(messages.isEmpty)
+                    .disabled(activeMessages.isEmpty)
                 }
 
                 Section(header: Text("App Info")) {
