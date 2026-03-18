@@ -851,23 +851,20 @@ struct DialogView: View {
         Float(ttsVolume)
     }
 
+    private func finishSynchronizedSpeechUI() {
+        typingDisplayedCount = typingTargetCount
+        typingMessageId = nil
+        typingTargetCount = 0
+        avatarState = .idle
+    }
+
     private func setupTTSCallbacks() {
         tts.onSpeakingStarted = { avatarState = .speaking }
-        tts.onSpeakingCompleted = { avatarState = .idle }
+        tts.onSpeakingCompleted = { finishSynchronizedSpeechUI() }
         CloudTTSService.shared.onSpeakingStarted = { avatarState = .speaking }
-        CloudTTSService.shared.onSpeakingCompleted = {
-            typingDisplayedCount = typingTargetCount
-            typingMessageId = nil
-            typingTargetCount = 0
-            avatarState = .idle
-        }
+        CloudTTSService.shared.onSpeakingCompleted = { finishSynchronizedSpeechUI() }
         AzureTTSService.shared.onSpeakingStarted = { avatarState = .speaking }
-        AzureTTSService.shared.onSpeakingCompleted = {
-            typingDisplayedCount = typingTargetCount
-            typingMessageId = nil
-            typingTargetCount = 0
-            avatarState = .idle
-        }
+        AzureTTSService.shared.onSpeakingCompleted = { finishSynchronizedSpeechUI() }
     }
 
     /// Guard protected flows while user is inside Dialog screen.
@@ -965,16 +962,9 @@ struct DialogView: View {
                             typingMessageId = botMsg.id
                             typingDisplayedCount = 0
                             typingTargetCount = displayText.count
-                            avatarState = .speaking
                         }
-                        speakResponse(ttsText) {
-                            if appMode == requestMode {
-                                typingDisplayedCount = displayText.count
-                                typingMessageId = nil
-                                typingTargetCount = 0
-                                avatarState = .idle
-                            }
-                        }
+                        // Avatar/text are switched to "speaking" exactly when TTS playback actually starts.
+                        speakResponse(ttsText)
                     } else {
                         if appMode == requestMode {
                             avatarState = .speaking

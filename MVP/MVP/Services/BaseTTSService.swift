@@ -33,6 +33,7 @@ class BaseTTSService: NSObject, AVAudioPlayerDelegate, ObservableObject {
     private var totalCharacters: Int = 0
     private var completedCharacters: Int = 0
     private var currentChunkLength: Int = 0
+    private var hasReportedPlaybackStart = false
 
     // MARK: - Public API
 
@@ -43,9 +44,9 @@ class BaseTTSService: NSObject, AVAudioPlayerDelegate, ObservableObject {
             totalCharacters = total
             completedCharacters = 0
             currentChunkLength = 0
+            hasReportedPlaybackStart = false
             spokenCharacterCount = 0
             isSpeaking = total > 0
-            if total > 0 { onSpeakingStarted?() }
         }
         currentTask = Task { [weak self] in
             await self?.speakChunks(text: text, language: language, isFemale: isFemale)
@@ -139,6 +140,10 @@ class BaseTTSService: NSObject, AVAudioPlayerDelegate, ObservableObject {
                 playbackContinuation = cont
                 player = ap
                 ap.play()
+                if !self.hasReportedPlaybackStart {
+                    self.hasReportedPlaybackStart = true
+                    self.onSpeakingStarted?()
+                }
                 startProgressTimer()
             } catch {
                 cont.resume()
