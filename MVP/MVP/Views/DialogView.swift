@@ -335,8 +335,8 @@ struct DialogView: View {
                     .frame(width: w, height: h * 0.65)
                     .clipped()
                     .allowsHitTesting(false)
-                    .padding(.top, topBarBottom + 12)
-                    .zIndex(0)
+                    .padding(.top, topBarBottom - 24)
+                    .zIndex(6)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -376,10 +376,10 @@ struct DialogView: View {
             if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
                     .frame(width: w, height: h)
-                    .offset(y: topBarH * 0.35 + 30)
+                    .offset(y: topBarH * 0.20 + 8)
                     .clipped()
                     .allowsHitTesting(false)
-                    .zIndex(0)
+                    .zIndex(6)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
