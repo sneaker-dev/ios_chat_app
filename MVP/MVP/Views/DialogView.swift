@@ -236,7 +236,7 @@ struct DialogView: View {
                             .frame(width: w)
                         Spacer()
                     }
-                    .zIndex(5)
+                    .zIndex(0)
                 }
 
                 if !isLandscape {
@@ -247,7 +247,7 @@ struct DialogView: View {
                         topBar.frame(width: w).padding(.top, (winTop2 + 6) / 2)
                         Spacer()
                     }
-                    .zIndex(5)
+                    .zIndex(0)
                 }
             }
             .frame(width: w, height: screenH)
@@ -335,8 +335,8 @@ struct DialogView: View {
                     .frame(width: w, height: h * 0.65)
                     .clipped()
                     .allowsHitTesting(false)
-                    .padding(.top, topBarBottom - 24)
-                    .zIndex(6)
+                    .padding(.top, topBarBottom + 6)
+                    .zIndex(10)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -360,6 +360,7 @@ struct DialogView: View {
                     .frame(width: w, height: bottomH)
                 }
                 .frame(width: w, height: availableH)
+                .zIndex(20)
             }
         }
         .frame(width: w, height: h)
@@ -376,10 +377,10 @@ struct DialogView: View {
             if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
                     .frame(width: w, height: h)
-                    .offset(y: topBarH * 0.20 + 8)
+                    .offset(y: topBarH * 0.20 + 38)
                     .clipped()
                     .allowsHitTesting(false)
-                    .zIndex(6)
+                    .zIndex(10)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -401,12 +402,13 @@ struct DialogView: View {
                     .background(Color.clear)
                 }
                 .frame(width: w, height: h)
+                .zIndex(20)
             }
 
             if appMode != .appStore && appMode != .problems {
                 landscapeFullWidthTopBar
                     .frame(width: w)
-                    .zIndex(5)
+                    .zIndex(0)
             }
         }
         .frame(width: w, height: h)
@@ -424,11 +426,11 @@ struct DialogView: View {
                     Button {
                         NotificationCenter.default.post(name: .changeAvatar, object: nil)
                     } label: {
-                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 115, buttonSize: 115)
+                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 105, buttonSize: 105)
                     }
 
                     Button { showSettings = true } label: {
-                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 115, buttonSize: 115)
+                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 105, buttonSize: 105)
                     }
                 }
             }
@@ -467,11 +469,11 @@ struct DialogView: View {
                     Button {
                         NotificationCenter.default.post(name: .changeAvatar, object: nil)
                     } label: {
-                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 96, buttonSize: 96)
+                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 87, buttonSize: 87)
                     }
 
                     Button { showSettings = true } label: {
-                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 96, buttonSize: 96)
+                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 87, buttonSize: 87)
                     }
                 }
             }
