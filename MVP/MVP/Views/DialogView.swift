@@ -425,7 +425,7 @@ struct DialogView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 2)
-        .background(Color.black.opacity(0.25))
+        .background(Color.clear)
     }
 
     private var topBar: some View {
@@ -471,9 +471,9 @@ struct DialogView: View {
     private func modeTabButton(mode: AppMode, isLandscape: Bool, modeCount: Int) -> some View {
         let scale: CGFloat = modeCount >= 4 ? 1.0 / 1.2 : 1.0
         let baseButtonWidth: CGFloat = (isLandscape ? 157 : 117) * scale
-        let iconSize: CGFloat = (isLandscape ? 84 : 115) * scale
+        let iconSize: CGFloat = (isLandscape ? 109.2 : 115) * scale
         let textSize: CGFloat = (isLandscape ? 19 : 18) * scale
-        let buttonHeight: CGFloat = (isLandscape ? 46 : 80) * scale
+        let buttonHeight: CGFloat = (isLandscape ? 69 : 80) * scale
         let iconPaddingBottom: CGFloat = (isLandscape ? 8 : 20) * scale
         let textPaddingBottom: CGFloat = (isLandscape ? 10 : 29) * scale
         let screenWidth = isLandscape
