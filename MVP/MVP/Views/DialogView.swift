@@ -233,7 +233,7 @@ struct DialogView: View {
                     }
                 }
 
-                if isLandscape && appMode == .appStore {
+                if isLandscape && (appMode == .appStore || appMode == .problems) {
                     VStack {
                         landscapeFullWidthTopBar
                             .frame(width: w)
@@ -401,7 +401,7 @@ struct DialogView: View {
                 .frame(width: w, height: h)
             }
 
-            if appMode != .appStore {
+            if appMode != .appStore && appMode != .problems {
                 landscapeFullWidthTopBar
                     .frame(width: w)
             }
@@ -1596,25 +1596,40 @@ final class AppStoreWebViewStore {
         let target = webView ?? self.webView
         guard let target else { return }
         navDelegate.isLandscape = isLandscape
-        let changed = (lastIsLandscape != nil && lastIsLandscape != isLandscape)
+        let changed = (lastIsLandscape == nil || lastIsLandscape != isLandscape)
         lastIsLandscape = isLandscape
 
-        // Force responsive pages inside WKWebView to reflow after rotation.
-        let reflowJS = """
+        // Keep page upright and responsive to container size (no forced rotation/reload).
+        let responsiveJS = """
         (function () {
             try {
-                window.dispatchEvent(new Event('orientationchange'));
-                window.dispatchEvent(new Event('resize'));
-                if (document && document.body) {
-                    document.body.style.width = '100vw';
-                    document.body.style.height = '100vh';
+                var head = document.head || document.getElementsByTagName('head')[0];
+                if (head) {
+                    var vp = document.querySelector('meta[name="viewport"]');
+                    if (!vp) {
+                        vp = document.createElement('meta');
+                        vp.setAttribute('name', 'viewport');
+                        head.appendChild(vp);
+                    }
+                    vp.setAttribute(
+                        'content',
+                        'width=device-width, height=device-height, initial-scale=1, maximum-scale=1, viewport-fit=cover'
+                    );
                 }
+                if (document && document.documentElement && document.body) {
+                    document.documentElement.style.transform = 'none';
+                    document.body.style.transform = 'none';
+                    document.documentElement.style.transformOrigin = 'center center';
+                    document.body.style.transformOrigin = 'center center';
+                    document.body.style.width = '100%';
+                    document.body.style.height = '100%';
+                }
+                window.dispatchEvent(new Event('resize'));
             } catch (e) {}
         })();
         """
-        target.evaluateJavaScript(reflowJS, completionHandler: nil)
         if changed {
-            target.reload()
+            target.evaluateJavaScript(responsiveJS, completionHandler: nil)
         }
     }
 
