@@ -1413,13 +1413,74 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
     </script></body></html>
     """
 
+    // Mirror Android WebView fix: neutralize forced HTML rotation and orientation media-query behavior.
+    private let appStoreRotationFixJS = """
+    (function(){
+        if (window.__mvpRotationFixInstalled) {
+            if (window._mvpFixHtmlRotation) { window._mvpFixHtmlRotation(); }
+            return;
+        }
+        window.__mvpRotationFixInstalled = true;
+        var s=document.createElement('style');
+        s.textContent='html,html[style]{transform:none!important;width:100vw!important;height:auto!important;min-height:100vh!important;overflow:auto!important;position:relative!important;top:0!important;left:0!important;margin:0!important;}body{width:100vw!important;margin:0!important;position:relative!important;top:0!important;left:0!important;}';
+        (document.head||document.documentElement).appendChild(s);
+        try { Object.defineProperty(window,'orientation',{get:function(){return 0;},configurable:true}); } catch(e) {}
+        try {
+            Object.defineProperty(screen,'orientation',{
+                get:function(){return{type:'portrait-primary',angle:0,addEventListener:function(){},removeEventListener:function(){},lock:function(){return Promise.resolve();},unlock:function(){}};},
+                configurable:true
+            });
+        } catch(e) {}
+        var origMM=window.matchMedia;
+        window.matchMedia=function(q){
+            if(q&&q.indexOf('orientation')!==-1){
+                q=q.replace(/orientation\\s*:\\s*landscape/gi,'orientation: portrait');
+            }
+            return origMM.call(window,q);
+        };
+        window._mvpFixHtmlRotation=function(){
+            var html=document.documentElement;
+            if(!html) return;
+            var cs=window.getComputedStyle(html);
+            if(cs.transform&&cs.transform!=='none'){
+                html.style.setProperty('transform','none','important');
+                html.style.setProperty('width','100vw','important');
+                html.style.setProperty('height','auto','important');
+                html.style.setProperty('min-height','100vh','important');
+                html.style.setProperty('overflow','auto','important');
+                html.style.setProperty('position','relative','important');
+                html.style.setProperty('top','0','important');
+                html.style.setProperty('left','0','important');
+                html.style.setProperty('margin','0','important');
+                if(document.body){
+                    document.body.style.setProperty('width','100vw','important');
+                    document.body.style.setProperty('margin','0','important');
+                    document.body.style.setProperty('position','relative','important');
+                    document.body.style.setProperty('top','0','important');
+                    document.body.style.setProperty('left','0','important');
+                }
+                window.scrollTo(0,0);
+            }
+        };
+        var mo=new MutationObserver(function(){window._mvpFixHtmlRotation();});
+        document.addEventListener('DOMContentLoaded',function(){
+            mo.observe(document.documentElement,{attributes:true,attributeFilter:['style','class']});
+            window._mvpFixHtmlRotation();
+        });
+        window._mvpFixHtmlRotation();
+        setTimeout(window._mvpFixHtmlRotation,1000);
+        setTimeout(window._mvpFixHtmlRotation,3000);
+    })();
+    """
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         injectAuthSession(webView)
         scheduleCredentialAutoLogin(webView)
-        guard isLandscape else { return }
-        guard let currentURL = webView.url?.absoluteString else { return }
-        if currentURL.contains("token=") { return }
-        injectLandscapeForm(webView)
+        applyRotationFix(webView)
+    }
+
+    private func applyRotationFix(_ webView: WKWebView) {
+        webView.evaluateJavaScript(appStoreRotationFixJS, completionHandler: nil)
     }
 
     private func injectAuthSession(_ webView: WKWebView) {
@@ -1598,49 +1659,18 @@ final class AppStoreWebViewStore {
         let target = webView ?? self.webView
         guard let target else { return }
         navDelegate.isLandscape = isLandscape
-        let changed = (lastIsLandscape == nil || lastIsLandscape != isLandscape)
         lastIsLandscape = isLandscape
 
-        // Keep page upright and responsive to container size.
-        let responsiveJS = """
+        // Android-parity path: run the in-page rotation-fix hook on orientation updates.
+        let reapplyFixJS = """
         (function () {
             try {
-                var head = document.head || document.getElementsByTagName('head')[0];
-                if (head) {
-                    var vp = document.querySelector('meta[name="viewport"]');
-                    if (!vp) {
-                        vp = document.createElement('meta');
-                        vp.setAttribute('name', 'viewport');
-                        head.appendChild(vp);
-                    }
-                    var vw = Math.max(window.innerWidth || 0, 1);
-                    var vh = Math.max(window.innerHeight || 0, 1);
-                    vp.setAttribute(
-                        'content',
-                        'width=' + vw + ', height=' + vh + ', initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
-                    );
-                }
-                if (document && document.documentElement && document.body) {
-                    document.documentElement.style.transform = 'none';
-                    document.body.style.transform = 'none';
-                    document.documentElement.style.transformOrigin = 'center center';
-                    document.body.style.transformOrigin = 'center center';
-                    document.documentElement.style.writingMode = 'horizontal-tb';
-                    document.body.style.writingMode = 'horizontal-tb';
-                    document.body.style.width = '100%';
-                    document.body.style.height = '100%';
-                    document.documentElement.style.width = '100%';
-                    document.documentElement.style.height = '100%';
-                }
+                if (window._mvpFixHtmlRotation) { window._mvpFixHtmlRotation(); }
                 window.dispatchEvent(new Event('resize'));
             } catch (e) {}
         })();
         """
-        target.evaluateJavaScript(responsiveJS, completionHandler: nil)
-        if changed {
-            // Rebuild page layout for the new device orientation.
-            target.reload()
-        }
+        target.evaluateJavaScript(reapplyFixJS, completionHandler: nil)
     }
 
     func syncSession(url: URL, token: String?, in webView: WKWebView? = nil, forceReload: Bool = false) {
@@ -1853,9 +1883,6 @@ struct AppStoreWebView: UIViewRepresentable {
             store.syncSession(url: url, token: token, in: webView)
             webView.setNeedsLayout()
             webView.layoutIfNeeded()
-            if isLandscape {
-                store.navDelegate.injectLandscapeForm(webView)
-            }
         }
     }
 }
