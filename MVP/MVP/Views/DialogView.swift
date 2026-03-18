@@ -176,7 +176,8 @@ struct DialogView: View {
                 let winTop = UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }
                     .first?.windows.first?.safeAreaInsets.top ?? 47
-                return (winTop + 6) / 2 + 187
+                // Pull AppStore/Problems up in portrait so content starts at top-bar edge.
+                return (winTop + 6) / 2 + 175
             }()
 
             ZStack {
@@ -323,6 +324,7 @@ struct DialogView: View {
         return ZStack(alignment: .top) {
             if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
+                    .scaleEffect(1.15)
                     .frame(width: w, height: h * 0.65)
                     .clipped()
                     .allowsHitTesting(false)

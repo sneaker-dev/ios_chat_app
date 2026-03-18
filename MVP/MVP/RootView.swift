@@ -100,8 +100,14 @@ enum AppScreen {
 }
 
 struct RootView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var currentScreen: AppScreen = .splash
     @State private var selectedAvatar: AvatarType = KeychainService.shared.getSelectedAvatar() ?? .female
+    @State private var startupSafeMode = false
+    @State private var startupGuardInitialized = false
+    @State private var launchStabilizationTask: Task<Void, Never>?
+    @AppStorage("startupLaunchGuardArmed") private var startupLaunchGuardArmed = false
+    @AppStorage("startupUncleanLaunchCount") private var startupUncleanLaunchCount = 0
     @AppStorage("darkModeEnabled") private var darkModeEnabled = false
 
     var body: some View {
@@ -157,6 +163,14 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .sessionExpired)) { _ in
             withAnimation { forceNavigateToLogin() }
         }
+        .onAppear {
+            initializeStartupGuardIfNeeded()
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .background {
+                markStartupHealthy(reason: "app moved to background")
+            }
+        }
         .tint(.appPrimary)
         .accentColor(.appPrimary)
         .preferredColorScheme(darkModeEnabled ? .dark : .light)
@@ -166,6 +180,11 @@ struct RootView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
         AppLogger.navigation.info("app launched version=\(version, privacy: .public) build=\(build, privacy: .public)")
+        if startupSafeMode {
+            AppLogger.navigation.error("startup guard active: previous run ended unexpectedly — forcing login recovery")
+            forceNavigateToLogin()
+            return
+        }
         if AuthService.shared.isLoggedIn {
             if KeychainService.shared.hasSeenAvatarSelection(),
                let saved = KeychainService.shared.getSelectedAvatar() {
@@ -197,6 +216,40 @@ struct RootView: View {
     private func forceNavigateToLogin() {
         AppStoreWebViewStore.shared.reset()
         currentScreen = .login
+    }
+
+    private func initializeStartupGuardIfNeeded() {
+        guard !startupGuardInitialized else { return }
+        startupGuardInitialized = true
+
+        if startupLaunchGuardArmed {
+            startupSafeMode = true
+            startupUncleanLaunchCount += 1
+            AppLogger.navigation.error("startup guard detected unclean previous launch count=\(startupUncleanLaunchCount, privacy: .public)")
+            AppStoreWebViewStore.shared.reset()
+            AuthService.shared.logout()
+        } else {
+            startupUncleanLaunchCount = 0
+            AppLogger.navigation.info("startup guard clean launch")
+        }
+
+        startupLaunchGuardArmed = true
+        launchStabilizationTask?.cancel()
+        launchStabilizationTask = Task {
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            await MainActor.run {
+                markStartupHealthy(reason: "launch stabilized")
+            }
+        }
+    }
+
+    private func markStartupHealthy(reason: String) {
+        launchStabilizationTask?.cancel()
+        launchStabilizationTask = nil
+        startupLaunchGuardArmed = false
+        startupSafeMode = false
+        startupUncleanLaunchCount = 0
+        AppLogger.navigation.info("startup guard cleared reason=\(reason, privacy: .public)")
     }
 }
 
