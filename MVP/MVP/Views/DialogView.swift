@@ -123,8 +123,35 @@ struct DialogView: View {
     private var tabSpacing: CGFloat { visibleModes.count >= 4 ? 4 : 6 }
     private var tabHorizontalInset: CGFloat { visibleModes.count >= 4 ? 6 : 4 }
 
-    private var historyKey: String {
-        appMode == .support ? supportHistoryKey : chatHistoryKey
+    private func messages(for mode: AppMode) -> [ChatMessage] {
+        switch mode {
+        case .chat:
+            return chatMessages
+        case .support:
+            return supportMessages
+        default:
+            return []
+        }
+    }
+
+    private func setMessages(_ updated: [ChatMessage], for mode: AppMode) {
+        switch mode {
+        case .chat:
+            chatMessages = updated
+        case .support:
+            supportMessages = updated
+        default:
+            return
+        }
+        if appMode == mode {
+            messages = updated
+        }
+    }
+
+    private func appendMessage(_ message: ChatMessage, to mode: AppMode) {
+        var updated = messages(for: mode)
+        updated.append(message)
+        setMessages(updated, for: mode)
     }
 
     private var isAnyTTSPlaying: Bool {
@@ -239,18 +266,14 @@ struct DialogView: View {
         .onAppear {
             guard ensureAuthenticatedOrRedirect() else { return }
             loadAllHistories()
-            messages = chatMessages
+            messages = messages(for: appMode)
             setupTTSCallbacks()
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
         .onChange(of: appMode) { newMode in
             guard ensureAuthenticatedOrRedirect() else { return }
-            if newMode == .chat {
-                supportMessages = messages
-                messages = chatMessages
-            } else if newMode == .support {
-                chatMessages = messages
-                messages = supportMessages
+            if newMode == .chat || newMode == .support {
+                messages = messages(for: newMode)
             }
             // .appStore and .problems don't use the chat message list
             typingMessageId = nil
@@ -471,7 +494,7 @@ struct DialogView: View {
         let textSize: CGFloat = (isLandscape ? 19 : 18) * scale
         let buttonHeight: CGFloat = (isLandscape ? 76 : 80) * scale
         let iconPaddingBottom: CGFloat = (isLandscape ? 6 : 20) * scale
-        let textPaddingBottom: CGFloat = (isLandscape ? 8 : 29) * scale
+        let textPaddingBottom: CGFloat = (isLandscape ? 11 : 29) * scale
         let textLift: CGFloat = isLandscape ? -8 : 0
         let screenWidth = isLandscape
             ? max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
@@ -876,6 +899,8 @@ struct DialogView: View {
 
     private func sendMessage(_ text: String, fromVoice: Bool, isRetry: Bool = false) {
         guard ensureAuthenticatedOrRedirect() else { return }
+        let requestMode = appMode
+        guard requestMode == .chat || requestMode == .support else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         guard !isAnyTTSPlaying else {
@@ -885,7 +910,7 @@ struct DialogView: View {
         wasVoiceInput = fromVoice
         if !isRetry {
             inputText = ""
-            messages.append(ChatMessage(text: trimmed, isFromUser: true, wasVoiceInput: fromVoice, language: dialogLanguage))
+            appendMessage(ChatMessage(text: trimmed, isFromUser: true, wasVoiceInput: fromVoice, language: dialogLanguage), to: requestMode)
         }
         errorMessage = nil; lastFailedMessage = nil; isLoading = true; avatarState = .thinking
         if typingIndicatorEnabled { showTypingIndicator = true }
@@ -893,7 +918,7 @@ struct DialogView: View {
 
         Task {
             do {
-                let apiBaseURL: String? = appMode == .support ? APIConfig.supportBaseURL : nil
+                let apiBaseURL: String? = requestMode == .support ? APIConfig.supportBaseURL : nil
                 let response = try await DialogAPIService.shared.sendMessage(trimmed, language: dialogLanguage, baseURL: apiBaseURL)
                 await MainActor.run {
                     stopLongRequestNoticeTimer()
@@ -901,29 +926,35 @@ struct DialogView: View {
                     let displayText = stripNoSpeechForDisplay(response)
                     let ttsText = stripNoSpeechForTTS(response)
                     let botMsg = ChatMessage(text: displayText, isFromUser: false, wasVoiceInput: fromVoice, language: dialogLanguage)
-                    messages.append(botMsg)
+                    appendMessage(botMsg, to: requestMode)
                     isLoading = false
                     let shouldSpeak = voiceOutputEnabled && !ttsText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     if shouldSpeak {
-                        typingMessageId = botMsg.id
-                        typingDisplayedCount = 0
-                        typingTargetCount = displayText.count
-                        avatarState = .speaking
+                        if appMode == requestMode {
+                            typingMessageId = botMsg.id
+                            typingDisplayedCount = 0
+                            typingTargetCount = displayText.count
+                            avatarState = .speaking
+                        }
                         speakResponse(ttsText) {
-                            typingDisplayedCount = displayText.count
-                            typingMessageId = nil
-                            typingTargetCount = 0
-                            avatarState = .idle
+                            if appMode == requestMode {
+                                typingDisplayedCount = displayText.count
+                                typingMessageId = nil
+                                typingTargetCount = 0
+                                avatarState = .idle
+                            }
                         }
                     } else {
-                        avatarState = .speaking
-                        startTypewriter(messageId: botMsg.id, fullText: displayText)
-                        let displayTime = Double(displayText.count) * 0.025 + 0.5
-                        DispatchQueue.main.asyncAfter(deadline: .now() + displayTime) {
-                            if avatarState == .speaking { avatarState = .idle }
+                        if appMode == requestMode {
+                            avatarState = .speaking
+                            startTypewriter(messageId: botMsg.id, fullText: displayText)
+                            let displayTime = Double(displayText.count) * 0.025 + 0.5
+                            DispatchQueue.main.asyncAfter(deadline: .now() + displayTime) {
+                                if avatarState == .speaking { avatarState = .idle }
+                            }
                         }
                     }
-                    saveChatHistory()
+                    saveChatHistory(for: requestMode)
                 }
             } catch {
                 await MainActor.run {
@@ -931,9 +962,11 @@ struct DialogView: View {
                     showTypingIndicator = false; isLoading = false
                     errorMessage = error.localizedDescription; lastFailedMessage = trimmed; avatarState = .idle
                     let fallback = ChatMessage(text: "I'm having trouble connecting. Please try again.", isFromUser: false)
-                    messages.append(fallback)
-                    startTypewriter(messageId: fallback.id, fullText: fallback.text)
-                    saveChatHistory()
+                    appendMessage(fallback, to: requestMode)
+                    if appMode == requestMode {
+                        startTypewriter(messageId: fallback.id, fullText: fallback.text)
+                    }
+                    saveChatHistory(for: requestMode)
                 }
             }
         }
@@ -1029,13 +1062,13 @@ struct DialogView: View {
         }
     }
 
-    private func saveChatHistory() {
-        let toSave = Array(messages.suffix(maxHistoryCount))
-        if let data = try? JSONEncoder().encode(toSave) { UserDefaults.standard.set(data, forKey: historyKey) }
-        if appMode == .chat {
-            chatMessages = messages
-        } else if appMode == .support {
-            supportMessages = messages
+    private func saveChatHistory(for mode: AppMode) {
+        guard mode == .chat || mode == .support else { return }
+        let toSave = Array(messages(for: mode).suffix(maxHistoryCount))
+        setMessages(toSave, for: mode)
+        let key = (mode == .support) ? supportHistoryKey : chatHistoryKey
+        if let data = try? JSONEncoder().encode(toSave) {
+            UserDefaults.standard.set(data, forKey: key)
         }
     }
 
