@@ -139,11 +139,12 @@ struct DialogView: View {
     }
 
     @State private var keyboardHeight: CGFloat = 0
+    private let landscapeTopContentInset: CGFloat = 122
 
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width
-            let screenH = UIScreen.main.bounds.height
+            let screenH = geo.size.height
             let isLandscape = w > geo.size.height
             let webViewTopPad: CGFloat = isLandscape ? 90 : {
                 let winTop = UIApplication.shared.connectedScenes
@@ -171,7 +172,7 @@ struct DialogView: View {
                 }
 
                 if let url = URL(string: APIConfig.appStoreURL) {
-                    let landscapeBarH: CGFloat = 72
+                    let landscapeBarH: CGFloat = landscapeTopContentInset
                     if isLandscape {
                         VStack(spacing: 0) {
                             Spacer().frame(height: landscapeBarH)
@@ -191,7 +192,7 @@ struct DialogView: View {
 
                 // Problems screen — sits at the same layer as the AppStore WebView
                 if appMode == .problems {
-                    let landscapeBarH: CGFloat = 72
+                    let landscapeBarH: CGFloat = landscapeTopContentInset
                     if isLandscape {
                         VStack(spacing: 0) {
                             Spacer().frame(height: landscapeBarH)
@@ -473,9 +474,9 @@ struct DialogView: View {
         let baseButtonWidth: CGFloat = (isLandscape ? 157 : 117) * scale
         let iconSize: CGFloat = (isLandscape ? 109.2 : 115) * scale
         let textSize: CGFloat = (isLandscape ? 19 : 18) * scale
-        let buttonHeight: CGFloat = (isLandscape ? 69 : 80) * scale
+        let buttonHeight: CGFloat = (isLandscape ? 76 : 80) * scale
         let iconPaddingBottom: CGFloat = (isLandscape ? 8 : 20) * scale
-        let textPaddingBottom: CGFloat = (isLandscape ? 10 : 29) * scale
+        let textPaddingBottom: CGFloat = (isLandscape ? 8 : 29) * scale
         let screenWidth = isLandscape
             ? max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
             : UIScreen.main.bounds.width
