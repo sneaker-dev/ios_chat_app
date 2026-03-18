@@ -528,7 +528,7 @@ struct DialogView: View {
                 .padding(.bottom, iconPaddingBottom)
             Text(mode.rawValue)
                 .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
-                .foregroundColor(.white)
+                .foregroundColor(appMode == mode ? .white : Color.black.opacity(0.82))
                 .lineLimit(1)
                 .padding(.bottom, textPaddingBottom)
                 .offset(y: textLift)
