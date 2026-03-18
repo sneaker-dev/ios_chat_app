@@ -193,7 +193,9 @@ final class DialogAPIService {
             with: " ",
             options: .regularExpression
         )
-        let cleanedScalars = collapsed.unicodeScalars.filter { !$0.properties.isControl }
+        let cleanedScalars = collapsed.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0)
+        }
         return String(String.UnicodeScalarView(cleanedScalars))
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
