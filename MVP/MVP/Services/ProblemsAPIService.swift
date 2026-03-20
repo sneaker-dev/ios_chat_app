@@ -50,7 +50,9 @@ final class ProblemsAPIService {
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if requiresAuth {
-            guard let token = AuthService.shared.token() else {
+            let token = KeychainService.shared.getAppStoreToken()
+                ?? AuthService.shared.token()
+            guard let token = token else {
                 throw ProblemsAPIError.notAuthenticated
             }
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

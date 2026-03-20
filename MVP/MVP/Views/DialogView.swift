@@ -1539,6 +1539,9 @@ final class AppStoreWebViewStore {
                 await MainActor.run {
                     guard let webView = webView else { return }
                     let effectiveToken = bootstrap?.token ?? fallbackToken
+                    if let appStoreToken = bootstrap?.token {
+                        KeychainService.shared.saveAppStoreToken(appStoreToken)
+                    }
                     self.applyServerCookies(bootstrap?.cookies ?? [], in: webView) {
                         self.navDelegate.authToken = effectiveToken
                         self.applySessionAndLoad(url: url, token: effectiveToken, in: webView)
