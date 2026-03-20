@@ -386,17 +386,17 @@ struct DialogView: View {
                     Button {
                         NotificationCenter.default.post(name: .changeAvatar, object: nil)
                     } label: {
-                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 173, buttonSize: 173)
+                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 133, buttonSize: 173)
                     }
 
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { showWebGateway.toggle() }
                     } label: {
-                        topActionIcon(assetName: "WebIcon", fallbackSystemName: "globe", iconSize: 125, buttonSize: 173)
+                        topActionIcon(assetName: "WebIcon", fallbackSystemName: "globe", iconSize: 96, buttonSize: 173)
                     }
 
                     Button { showSettings = true } label: {
-                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 173, buttonSize: 173)
+                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 133, buttonSize: 173)
                     }
                 }
                 .padding(.trailing, 20)
@@ -416,6 +416,7 @@ struct DialogView: View {
             }
             .padding(4)
             .background(Color.clear)
+            .offset(y: -30)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 4)
@@ -426,7 +427,7 @@ struct DialogView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 brandLogo(width: 100, height: 40)
-                    .padding(.leading, 5)
+                    .padding(.leading, 15)
 
                 Spacer(minLength: 0)
 
@@ -471,22 +472,23 @@ struct DialogView: View {
     }
 
     private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
-        let iconSize: CGFloat    = isLandscape ? 132 : 62
-        let textSize: CGFloat    = isLandscape ? 19  : 13
-        let buttonHeight: CGFloat = isLandscape ? 92  : 68
+        let iconSize: CGFloat     = isLandscape ? 120 : 74
+        let textSize: CGFloat     = isLandscape ? 19  : 16
+        let buttonHeight: CGFloat = isLandscape ? 31  : 68
+        let buttonWidth: CGFloat  = isLandscape ? 188 : 0
 
         return ZStack(alignment: .bottom) {
             tabIcon(for: mode, size: iconSize)
-                .padding(.bottom, isLandscape ? 20 : 14)
+                .padding(.bottom, isLandscape ? 14 : 14)
             Text(mode.rawValue)
                 .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
                 .foregroundColor(.white)
                 .lineLimit(1)
-                .padding(.bottom, isLandscape ? 29 : 20)
+                .padding(.bottom, isLandscape ? 5 : 20)
         }
         .frame(
-            minWidth: isLandscape ? 157 : 0,
-            maxWidth: isLandscape ? 157 : .infinity,
+            minWidth: isLandscape ? buttonWidth : 0,
+            maxWidth: isLandscape ? buttonWidth : .infinity,
             minHeight: buttonHeight,
             maxHeight: buttonHeight
         )
