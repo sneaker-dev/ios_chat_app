@@ -1,6 +1,9 @@
 import Foundation
-import SystemConfiguration
 import Network
+import Darwin.sys.sysctl
+import Darwin.POSIX.sys.socket
+import Darwin.POSIX.netinet.in
+import Darwin.POSIX.arpa.inet
 
 // MARK: - Result types
 
@@ -15,8 +18,8 @@ enum GatewayResult {
 
 // MARK: - GatewayService
 
-/// Detects the default IPv4 gateway via SystemConfiguration (reads the same
-/// routing data that iOS Settings → Wi-Fi shows as "Router").
+/// Detects the default IPv4 gateway by parsing the BSD kernel routing table
+/// via sysctl — fully available on iOS, no macOS-only frameworks required.
 final class GatewayService {
 
     static let shared = GatewayService()
@@ -34,20 +37,73 @@ final class GatewayService {
         return reachable ? .found(ip: ip) : .unreachable(ip: ip)
     }
 
-    // MARK: - Gateway IP via SCDynamicStore
+    // MARK: - Gateway IP via sysctl routing table
 
-    /// Reads "State:/Network/Global/IPv4" → "Router" from the system network
-    /// configuration store. This is the exact same value iOS Settings shows
-    /// under Wi-Fi → Router. Returns nil when no default route exists.
+    /// Reads the kernel routing table (NET_RT_FLAGS / RTF_GATEWAY) and returns
+    /// the gateway address of the default route (destination 0.0.0.0).
+    /// This is identical to what `netstat -rn` reports as the default route.
     private func defaultGatewayIPv4() -> String? {
-        guard let store = SCDynamicStoreCreate(nil, "GatewayService" as CFString, nil, nil) else {
+        var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_GATEWAY]
+        var needed = 0
+
+        guard sysctl(&mib, UInt32(mib.count), nil, &needed, nil, 0) == 0, needed > 0 else {
             return nil
         }
-        let key = "State:/Network/Global/IPv4" as CFString
-        guard let val = SCDynamicStoreCopyValue(store, key) as? [String: Any] else {
+
+        var buf = [UInt8](repeating: 0, count: needed)
+        guard sysctl(&mib, UInt32(mib.count), &buf, &needed, nil, 0) == 0 else {
             return nil
         }
-        return val["Router"] as? String
+
+        return buf.withUnsafeBytes { raw -> String? in
+            var offset = 0
+            while offset + MemoryLayout<rt_msghdr>.size <= needed {
+                let msg = raw.load(fromByteOffset: offset, as: rt_msghdr.self)
+                let msgLen = Int(msg.rtm_msglen)
+                guard msgLen > 0 else { break }
+                defer { offset += msgLen }
+
+                // Must have both destination and gateway sockaddrs
+                guard msg.rtm_addrs & RTA_DST != 0,
+                      msg.rtm_addrs & RTA_GATEWAY != 0 else { continue }
+
+                // sockaddrs are packed immediately after rt_msghdr
+                var addrOff = offset + MemoryLayout<rt_msghdr>.size
+                var dstIsDefault = false
+                var gatewayIP: String? = nil
+
+                for bit in 0 ..< RTAX_MAX {
+                    guard msg.rtm_addrs & (1 << bit) != 0 else { continue }
+                    guard addrOff + MemoryLayout<sockaddr>.size <= needed else { break }
+
+                    let sa = raw.load(fromByteOffset: addrOff, as: sockaddr.self)
+                    // sa_len = 0 means the sockaddr uses the minimum struct size
+                    let saLen = Int(sa.sa_len) > 0 ? Int(sa.sa_len) : MemoryLayout<sockaddr>.size
+
+                    if bit == RTAX_DST, sa.sa_family == UInt8(AF_INET) {
+                        let sin = raw.load(fromByteOffset: addrOff, as: sockaddr_in.self)
+                        // Default route has destination address 0.0.0.0
+                        dstIsDefault = sin.sin_addr.s_addr == 0
+                    }
+
+                    if bit == RTAX_GATEWAY, sa.sa_family == UInt8(AF_INET) {
+                        var sin = raw.load(fromByteOffset: addrOff, as: sockaddr_in.self)
+                        var chars = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                        if inet_ntop(AF_INET, &sin.sin_addr, &chars, socklen_t(INET_ADDRSTRLEN)) != nil {
+                            gatewayIP = String(cString: chars)
+                        }
+                    }
+
+                    // sockaddrs in routing messages are 4-byte aligned
+                    addrOff += (saLen + 3) & ~3
+                }
+
+                if dstIsDefault, let gw = gatewayIP {
+                    return gw
+                }
+            }
+            return nil
+        }
     }
 
     // MARK: - TCP port-80 probe
@@ -70,19 +126,13 @@ final class GatewayService {
             }
             connection.stateUpdateHandler = { state in
                 switch state {
-                case .ready:
-                    finish(true)
-                case .failed, .cancelled:
-                    finish(false)
-                default:
-                    break
+                case .ready:          finish(true)
+                case .failed, .cancelled: finish(false)
+                default: break
                 }
             }
             connection.start(queue: .global(qos: .userInitiated))
-            // 4-second hard timeout
-            DispatchQueue.global().asyncAfter(deadline: .now() + 4) {
-                finish(false)
-            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 4) { finish(false) }
         }
     }
 }
