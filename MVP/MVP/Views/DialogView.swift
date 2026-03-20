@@ -92,6 +92,7 @@ struct DialogView: View {
     @State private var showLongRequestNotice = false
     @State private var longRequestNoticeTask: Task<Void, Never>?
     @State private var showSettings = false
+    @State private var showWebGateway = false
     @SceneStorage("dialogViewAppMode") private var persistedAppMode = AppMode.chat.rawValue
     @State private var appMode: AppMode = .chat
 
@@ -235,7 +236,23 @@ struct DialogView: View {
                     }
                 }
 
-                if isLandscape && (appMode == .appStore || appMode == .problems) {
+                // WEB gateway screen — shown when user taps the WEB button in the top bar
+                if showWebGateway {
+                    let landscapeBarH: CGFloat = landscapeTopContentInset + 14
+                    if isLandscape {
+                        VStack(spacing: 0) {
+                            Spacer().frame(height: landscapeBarH)
+                            WebGatewayView()
+                                .frame(width: w, height: screenH - landscapeBarH)
+                        }
+                    } else {
+                        WebGatewayView()
+                            .frame(width: w, height: screenH - webViewTopPad)
+                            .padding(.top, webViewTopPad)
+                    }
+                }
+
+                if isLandscape && (appMode == .appStore || appMode == .problems || showWebGateway) {
                     VStack {
                         landscapeFullWidthTopBar
                             .frame(width: w)
@@ -444,6 +461,18 @@ struct DialogView: View {
                     Button { showSettings = true } label: {
                         topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 105, buttonSize: 105)
                     }
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) { showWebGateway.toggle() }
+                    } label: {
+                        topActionIcon(assetName: "WebIcon", fallbackSystemName: "globe", iconSize: 105, buttonSize: 105)
+                    }
+                    .overlay(
+                        showWebGateway
+                            ? RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.appPrimary, lineWidth: 2)
+                            : nil
+                    )
                 }
             }
             .offset(y: -30)
@@ -487,6 +516,18 @@ struct DialogView: View {
                     Button { showSettings = true } label: {
                         topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 87, buttonSize: 87)
                     }
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) { showWebGateway.toggle() }
+                    } label: {
+                        topActionIcon(assetName: "WebIcon", fallbackSystemName: "globe", iconSize: 87, buttonSize: 87)
+                    }
+                    .overlay(
+                        showWebGateway
+                            ? RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.appPrimary, lineWidth: 2)
+                            : nil
+                    )
                 }
             }
 
@@ -1891,4 +1932,129 @@ struct AppStoreWebView: UIViewRepresentable {
             webView.layoutIfNeeded()
         }
     }
+}
+
+// MARK: - WebGatewayView
+
+/// Full-screen panel shown when the WEB button in the top bar is active.
+/// Detects the default LAN gateway via SystemConfiguration and loads
+/// http://<gateway>:80 in a WKWebView. Shows an inline message when the
+/// device is not on a local network or port 80 is unreachable.
+struct WebGatewayView: View {
+
+    private enum LoadState {
+        case detecting
+        case loading(url: URL)
+        case notOnLAN
+        case unreachable(ip: String)
+    }
+
+    @State private var state: LoadState = .detecting
+    @State private var webView: WKWebView? = nil
+
+    var body: some View {
+        ZStack {
+            Color(.systemBackground).ignoresSafeArea()
+
+            switch state {
+            case .detecting:
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.4)
+                    Text("Detecting local gateway…")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+
+            case .loading(let url):
+                WebGatewayWebView(url: url)
+
+            case .notOnLAN:
+                inlineMessage(
+                    systemImage: "wifi.slash",
+                    title: "Not on a local network",
+                    body: "Connect to a Wi-Fi network whose gateway is accessible on port 80."
+                )
+
+            case .unreachable(let ip):
+                inlineMessage(
+                    systemImage: "antenna.radiowaves.left.and.right.slash",
+                    title: "Gateway not responding",
+                    body: "The gateway at \(ip) is not reachable on port 80.\nMake sure the device has a web interface enabled."
+                )
+            }
+        }
+        .task {
+            await detect()
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func detect() async {
+        state = .detecting
+        let result = await GatewayService.shared.resolve()
+        await MainActor.run {
+            switch result {
+            case .found(let ip):
+                if let url = URL(string: "http://\(ip)") {
+                    state = .loading(url: url)
+                } else {
+                    state = .unreachable(ip: ip)
+                }
+            case .notOnLAN:
+                state = .notOnLAN
+            case .unreachable(let ip):
+                state = .unreachable(ip: ip)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func inlineMessage(systemImage: String, title: String, body: String) -> some View {
+        VStack(spacing: 20) {
+            Image(systemName: systemImage)
+                .font(.system(size: 52, weight: .light))
+                .foregroundColor(.secondary)
+            Text(title)
+                .font(.title3.weight(.semibold))
+            Text(body)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 36)
+            Button {
+                Task { await detect() }
+            } label: {
+                Label("Retry", systemImage: "arrow.clockwise")
+                    .font(.subheadline.weight(.medium))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(Color.appPrimary.opacity(0.15))
+                    .foregroundColor(Color.appPrimary)
+                    .clipShape(Capsule())
+            }
+        }
+    }
+}
+
+// MARK: - WebGatewayWebView (UIViewRepresentable)
+
+/// Lightweight single-use WKWebView that loads the gateway URL.
+/// Each WebGatewayView instance gets its own WKWebView — no shared state needed
+/// because the gateway URL is local and stateless.
+private struct WebGatewayWebView: UIViewRepresentable {
+
+    let url: URL
+
+    func makeUIView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        config.allowsInlineMediaPlayback = true
+        let wv = WKWebView(frame: .zero, configuration: config)
+        wv.allowsBackForwardNavigationGestures = true
+        wv.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10))
+        return wv
+    }
+
+    func updateUIView(_ webView: WKWebView, context: Context) {}
 }
