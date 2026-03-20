@@ -26,6 +26,7 @@
 		7E00052F311B1E00C0017C /* APIConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00042F311B1E00C0017D /* APIConfig.swift */; };
 		7E00062F311B1E00C0017C /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00052F311B1E00C0017D /* AuthService.swift */; };
 		7E00072F311B1E00C0017C /* DialogAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00062F311B1E00C0017D /* DialogAPIService.swift */; };
+		AA44992001000000000001 /* GatewayService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992001000000000002 /* GatewayService.swift */; };
 		7E00082F311B1E00C0017C /* SpeechToTextService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00072F311B1E00C0017D /* SpeechToTextService.swift */; };
 		7E00092F311B1E00C0017C /* TextToSpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00082F311B1E00C0017D /* TextToSpeechService.swift */; };
 		7E000A2F311B1E00C0017C /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00092F311B1E00C0017D /* LoginView.swift */; };
@@ -33,7 +34,6 @@
 		7E000C2F311B1E00C0017C /* DialogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E000B2F311B1E00C0017D /* DialogView.swift */; };
 		7E000D2F311B1E00C0017C /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E000C2F311B1E00C0017D /* AvatarView.swift */; };
 		7E000E2F311B1E00C0017C /* ChatBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E000D2F311B1E00C0017D /* ChatBubbleView.swift */; };
-		7E00FF2F311B1E00C0017C /* GatewayService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00FE2F311B1E00C0017D /* GatewayService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,6 +77,7 @@
 		7E00042F311B1E00C0017D /* APIConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIConfig.swift; sourceTree = "<group>"; };
 		7E00052F311B1E00C0017D /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		7E00062F311B1E00C0017D /* DialogAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialogAPIService.swift; sourceTree = "<group>"; };
+		AA44992001000000000002 /* GatewayService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayService.swift; sourceTree = "<group>"; };
 		7E00072F311B1E00C0017D /* SpeechToTextService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechToTextService.swift; sourceTree = "<group>"; };
 		7E00082F311B1E00C0017D /* TextToSpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextToSpeechService.swift; sourceTree = "<group>"; };
 		7E00092F311B1E00C0017D /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
@@ -85,7 +86,6 @@
 		7E000C2F311B1E00C0017D /* AvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarView.swift; sourceTree = "<group>"; };
 		7E000D2F311B1E00C0017D /* ChatBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatBubbleView.swift; sourceTree = "<group>"; };
 		7E000F2F311B1E00C0017D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		7E00FE2F311B1E00C0017D /* GatewayService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -195,8 +195,8 @@
 				7E00042F311B1E00C0017D /* APIConfig.swift */,
 				7E00052F311B1E00C0017D /* AuthService.swift */,
 				7E00062F311B1E00C0017D /* DialogAPIService.swift */,
-				7E00FE2F311B1E00C0017D /* GatewayService.swift */,
 				7E00032F311B1E00C0017D /* KeychainService.swift */,
+				AA44992001000000000002 /* GatewayService.swift */,
 				7E00072F311B1E00C0017D /* SpeechToTextService.swift */,
 				7E00082F311B1E00C0017D /* TextToSpeechService.swift */,
 			);
@@ -367,6 +367,7 @@
 				7E00052F311B1E00C0017C /* APIConfig.swift in Sources */,
 				7E00062F311B1E00C0017C /* AuthService.swift in Sources */,
 				7E00072F311B1E00C0017C /* DialogAPIService.swift in Sources */,
+				AA44992001000000000001 /* GatewayService.swift in Sources */,
 				7E00082F311B1E00C0017C /* SpeechToTextService.swift in Sources */,
 				7E00092F311B1E00C0017C /* TextToSpeechService.swift in Sources */,
 				7E000A2F311B1E00C0017C /* LoginView.swift in Sources */,
@@ -374,7 +375,6 @@
 				7E000C2F311B1E00C0017C /* DialogView.swift in Sources */,
 				7E000D2F311B1E00C0017C /* AvatarView.swift in Sources */,
 				7E000E2F311B1E00C0017C /* ChatBubbleView.swift in Sources */,
-				7E00FF2F311B1E00C0017C /* GatewayService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
