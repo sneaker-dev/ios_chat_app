@@ -27,6 +27,11 @@
 		7E00062F311B1E00C0017C /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00052F311B1E00C0017D /* AuthService.swift */; };
 		7E00072F311B1E00C0017C /* DialogAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00062F311B1E00C0017D /* DialogAPIService.swift */; };
 		AA44992001000000000001 /* GatewayService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992001000000000002 /* GatewayService.swift */; };
+		AA44992002000000000001 /* AppStoreAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992002000000000002 /* AppStoreAuthService.swift */; };
+		AA44992003000000000001 /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992003000000000002 /* AppLogger.swift */; };
+		AA44992004000000000001 /* AzureTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992004000000000002 /* AzureTTSService.swift */; };
+		AA44992005000000000001 /* BaseTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992005000000000002 /* BaseTTSService.swift */; };
+		AA44992006000000000001 /* CloudTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992006000000000002 /* CloudTTSService.swift */; };
 		7E00082F311B1E00C0017C /* SpeechToTextService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00072F311B1E00C0017D /* SpeechToTextService.swift */; };
 		7E00092F311B1E00C0017C /* TextToSpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00082F311B1E00C0017D /* TextToSpeechService.swift */; };
 		7E000A2F311B1E00C0017C /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00092F311B1E00C0017D /* LoginView.swift */; };
@@ -78,6 +83,11 @@
 		7E00052F311B1E00C0017D /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		7E00062F311B1E00C0017D /* DialogAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialogAPIService.swift; sourceTree = "<group>"; };
 		AA44992001000000000002 /* GatewayService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayService.swift; sourceTree = "<group>"; };
+		AA44992002000000000002 /* AppStoreAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreAuthService.swift; sourceTree = "<group>"; };
+		AA44992003000000000002 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
+		AA44992004000000000002 /* AzureTTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AzureTTSService.swift; sourceTree = "<group>"; };
+		AA44992005000000000002 /* BaseTTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseTTSService.swift; sourceTree = "<group>"; };
+		AA44992006000000000002 /* CloudTTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudTTSService.swift; sourceTree = "<group>"; };
 		7E00072F311B1E00C0017D /* SpeechToTextService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechToTextService.swift; sourceTree = "<group>"; };
 		7E00082F311B1E00C0017D /* TextToSpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextToSpeechService.swift; sourceTree = "<group>"; };
 		7E00092F311B1E00C0017D /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
@@ -194,6 +204,11 @@
 			children = (
 				7E00042F311B1E00C0017D /* APIConfig.swift */,
 				7E00052F311B1E00C0017D /* AuthService.swift */,
+				AA44992002000000000002 /* AppStoreAuthService.swift */,
+				AA44992003000000000002 /* AppLogger.swift */,
+				AA44992004000000000002 /* AzureTTSService.swift */,
+				AA44992005000000000002 /* BaseTTSService.swift */,
+				AA44992006000000000002 /* CloudTTSService.swift */,
 				7E00062F311B1E00C0017D /* DialogAPIService.swift */,
 				7E00032F311B1E00C0017D /* KeychainService.swift */,
 				AA44992001000000000002 /* GatewayService.swift */,
@@ -368,6 +383,11 @@
 				7E00062F311B1E00C0017C /* AuthService.swift in Sources */,
 				7E00072F311B1E00C0017C /* DialogAPIService.swift in Sources */,
 				AA44992001000000000001 /* GatewayService.swift in Sources */,
+				AA44992002000000000001 /* AppStoreAuthService.swift in Sources */,
+				AA44992003000000000001 /* AppLogger.swift in Sources */,
+				AA44992004000000000001 /* AzureTTSService.swift in Sources */,
+				AA44992005000000000001 /* BaseTTSService.swift in Sources */,
+				AA44992006000000000001 /* CloudTTSService.swift in Sources */,
 				7E00082F311B1E00C0017C /* SpeechToTextService.swift in Sources */,
 				7E00092F311B1E00C0017C /* TextToSpeechService.swift in Sources */,
 				7E000A2F311B1E00C0017C /* LoginView.swift in Sources */,
