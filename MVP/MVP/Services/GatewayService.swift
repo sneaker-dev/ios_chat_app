@@ -15,8 +15,12 @@ enum GatewayResult {
 
 // MARK: - GatewayService
 
-/// Detects the default IPv4 gateway by parsing the BSD kernel routing table
-/// via sysctl — fully available on iOS, no macOS-only frameworks required.
+/// Detects the default IPv4 gateway and probes port 80 reachability.
+///
+/// Gateway detection uses getifaddrs() to read the WiFi interface (en0)
+/// address and subnet mask, then computes gateway = (ip & mask) + 1.
+/// This is the standard convention used by virtually all home and office
+/// routers (192.168.x.1, 10.x.x.1, etc.) and requires no private APIs.
 final class GatewayService {
 
     static let shared = GatewayService()
@@ -25,7 +29,6 @@ final class GatewayService {
     // MARK: - Public API
 
     /// Resolves the default gateway and probes port 80 reachability.
-    /// Always returns on the main actor.
     func resolve() async -> GatewayResult {
         guard let ip = defaultGatewayIPv4() else {
             return .notOnLAN
@@ -34,73 +37,48 @@ final class GatewayService {
         return reachable ? .found(ip: ip) : .unreachable(ip: ip)
     }
 
-    // MARK: - Gateway IP via sysctl routing table
+    // MARK: - Gateway IP via getifaddrs
 
-    /// Reads the kernel routing table (NET_RT_FLAGS / RTF_GATEWAY) and returns
-    /// the gateway address of the default route (destination 0.0.0.0).
-    /// This is identical to what `netstat -rn` reports as the default route.
+    /// Finds the primary WiFi interface (en0), reads its IPv4 address and
+    /// subnet mask, then returns (address & mask) + 1 as the gateway.
+    ///
+    /// Examples:
+    ///   192.168.1.42 / 255.255.255.0  →  gateway 192.168.1.1
+    ///   10.0.0.55    / 255.255.255.0  →  gateway 10.0.0.1
     private func defaultGatewayIPv4() -> String? {
-        var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_GATEWAY]
-        var needed = 0
+        var ifaddr: UnsafeMutablePointer<ifaddrs>? = nil
+        guard getifaddrs(&ifaddr) == 0 else { return nil }
+        defer { freeifaddrs(ifaddr) }
 
-        guard sysctl(&mib, UInt32(mib.count), nil, &needed, nil, 0) == 0, needed > 0 else {
-            return nil
+        var cursor = ifaddr
+        while let ifa = cursor {
+            defer { cursor = ifa.pointee.ifa_next }
+
+            // en0 is the primary WiFi adapter on all iOS devices
+            let name = String(cString: ifa.pointee.ifa_name)
+            guard name == "en0",
+                  let addrPtr = ifa.pointee.ifa_addr,
+                  let maskPtr = ifa.pointee.ifa_netmask,
+                  addrPtr.pointee.sa_family == UInt8(AF_INET)
+            else { continue }
+
+            let sin  = addrPtr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+            let mask = maskPtr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+
+            // Both values are in network byte order (big-endian).
+            // Convert to host order, compute network base, add 1, convert back.
+            let ipHost  = UInt32(bigEndian: sin.sin_addr.s_addr)
+            let maskHost = UInt32(bigEndian: mask.sin_addr.s_addr)
+            let networkHost  = ipHost & maskHost
+            let gatewayHost  = networkHost + 1          // .1 on the subnet
+            let gatewayBE    = gatewayHost.bigEndian
+
+            var gwIn = in_addr(s_addr: gatewayBE)
+            var buf  = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+            guard inet_ntop(AF_INET, &gwIn, &buf, socklen_t(INET_ADDRSTRLEN)) != nil else { continue }
+            return String(cString: buf)
         }
-
-        var buf = [UInt8](repeating: 0, count: needed)
-        guard sysctl(&mib, UInt32(mib.count), &buf, &needed, nil, 0) == 0 else {
-            return nil
-        }
-
-        return buf.withUnsafeBytes { raw -> String? in
-            var offset = 0
-            while offset + MemoryLayout<rt_msghdr>.size <= needed {
-                let msg = raw.load(fromByteOffset: offset, as: rt_msghdr.self)
-                let msgLen = Int(msg.rtm_msglen)
-                guard msgLen > 0 else { break }
-                defer { offset += msgLen }
-
-                // Must have both destination and gateway sockaddrs
-                guard msg.rtm_addrs & RTA_DST != 0,
-                      msg.rtm_addrs & RTA_GATEWAY != 0 else { continue }
-
-                // sockaddrs are packed immediately after rt_msghdr
-                var addrOff = offset + MemoryLayout<rt_msghdr>.size
-                var dstIsDefault = false
-                var gatewayIP: String? = nil
-
-                for bit in 0 ..< RTAX_MAX {
-                    guard msg.rtm_addrs & (1 << bit) != 0 else { continue }
-                    guard addrOff + MemoryLayout<sockaddr>.size <= needed else { break }
-
-                    let sa = raw.load(fromByteOffset: addrOff, as: sockaddr.self)
-                    // sa_len = 0 means the sockaddr uses the minimum struct size
-                    let saLen = Int(sa.sa_len) > 0 ? Int(sa.sa_len) : MemoryLayout<sockaddr>.size
-
-                    if bit == RTAX_DST, sa.sa_family == UInt8(AF_INET) {
-                        let sin = raw.load(fromByteOffset: addrOff, as: sockaddr_in.self)
-                        // Default route has destination address 0.0.0.0
-                        dstIsDefault = sin.sin_addr.s_addr == 0
-                    }
-
-                    if bit == RTAX_GATEWAY, sa.sa_family == UInt8(AF_INET) {
-                        var sin = raw.load(fromByteOffset: addrOff, as: sockaddr_in.self)
-                        var chars = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
-                        if inet_ntop(AF_INET, &sin.sin_addr, &chars, socklen_t(INET_ADDRSTRLEN)) != nil {
-                            gatewayIP = String(cString: chars)
-                        }
-                    }
-
-                    // sockaddrs in routing messages are 4-byte aligned
-                    addrOff += (saLen + 3) & ~3
-                }
-
-                if dstIsDefault, let gw = gatewayIP {
-                    return gw
-                }
-            }
-            return nil
-        }
+        return nil
     }
 
     // MARK: - TCP port-80 probe
@@ -123,7 +101,7 @@ final class GatewayService {
             }
             connection.stateUpdateHandler = { state in
                 switch state {
-                case .ready:          finish(true)
+                case .ready:              finish(true)
                 case .failed, .cancelled: finish(false)
                 default: break
                 }
