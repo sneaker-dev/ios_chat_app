@@ -209,6 +209,7 @@ struct DialogView: View {
                     VStack {
                         landscapeFullWidthTopBar
                             .frame(width: w)
+                            .offset(y: -15)
                         Spacer()
                     }
                 }
@@ -369,6 +370,7 @@ struct DialogView: View {
             if appMode != .appStore {
                 landscapeFullWidthTopBar
                     .frame(width: w)
+                    .offset(y: -15)
             }
         }
         .frame(width: w, height: h)
@@ -474,7 +476,7 @@ struct DialogView: View {
     private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
         let iconSize: CGFloat     = isLandscape ? 114 : 89
         let textSize: CGFloat     = isLandscape ? 19  : 16
-        let buttonHeight: CGFloat = isLandscape ? 94  : 68
+        let buttonHeight: CGFloat = isLandscape ? 31  : 68
         let buttonWidth: CGFloat  = isLandscape ? 188 : 0
 
         return ZStack(alignment: .bottom) {
@@ -484,7 +486,7 @@ struct DialogView: View {
                 .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
                 .foregroundColor(.white)
                 .lineLimit(1)
-                .padding(.bottom, isLandscape ? 2 : 3)
+                .padding(.bottom, isLandscape ? 6 : 19)
         }
         .frame(
             minWidth: isLandscape ? buttonWidth : 0,
