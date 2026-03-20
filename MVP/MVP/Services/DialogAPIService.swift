@@ -47,35 +47,58 @@ final class DialogAPIService {
     }
 
     func sendMessage(_ text: String, language: String? = nil, baseURL: String? = nil) async throws -> String {
+        let normalizedText = sanitizeQueryText(text)
+        guard !normalizedText.isEmpty else {
+            throw DialogAPIError.serverError("Please say or type a message.")
+        }
+
         guard let token = auth.token() else { throw DialogAPIError.notAuthenticated }
 
         if APIConfig.useDemoMode {
-            return "You said: \"\(text)\". (Demo mode.)"
+            return "You said: \"\(normalizedText)\". (Demo mode.)"
         }
 
         let lang = language ?? DialogAPIService.getDeviceLanguage()
         let locale = TextToSpeechService.formatLocale(lang)
-        AppLogger.dialog.info("sendMessage language=\(lang, privacy: .public) locale=\(locale, privacy: .public) baseURL=\(baseURL ?? APIConfig.baseURL, privacy: .public) textLength=\(text.count, privacy: .public)")
-        let body = InangoGenericRequest(locale: locale, queryText: text)
-        let effectiveBaseURL = baseURL ?? APIConfig.baseURL
-        guard let url = URL(string: effectiveBaseURL + APIConfig.dialogPath) else { throw DialogAPIError.invalidURL }
+        AppLogger.dialog.debug("sendMessage language=\(lang, privacy: .public) locale=\(locale, privacy: .public) baseURL=\(baseURL ?? APIConfig.baseURL, privacy: .public)")
 
+        let body = InangoGenericRequest(locale: locale, queryText: normalizedText)
+        guard let url = resolveEndpointURL(baseURL: baseURL) else { throw DialogAPIError.invalidURL }
+        let isSupportRequest = isSupportURL(url)
+        let maxRetries = isSupportRequest ? 1 : 4
+
+        return try await performRequest(
+            body: body,
+            url: url,
+            token: token,
+            isSupportRequest: isSupportRequest,
+            maxRetries: maxRetries,
+            normalizedText: normalizedText
+        )
+    }
+
+    private func performRequest(
+        body: InangoGenericRequest,
+        url: URL,
+        token: String,
+        isSupportRequest: Bool,
+        maxRetries: Int,
+        normalizedText: String
+    ) async throws -> String {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONEncoder().encode(body)
+        request.timeoutInterval = isSupportRequest ? 18 : 25
 
-        let maxRetries = 4
         var lastError: DialogAPIError?
         for attempt in 0...maxRetries {
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
                 guard let http = response as? HTTPURLResponse else { throw DialogAPIError.invalidResponse }
 
-                AppLogger.dialog.info("sendMessage attempt=\(attempt, privacy: .public) status=\(http.statusCode, privacy: .public)")
                 if http.statusCode == 401 {
-                    AppLogger.dialog.warning("sendMessage 401 — logging out")
                     AuthService.shared.logout()
                     throw DialogAPIError.notAuthenticated
                 }
@@ -87,21 +110,18 @@ final class DialogAPIService {
                     }
                     let msg = userFacingMessage(from: data, statusCode: http.statusCode)
                     if token.hasPrefix("demo-token-") {
-                        return "You said: \"\(text)\". (Need real login to get answers from voice-demo.inango.com.)"
+                        return "You said: \"\(normalizedText)\". (Need real login to get answers from voice-demo.inango.com.)"
                     }
                     lastError = .serverError(msg)
                     if http.statusCode >= 500 && attempt < maxRetries {
                         let delayNs = UInt64(2 + attempt) * 1_000_000_000
-                        AppLogger.dialog.info("sendMessage retrying in \(2 + attempt, privacy: .public)s attempt=\(attempt + 1, privacy: .public)/\(maxRetries, privacy: .public)")
                         try await Task.sleep(nanoseconds: delayNs)
                         continue
                     }
                     throw lastError!
                 }
 
-                let parsed = try parseQueryResponse(data: data)
-                AppLogger.dialog.info("sendMessage success responseLength=\(parsed.count, privacy: .public)")
-                return parsed
+                return try parseQueryResponse(data: data)
             } catch {
                 AppLogger.dialog.error("sendMessage request failed: \(error.localizedDescription, privacy: .public)")
                 throw error
@@ -141,5 +161,52 @@ final class DialogAPIService {
             return "Voice server is temporarily unavailable. Tap Try again or send another message."
         }
         return detail.isEmpty ? "Something went wrong. Please try again." : detail
+    }
+
+    private func normalizedBaseURL(_ baseURL: String) -> String {
+        var normalized = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalized.hasSuffix("/") {
+            normalized.removeLast()
+        }
+        return normalized
+    }
+
+    private func resolveEndpointURL(baseURL: String?) -> URL? {
+        guard let override = baseURL?.trimmingCharacters(in: .whitespacesAndNewlines), !override.isEmpty else {
+            let defaultBase = normalizedBaseURL(APIConfig.baseURL)
+            return URL(string: defaultBase + APIConfig.dialogPath)
+        }
+
+        let normalized = normalizedBaseURL(override)
+        guard let parsed = URL(string: normalized) else { return nil }
+        if parsed.path.hasPrefix("/api/") {
+            return parsed
+        }
+        if let host = parsed.host?.lowercased(), host.contains("support-demo.inango.com") {
+            let path = parsed.path.lowercased()
+            if path.isEmpty || path == "/" || path == "/support" {
+                return URL(string: "https://support-demo.inango.com/api/v1/support/chat")
+            }
+        }
+        return URL(string: normalized + APIConfig.dialogPath)
+    }
+
+    private func isSupportURL(_ url: URL) -> Bool {
+        let host = (url.host ?? "").lowercased()
+        let path = url.path.lowercased()
+        return host.contains("support-demo.inango.com") || path.contains("/support/chat")
+    }
+
+    private func sanitizeQueryText(_ text: String) -> String {
+        let collapsed = text.replacingOccurrences(
+            of: "\\s+",
+            with: " ",
+            options: .regularExpression
+        )
+        let cleanedScalars = collapsed.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0)
+        }
+        return String(String.UnicodeScalarView(cleanedScalars))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

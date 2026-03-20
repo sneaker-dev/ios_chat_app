@@ -7,26 +7,23 @@ enum AppMode: String, CaseIterable {
     case chat = "Chat"
     case support = "Support"
     case appStore = "AppStore"
+    case problems = "Problems"
 
     var iconAssetName: String {
         switch self {
-        case .chat:
-            return "TabChat"
-        case .support:
-            return "TabSupport"
-        case .appStore:
-            return "TabAppStore"
+        case .chat:    return "TabChat"
+        case .support: return "TabSupport"
+        case .appStore: return "TabAppStore"
+        case .problems: return "TabProblems"
         }
     }
 
     var iconSystemName: String {
         switch self {
-        case .chat:
-            return "message.fill"
-        case .support:
-            return "person.2.fill"
-        case .appStore:
-            return "cart.fill"
+        case .chat:    return "message.fill"
+        case .support: return "person.2.fill"
+        case .appStore: return "cart.fill"
+        case .problems: return "exclamationmark.triangle.fill"
         }
     }
 }
@@ -75,6 +72,8 @@ struct DialogView: View {
 
     @StateObject private var stt = SpeechToTextService()
     @StateObject private var tts = TextToSpeechService()
+    @StateObject private var cloudTTS = CloudTTSService.shared
+    @StateObject private var azureTTS = AzureTTSService.shared
 
     @State private var messages: [ChatMessage] = []
     @State private var chatMessages: [ChatMessage] = []
@@ -86,13 +85,23 @@ struct DialogView: View {
     @State private var hasPlayedGreeting = false
     @State private var typingMessageId: UUID?
     @State private var typingDisplayedCount: Int = 0
+    @State private var typingTargetCount: Int = 0
     @State private var avatarState: AvatarAnimState = .idle
     @State private var wasVoiceInput = false
     @State private var showTypingIndicator = false
     @State private var showLongRequestNotice = false
     @State private var longRequestNoticeTask: Task<Void, Never>?
     @State private var showSettings = false
+    @SceneStorage("dialogViewAppMode") private var persistedAppMode = AppMode.chat.rawValue
     @State private var appMode: AppMode = .chat
+
+    private var isInangoUser: Bool {
+        KeychainService.shared.getLastEmail()?.hasSuffix("@inango-systems.com") == true
+    }
+
+    private var visibleModes: [AppMode] {
+        AppMode.allCases.filter { $0 != .problems || isInangoUser }
+    }
 
     @AppStorage("voiceOutputEnabled") private var voiceOutputEnabled = true
     @AppStorage("alwaysVoiceResponse") private var alwaysVoiceResponse = false
@@ -113,9 +122,46 @@ struct DialogView: View {
     private let chatHistoryKey = "chatHistory"
     private let supportHistoryKey = "supportHistory"
     private let lastVersionKey = "lastAppVersion"
+    private var tabSpacing: CGFloat { visibleModes.count >= 4 ? 4 : 6 }
+    private var tabHorizontalInset: CGFloat { visibleModes.count >= 4 ? 2 : 4 }
 
-    private var historyKey: String {
-        appMode == .support ? supportHistoryKey : chatHistoryKey
+    private func messages(for mode: AppMode) -> [ChatMessage] {
+        switch mode {
+        case .chat:
+            return chatMessages
+        case .support:
+            return supportMessages
+        default:
+            return []
+        }
+    }
+
+    private func setMessages(_ updated: [ChatMessage], for mode: AppMode) {
+        switch mode {
+        case .chat:
+            chatMessages = updated
+        case .support:
+            supportMessages = updated
+        default:
+            return
+        }
+        if appMode == mode {
+            messages = updated
+        }
+    }
+
+    private func appendMessage(_ message: ChatMessage, to mode: AppMode) {
+        var updated = messages(for: mode)
+        updated.append(message)
+        setMessages(updated, for: mode)
+    }
+
+    private var activeMessages: [ChatMessage] {
+        messages(for: appMode)
+    }
+
+    private var isAnyTTSPlaying: Bool {
+        tts.isSpeaking || cloudTTS.isSpeaking || azureTTS.isSpeaking
     }
 
     private var dialogLanguage: String {
@@ -125,17 +171,19 @@ struct DialogView: View {
     }
 
     @State private var keyboardHeight: CGFloat = 0
+    private let landscapeTopContentInset: CGFloat = 122
 
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width
-            let screenH = UIScreen.main.bounds.height
-            let isLandscape = w > screenH
+            let screenH = geo.size.height
+            let isLandscape = w > geo.size.height
             let webViewTopPad: CGFloat = isLandscape ? 90 : {
                 let winTop = UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }
                     .first?.windows.first?.safeAreaInsets.top ?? 47
-                return (winTop + 6) / 2 + 187
+                // Align AppStore/Problems content exactly with portrait top-bar bottom edge.
+                return (winTop + 6) / 2 + 166
             }()
 
             ZStack {
@@ -156,31 +204,44 @@ struct DialogView: View {
                     portraitLayout(w: w, h: screenH)
                 }
 
-                if let url = URL(string: APIConfig.appStoreURL) {
-                    let landscapeBarH: CGFloat = 72
+                if appMode == .appStore, let url = URL(string: APIConfig.appStoreURL) {
+                    let landscapeBarH: CGFloat = landscapeTopContentInset + 14
                     if isLandscape {
                         VStack(spacing: 0) {
                             Spacer().frame(height: landscapeBarH)
                             AppStoreWebView(url: url, token: AuthService.shared.token(), isLandscape: true)
                                 .frame(width: w, height: screenH - landscapeBarH)
                         }
-                        .opacity(appMode == .appStore ? 1 : 0)
-                        .allowsHitTesting(appMode == .appStore)
                     } else {
                         AppStoreWebView(url: url, token: AuthService.shared.token(), isLandscape: false)
                             .frame(width: w, height: screenH - webViewTopPad)
                             .padding(.top, webViewTopPad)
-                            .opacity(appMode == .appStore ? 1 : 0)
-                            .allowsHitTesting(appMode == .appStore)
                     }
                 }
 
-                if isLandscape && appMode == .appStore {
+                // Problems screen — sits at the same layer as the AppStore WebView
+                if appMode == .problems {
+                    let landscapeBarH: CGFloat = landscapeTopContentInset + 14
+                    if isLandscape {
+                        VStack(spacing: 0) {
+                            Spacer().frame(height: landscapeBarH)
+                            ProblemsView()
+                                .frame(width: w, height: screenH - landscapeBarH)
+                        }
+                    } else {
+                        ProblemsView()
+                            .frame(width: w, height: screenH - webViewTopPad)
+                            .padding(.top, webViewTopPad)
+                    }
+                }
+
+                if isLandscape && (appMode == .appStore || appMode == .problems) {
                     VStack {
                         landscapeFullWidthTopBar
                             .frame(width: w)
                         Spacer()
                     }
+                    .zIndex(0)
                 }
 
                 if !isLandscape {
@@ -191,6 +252,7 @@ struct DialogView: View {
                         topBar.frame(width: w).padding(.top, (winTop2 + 6) / 2)
                         Spacer()
                     }
+                    .zIndex(0)
                 }
             }
             .frame(width: w, height: screenH)
@@ -208,30 +270,31 @@ struct DialogView: View {
         }
         .onAppear {
             guard ensureAuthenticatedOrRedirect() else { return }
+            if let restoredMode = AppMode(rawValue: persistedAppMode) {
+                appMode = restoredMode
+            }
             let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
             let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
             AppLogger.navigation.info("DialogView appeared version=\(version, privacy: .public) build=\(build, privacy: .public) avatar=\(avatarType.rawValue, privacy: .public)")
             loadAllHistories()
-            messages = chatMessages
+            messages = messages(for: appMode)
             setupTTSCallbacks()
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
         .onChange(of: appMode) { newMode in
             guard ensureAuthenticatedOrRedirect() else { return }
             AppLogger.navigation.info("tab switched to=\(newMode.rawValue, privacy: .public)")
-            if newMode == .chat {
-                supportMessages = messages
-                messages = chatMessages
-            } else if newMode == .support {
-                chatMessages = messages
-                messages = supportMessages
+            persistedAppMode = newMode.rawValue
+            if newMode == .chat || newMode == .support {
+                messages = messages(for: newMode)
             }
-            tts.stop()
+            // .appStore and .problems don't use the chat message list
             typingMessageId = nil
             showTypingIndicator = false
             stopLongRequestNoticeTimer()
             isLoading = false
             errorMessage = nil
+            typingTargetCount = 0
         }
         .onChange(of: showSoftwareKeyboard) { newValue in
             if !newValue {
@@ -241,7 +304,22 @@ struct DialogView: View {
         }
         .onChange(of: tts.spokenCharacterCount) { newCount in
             if typingMessageId != nil {
-                typingDisplayedCount = newCount
+                typingDisplayedCount = min(newCount, typingTargetCount)
+            }
+        }
+        .onChange(of: cloudTTS.spokenCharacterCount) { newCount in
+            if typingMessageId != nil && cloudTTS.isSpeaking {
+                typingDisplayedCount = min(newCount, typingTargetCount)
+            }
+        }
+        .onChange(of: azureTTS.spokenCharacterCount) { newCount in
+            if typingMessageId != nil && azureTTS.isSpeaking {
+                typingDisplayedCount = min(newCount, typingTargetCount)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+            if appMode == .chat || appMode == .support {
+                messages = messages(for: appMode)
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -265,12 +343,13 @@ struct DialogView: View {
             : h * 0.55
 
         return ZStack(alignment: .top) {
-            if appMode != .appStore {
+            if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 1.0)
+                    .scaleEffect(1.15)
                     .frame(width: w, height: h * 0.65)
-                    .clipped()
                     .allowsHitTesting(false)
-                    .padding(.top, topBarBottom + 20)
+                    .padding(.top, topBarBottom)
+                    .zIndex(10)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -294,6 +373,7 @@ struct DialogView: View {
                     .frame(width: w, height: bottomH)
                 }
                 .frame(width: w, height: availableH)
+                .zIndex(20)
             }
         }
         .frame(width: w, height: h)
@@ -307,12 +387,12 @@ struct DialogView: View {
         let bottomH: CGFloat = h * 0.45
 
         return ZStack(alignment: .top) {
-            if appMode != .appStore {
+            if appMode != .appStore && appMode != .problems {
                 AvatarView(avatarType: avatarType, state: avatarState, scale: 0.85, useAspectFit: true)
                     .frame(width: w, height: h)
-                    .offset(y: topBarH * 0.75)
-                    .clipped()
+                    .offset(y: topBarH * 0.20 + 38)
                     .allowsHitTesting(false)
+                    .zIndex(10)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -334,18 +414,20 @@ struct DialogView: View {
                     .background(Color.clear)
                 }
                 .frame(width: w, height: h)
+                .zIndex(20)
             }
 
-            if appMode != .appStore {
+            if appMode != .appStore && appMode != .problems {
                 landscapeFullWidthTopBar
                     .frame(width: w)
+                    .zIndex(0)
             }
         }
         .frame(width: w, height: h)
     }
 
     private var landscapeFullWidthTopBar: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 2) {
             HStack(spacing: 0) {
                 brandLogo(width: 107, height: 43)
                     .padding(.leading, 16)
@@ -356,30 +438,35 @@ struct DialogView: View {
                     Button {
                         NotificationCenter.default.post(name: .changeAvatar, object: nil)
                     } label: {
-                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 173, buttonSize: 173)
+                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 105, buttonSize: 105)
                     }
 
                     Button { showSettings = true } label: {
-                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 173, buttonSize: 173)
+                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 105, buttonSize: 105)
                     }
                 }
             }
+            .offset(y: -30)
 
-            HStack(spacing: 6) {
-                ForEach(AppMode.allCases, id: \.self) { mode in
+            HStack(spacing: tabSpacing) {
+                ForEach(visibleModes, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        modeTabButton(mode: mode, isLandscape: true)
+                        modeTabButton(mode: mode, isLandscape: true, modeCount: visibleModes.count)
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            .padding(4)
+            .frame(maxWidth: .infinity)
+            .offset(y: -60)
+            .padding(.horizontal, tabHorizontalInset)
+            .padding(.vertical, 2)
             .background(Color.clear)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 4)
-        .background(Color.black.opacity(0.25))
+        .padding(.vertical, 2)
+        .background(Color.clear)
     }
 
     private var topBar: some View {
@@ -394,52 +481,77 @@ struct DialogView: View {
                     Button {
                         NotificationCenter.default.post(name: .changeAvatar, object: nil)
                     } label: {
-                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 96, buttonSize: 96)
+                        topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 87, buttonSize: 87)
                     }
 
                     Button { showSettings = true } label: {
-                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 96, buttonSize: 96)
+                        topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 87, buttonSize: 87)
                     }
                 }
             }
 
-            HStack(spacing: 6) {
-                ForEach(AppMode.allCases, id: \.self) { mode in
+            HStack(spacing: tabSpacing) {
+                ForEach(visibleModes, id: \.self) { mode in
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
                     } label: {
-                        modeTabButton(mode: mode, isLandscape: false)
+                        modeTabButton(mode: mode, isLandscape: false, modeCount: visibleModes.count)
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, tabHorizontalInset)
             .padding(.bottom, 4)
             .background(Color.clear)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 12)
         .padding(.bottom, 4)
         .background(Color.black.opacity(0.55))
     }
 
-    private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
-        let buttonWidth: CGFloat = isLandscape ? 157 : 117
-        let iconSize: CGFloat = isLandscape ? 132 : 115
-        let textSize: CGFloat = isLandscape ? 19 : 18
-        let buttonHeight: CGFloat = isLandscape ? 92 : 80
+    private func modeTabButton(mode: AppMode, isLandscape: Bool, modeCount: Int) -> some View {
+        let scale: CGFloat = modeCount >= 4 ? 1.0 / 1.2 : 1.0
+        let baseButtonWidth: CGFloat = (isLandscape ? 157 : 117) * scale
+        let iconSize: CGFloat = (isLandscape ? 109.2 : 115) * scale
+        let textSize: CGFloat = (isLandscape ? 19 : 18) * scale
+        let buttonHeight: CGFloat = ((isLandscape ? 76 : 80) + 3) * scale
+        let iconPaddingBottom: CGFloat = (isLandscape ? 6 : 20) * scale
+        let textPaddingBottom: CGFloat = (isLandscape ? 11 : 29) * scale
+        let textLift: CGFloat = isLandscape ? -8 : 0
+        let screenWidth = isLandscape
+            ? max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
+            : UIScreen.main.bounds.width
+        let horizontalReserved: CGFloat = isLandscape ? 32 : 44
+        let rowSpacing: CGFloat = modeCount >= 4 ? 4 : 6
+        let sideGutter: CGFloat = isLandscape ? 0 : (modeCount >= 4 ? 6 : 4)
+        let maxRowWidth = max(
+            0,
+            screenWidth
+                - horizontalReserved
+                - (sideGutter * 2)
+                - rowSpacing * CGFloat(max(modeCount - 1, 0))
+        )
+        let fittedButtonWidth = floor(maxRowWidth / CGFloat(max(modeCount, 1)))
+        let requestedButtonWidth = baseButtonWidth * (isLandscape ? 1.56 : 1.1)
+        let widenedFittedButtonWidth = floor(fittedButtonWidth * (isLandscape ? 1.2 : 1.1))
+        let buttonWidth: CGFloat = modeCount >= 4
+            ? min(requestedButtonWidth, widenedFittedButtonWidth)
+            : baseButtonWidth
 
         return ZStack(alignment: .bottom) {
             tabIcon(for: mode, size: iconSize)
-                .padding(.bottom, 20)
+                .padding(.bottom, iconPaddingBottom)
             Text(mode.rawValue)
                 .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
-                .foregroundColor(.white)
+                .foregroundColor(appMode == mode ? .white : Color.black.opacity(0.82))
                 .lineLimit(1)
-                .padding(.bottom, 29)
+                .padding(.bottom, textPaddingBottom)
+                .offset(y: textLift)
         }
         .frame(width: buttonWidth, height: buttonHeight)
         .background(
             RoundedRectangle(cornerRadius: 9)
-                .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.12))
+                .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.45))
         )
         .clipShape(RoundedRectangle(cornerRadius: 9))
     }
@@ -506,7 +618,7 @@ struct DialogView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                 LazyVStack(spacing: 10) {
-                        ForEach(messages) { msg in
+                        ForEach(activeMessages) { msg in
                             ChatBubbleView(
                                 message: msg,
                                 displayedCharacterCount: msg.isFromUser ? nil : (msg.id == typingMessageId ? typingDisplayedCount : nil)
@@ -516,14 +628,14 @@ struct DialogView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 8)
             }
-            .onChange(of: messages.count) { _ in scrollToBottom(proxy: proxy) }
+            .onChange(of: activeMessages.count) { _ in scrollToBottom(proxy: proxy) }
             .onChange(of: typingDisplayedCount) { _ in scrollToBottom(proxy: proxy) }
         }
         .frame(maxHeight: .infinity)
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy) {
-        if let last = messages.last {
+        if let last = activeMessages.last {
             withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(last.id, anchor: .bottom) }
         }
     }
@@ -582,7 +694,7 @@ struct DialogView: View {
                         .clipShape(Circle())
                         .opacity(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
                 }
-                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
+                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading || isAnyTTSPlaying)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -620,7 +732,7 @@ struct DialogView: View {
                     .background(stt.isRecording ? Color.speakActive1 : Color.speakNormal1)
                     .clipShape(Circle())
             }
-            .disabled(isLoading)
+            .disabled(isLoading || isAnyTTSPlaying)
 
             Button {
                 wasVoiceInput = false
@@ -633,7 +745,7 @@ struct DialogView: View {
                     .background(Color.appPrimary)
                     .clipShape(Circle())
             }
-            .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
+            .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading || isAnyTTSPlaying)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 8)
@@ -703,8 +815,8 @@ struct DialogView: View {
             )
             .clipShape(Capsule())
             .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
-                }
-                .disabled(isLoading)
+        }
+        .disabled(isLoading || isAnyTTSPlaying)
     }
 
     private var ttsRate: Float {
@@ -739,9 +851,20 @@ struct DialogView: View {
         Float(ttsVolume)
     }
 
+    private func finishSynchronizedSpeechUI() {
+        typingDisplayedCount = typingTargetCount
+        typingMessageId = nil
+        typingTargetCount = 0
+        avatarState = .idle
+    }
+
     private func setupTTSCallbacks() {
         tts.onSpeakingStarted = { avatarState = .speaking }
-        tts.onSpeakingCompleted = { avatarState = .idle }
+        tts.onSpeakingCompleted = { finishSynchronizedSpeechUI() }
+        CloudTTSService.shared.onSpeakingStarted = { avatarState = .speaking }
+        CloudTTSService.shared.onSpeakingCompleted = { finishSynchronizedSpeechUI() }
+        AzureTTSService.shared.onSpeakingStarted = { avatarState = .speaking }
+        AzureTTSService.shared.onSpeakingCompleted = { finishSynchronizedSpeechUI() }
     }
 
     /// Guard protected flows while user is inside Dialog screen.
@@ -762,7 +885,7 @@ struct DialogView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             let greeting = "Hello! How can I help you today?"
             let msg = ChatMessage(text: greeting, isFromUser: false)
-            messages.append(msg)
+            appendMessage(msg, to: appMode)
             startTypewriter(messageId: msg.id, fullText: greeting)
             if voiceOutputEnabled {
                 speakResponse(greeting)
@@ -773,6 +896,7 @@ struct DialogView: View {
     private func startVoiceInput() {
         guard ensureAuthenticatedOrRedirect() else { return }
         AppLogger.stt.info("startVoiceInput mode=\(appMode.rawValue, privacy: .public)")
+        guard !isAnyTTSPlaying else { return }
         tts.stop()
         CloudTTSService.shared.stop()
         AzureTTSService.shared.stop()
@@ -800,17 +924,19 @@ struct DialogView: View {
 
     private func sendMessage(_ text: String, fromVoice: Bool, isRetry: Bool = false) {
         guard ensureAuthenticatedOrRedirect() else { return }
+        let requestMode = appMode
+        guard requestMode == .chat || requestMode == .support else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        // Stop any ongoing TTS before starting a new request (#44825).
-        tts.stop()
-        CloudTTSService.shared.stop()
-        AzureTTSService.shared.stop()
+        guard !isAnyTTSPlaying else {
+            errorMessage = "Please wait for the current voice response to finish."
+            return
+        }
         AppLogger.dialog.info("sendMessage mode=\(appMode.rawValue, privacy: .public) fromVoice=\(fromVoice, privacy: .public) isRetry=\(isRetry, privacy: .public) textLength=\(trimmed.count, privacy: .public)")
         wasVoiceInput = fromVoice
         if !isRetry {
             inputText = ""
-            messages.append(ChatMessage(text: trimmed, isFromUser: true, wasVoiceInput: fromVoice, language: dialogLanguage))
+            appendMessage(ChatMessage(text: trimmed, isFromUser: true, wasVoiceInput: fromVoice, language: dialogLanguage), to: requestMode)
         }
         errorMessage = nil; lastFailedMessage = nil; isLoading = true; avatarState = .thinking
         if typingIndicatorEnabled { showTypingIndicator = true }
@@ -818,7 +944,7 @@ struct DialogView: View {
 
         Task {
             do {
-                let apiBaseURL: String? = appMode == .support ? APIConfig.supportBaseURL : nil
+                let apiBaseURL: String? = requestMode == .support ? APIConfig.supportBaseURL : nil
                 let response = try await DialogAPIService.shared.sendMessage(trimmed, language: dialogLanguage, baseURL: apiBaseURL)
                 await MainActor.run {
                     stopLongRequestNoticeTimer()
@@ -826,27 +952,30 @@ struct DialogView: View {
                     let displayText = stripNoSpeechForDisplay(response)
                     let ttsText = stripNoSpeechForTTS(response)
                     let botMsg = ChatMessage(text: displayText, isFromUser: false, wasVoiceInput: fromVoice, language: dialogLanguage)
-                    messages.append(botMsg)
+                    appendMessage(botMsg, to: requestMode)
                     isLoading = false
-                    let shouldSpeak = voiceOutputEnabled && !ttsText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    let shouldSpeak = voiceOutputEnabled
+                        && (fromVoice || alwaysVoiceResponse)
+                        && !ttsText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     if shouldSpeak {
-                        typingMessageId = botMsg.id
-                        typingDisplayedCount = 0
-                        avatarState = .speaking
-                        speakResponse(ttsText) {
-                            typingDisplayedCount = displayText.count
-                            typingMessageId = nil
-                            avatarState = .idle
+                        if appMode == requestMode {
+                            typingMessageId = botMsg.id
+                            typingDisplayedCount = 0
+                            typingTargetCount = displayText.count
                         }
+                        // Avatar/text are switched to "speaking" exactly when TTS playback actually starts.
+                        speakResponse(ttsText)
                     } else {
-                        avatarState = .speaking
-                        startTypewriter(messageId: botMsg.id, fullText: displayText)
-                        let displayTime = Double(displayText.count) * 0.025 + 0.5
-                        DispatchQueue.main.asyncAfter(deadline: .now() + displayTime) {
-                            if avatarState == .speaking { avatarState = .idle }
+                        if appMode == requestMode {
+                            avatarState = .speaking
+                            startTypewriter(messageId: botMsg.id, fullText: displayText)
+                            let displayTime = Double(displayText.count) * 0.025 + 0.5
+                            DispatchQueue.main.asyncAfter(deadline: .now() + displayTime) {
+                                if avatarState == .speaking { avatarState = .idle }
+                            }
                         }
                     }
-                    saveChatHistory()
+                    saveChatHistory(for: requestMode)
                 }
             } catch {
                 await MainActor.run {
@@ -855,9 +984,11 @@ struct DialogView: View {
                     showTypingIndicator = false; isLoading = false
                     errorMessage = error.localizedDescription; lastFailedMessage = trimmed; avatarState = .idle
                     let fallback = ChatMessage(text: "I'm having trouble connecting. Please try again.", isFromUser: false)
-                    messages.append(fallback)
-                    startTypewriter(messageId: fallback.id, fullText: fallback.text)
-                    saveChatHistory()
+                    appendMessage(fallback, to: requestMode)
+                    if appMode == requestMode {
+                        startTypewriter(messageId: fallback.id, fullText: fallback.text)
+                    }
+                    saveChatHistory(for: requestMode)
                 }
             }
         }
@@ -953,13 +1084,13 @@ struct DialogView: View {
         }
     }
 
-    private func saveChatHistory() {
-        let toSave = Array(messages.suffix(maxHistoryCount))
-        if let data = try? JSONEncoder().encode(toSave) { UserDefaults.standard.set(data, forKey: historyKey) }
-        if appMode == .chat {
-            chatMessages = messages
-        } else if appMode == .support {
-            supportMessages = messages
+    private func saveChatHistory(for mode: AppMode) {
+        guard mode == .chat || mode == .support else { return }
+        let toSave = Array(messages(for: mode).suffix(maxHistoryCount))
+        setMessages(toSave, for: mode)
+        let key = (mode == .support) ? supportHistoryKey : chatHistoryKey
+        if let data = try? JSONEncoder().encode(toSave) {
+            UserDefaults.standard.set(data, forKey: key)
         }
     }
 
@@ -990,12 +1121,11 @@ struct DialogView: View {
     }
 
     private func clearChatHistory() {
-        messages.removeAll()
         if appMode == .chat {
-            chatMessages.removeAll()
+            setMessages([], for: .chat)
             UserDefaults.standard.removeObject(forKey: chatHistoryKey)
         } else if appMode == .support {
-            supportMessages.removeAll()
+            setMessages([], for: .support)
             UserDefaults.standard.removeObject(forKey: supportHistoryKey)
         }
     }
@@ -1162,7 +1292,7 @@ struct DialogView: View {
                     HStack {
                         Label("Chat History", systemImage: "clock.arrow.circlepath")
                         Spacer()
-                        Text("\(messages.count) messages")
+                        Text("\(activeMessages.count) messages")
                             .font(.system(size: 13))
                             .foregroundColor(.secondary)
                     }
@@ -1170,7 +1300,7 @@ struct DialogView: View {
                     Button(role: .destructive) { clearChatHistory() } label: {
                         Label("Clear Chat History", systemImage: "trash")
                     }
-                    .disabled(messages.isEmpty)
+                    .disabled(activeMessages.isEmpty)
                 }
 
                 Section(header: Text("App Info")) {
@@ -1289,13 +1419,74 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
     </script></body></html>
     """
 
+    // Mirror Android WebView fix: neutralize forced HTML rotation and orientation media-query behavior.
+    private let appStoreRotationFixJS = """
+    (function(){
+        if (window.__mvpRotationFixInstalled) {
+            if (window._mvpFixHtmlRotation) { window._mvpFixHtmlRotation(); }
+            return;
+        }
+        window.__mvpRotationFixInstalled = true;
+        var s=document.createElement('style');
+        s.textContent='html,html[style]{transform:none!important;width:100vw!important;height:auto!important;min-height:100vh!important;overflow:auto!important;position:relative!important;top:0!important;left:0!important;margin:0!important;}body{width:100vw!important;margin:0!important;position:relative!important;top:0!important;left:0!important;}';
+        (document.head||document.documentElement).appendChild(s);
+        try { Object.defineProperty(window,'orientation',{get:function(){return 0;},configurable:true}); } catch(e) {}
+        try {
+            Object.defineProperty(screen,'orientation',{
+                get:function(){return{type:'portrait-primary',angle:0,addEventListener:function(){},removeEventListener:function(){},lock:function(){return Promise.resolve();},unlock:function(){}};},
+                configurable:true
+            });
+        } catch(e) {}
+        var origMM=window.matchMedia;
+        window.matchMedia=function(q){
+            if(q&&q.indexOf('orientation')!==-1){
+                q=q.replace(/orientation\\s*:\\s*landscape/gi,'orientation: portrait');
+            }
+            return origMM.call(window,q);
+        };
+        window._mvpFixHtmlRotation=function(){
+            var html=document.documentElement;
+            if(!html) return;
+            var cs=window.getComputedStyle(html);
+            if(cs.transform&&cs.transform!=='none'){
+                html.style.setProperty('transform','none','important');
+                html.style.setProperty('width','100vw','important');
+                html.style.setProperty('height','auto','important');
+                html.style.setProperty('min-height','100vh','important');
+                html.style.setProperty('overflow','auto','important');
+                html.style.setProperty('position','relative','important');
+                html.style.setProperty('top','0','important');
+                html.style.setProperty('left','0','important');
+                html.style.setProperty('margin','0','important');
+                if(document.body){
+                    document.body.style.setProperty('width','100vw','important');
+                    document.body.style.setProperty('margin','0','important');
+                    document.body.style.setProperty('position','relative','important');
+                    document.body.style.setProperty('top','0','important');
+                    document.body.style.setProperty('left','0','important');
+                }
+                window.scrollTo(0,0);
+            }
+        };
+        var mo=new MutationObserver(function(){window._mvpFixHtmlRotation();});
+        document.addEventListener('DOMContentLoaded',function(){
+            mo.observe(document.documentElement,{attributes:true,attributeFilter:['style','class']});
+            window._mvpFixHtmlRotation();
+        });
+        window._mvpFixHtmlRotation();
+        setTimeout(window._mvpFixHtmlRotation,1000);
+        setTimeout(window._mvpFixHtmlRotation,3000);
+    })();
+    """
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         injectAuthSession(webView)
         scheduleCredentialAutoLogin(webView)
-        guard isLandscape else { return }
-        guard let currentURL = webView.url?.absoluteString else { return }
-        if currentURL.contains("token=") { return }
-        injectLandscapeForm(webView)
+        applyRotationFix(webView)
+    }
+
+    private func applyRotationFix(_ webView: WKWebView) {
+        webView.evaluateJavaScript(appStoreRotationFixJS, completionHandler: nil)
     }
 
     private func injectAuthSession(_ webView: WKWebView) {
@@ -1306,7 +1497,12 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
         let js = """
         try {
             window.localStorage.setItem('token', '\(escapedToken)');
+            window.localStorage.setItem('access_token', '\(escapedToken)');
+            window.localStorage.setItem('jwt', '\(escapedToken)');
             document.cookie = 'token=\(escapedToken); path=/; secure; samesite=lax';
+            document.cookie = 'access_token=\(escapedToken); path=/; secure; samesite=lax';
+            document.cookie = 'jwt=\(escapedToken); path=/; secure; samesite=lax';
+            document.cookie = 'next-auth.session-token=\(escapedToken); path=/; secure; samesite=lax';
         } catch (e) {}
         """
         webView.evaluateJavaScript(js)
@@ -1428,15 +1624,22 @@ final class AppStoreNavDelegate: NSObject, WKNavigationDelegate {
 }
 
 final class AppStoreWebViewStore {
+    private struct AppStoreAuthBootstrap {
+        let token: String?
+        let cookies: [HTTPCookie]
+    }
+
     static let shared = AppStoreWebViewStore()
     private(set) var webView: WKWebView?
     private var loadedToken: String?
+    private var lastIsLandscape: Bool?
     private var appStoreAuthTask: Task<Void, Never>?
     let navDelegate = AppStoreNavDelegate()
 
-    func getOrCreate(url: URL, token: String?) -> WKWebView {
+    func getOrCreate(url: URL, token: String?, isLandscape: Bool) -> WKWebView {
         if let wv = webView {
             syncSession(url: url, token: token, in: wv)
+            updateOrientation(isLandscape, in: wv)
             return wv
         }
 
@@ -1452,8 +1655,28 @@ final class AppStoreWebViewStore {
         wv.navigationDelegate = navDelegate
 
         webView = wv
+        lastIsLandscape = isLandscape
+        navDelegate.isLandscape = isLandscape
         syncSession(url: url, token: token, in: wv, forceReload: true)
         return wv
+    }
+
+    func updateOrientation(_ isLandscape: Bool, in webView: WKWebView? = nil) {
+        let target = webView ?? self.webView
+        guard let target else { return }
+        navDelegate.isLandscape = isLandscape
+        lastIsLandscape = isLandscape
+
+        // Android-parity path: run the in-page rotation-fix hook on orientation updates.
+        let reapplyFixJS = """
+        (function () {
+            try {
+                if (window._mvpFixHtmlRotation) { window._mvpFixHtmlRotation(); }
+                window.dispatchEvent(new Event('resize'));
+            } catch (e) {}
+        })();
+        """
+        target.evaluateJavaScript(reapplyFixJS, completionHandler: nil)
     }
 
     func syncSession(url: URL, token: String?, in webView: WKWebView? = nil, forceReload: Bool = false) {
@@ -1479,11 +1702,14 @@ final class AppStoreWebViewStore {
             appStoreAuthTask?.cancel()
             appStoreAuthTask = Task { [weak self, weak webView] in
                 guard let self = self else { return }
-                let bootstrap = await AppStoreAuthService.shared.login(email: email, password: password)
+                let bootstrap = await self.fetchAppStoreAuthBootstrap(email: email, password: password)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     guard let webView = webView else { return }
                     let effectiveToken = bootstrap?.token ?? fallbackToken
+                    if let t = bootstrap?.token {
+                        KeychainService.shared.saveAppStoreToken(t)
+                    }
                     self.applyServerCookies(bootstrap?.cookies ?? [], in: webView) {
                         self.navDelegate.authToken = effectiveToken
                         self.applySessionAndLoad(url: url, token: effectiveToken, in: webView)
@@ -1494,6 +1720,39 @@ final class AppStoreWebViewStore {
         }
 
         applySessionAndLoad(url: url, token: token, in: webView)
+    }
+
+    private func fetchAppStoreAuthBootstrap(email: String, password: String) async -> AppStoreAuthBootstrap? {
+        let paths = ["/api/auth/login", "/api/v1/auth/login"]
+        let methods = ["POST", "PUT"]
+        let body: [String: String] = ["email": email, "password": password]
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
+
+        for path in paths {
+            guard let loginURL = URL(string: APIConfig.appStoreURL + path) else { continue }
+            for method in methods {
+                var request = URLRequest(url: loginURL)
+                request.httpMethod = method
+                request.timeoutInterval = 12
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.setValue("application/json", forHTTPHeaderField: "Accept")
+                request.httpBody = bodyData
+
+                do {
+                    let (data, response) = try await URLSession.shared.data(for: request)
+                    guard let http = response as? HTTPURLResponse else { continue }
+                    guard (200...299).contains(http.statusCode) else { continue }
+                    let cookies = extractCookies(from: http, for: loginURL)
+                    let token = parseToken(from: data)
+                    if token != nil || !cookies.isEmpty {
+                        return AppStoreAuthBootstrap(token: token, cookies: cookies)
+                    }
+                } catch {
+                    continue
+                }
+            }
+        }
+        return nil
     }
 
     private func applyServerCookies(_ cookies: [HTTPCookie], in webView: WKWebView, completion: @escaping () -> Void) {
@@ -1512,13 +1771,65 @@ final class AppStoreWebViewStore {
         cookieGroup.notify(queue: .main, execute: completion)
     }
 
+    private func extractCookies(from response: HTTPURLResponse, for url: URL) -> [HTTPCookie] {
+        var headers: [String: String] = [:]
+        for (key, value) in response.allHeaderFields {
+            guard let keyString = key as? String, let valueString = value as? String else { continue }
+            headers[keyString] = valueString
+        }
+        return HTTPCookie.cookies(withResponseHeaderFields: headers, for: url)
+    }
+
+    private func parseToken(from data: Data) -> String? {
+        if let text = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           text.contains("."),
+           text.count > 40,
+           !text.hasPrefix("{"),
+           !text.hasPrefix("[") {
+            return text
+        }
+        guard let json = try? JSONSerialization.jsonObject(with: data) else { return nil }
+        return findToken(in: json)
+    }
+
+    private func findToken(in value: Any) -> String? {
+        if let dict = value as? [String: Any] {
+            for key in ["token", "access_token", "access", "jwt"] {
+                if let token = dict[key] as? String, !token.isEmpty {
+                    return token
+                }
+            }
+            for child in dict.values {
+                if let token = findToken(in: child) {
+                    return token
+                }
+            }
+        } else if let arr = value as? [Any] {
+            for child in arr {
+                if let token = findToken(in: child) {
+                    return token
+                }
+            }
+        }
+        return nil
+    }
+
     private func applySessionAndLoad(url: URL, token: String?, in webView: WKWebView) {
+        var finalURL = url
         if let token = token {
-            var request = URLRequest(url: url)
+            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            var items = components?.queryItems ?? []
+            items.removeAll { $0.name == "token" }
+            items.append(URLQueryItem(name: "token", value: token))
+            components?.queryItems = items
+            finalURL = components?.url ?? url
+
+            var request = URLRequest(url: finalURL)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-            let domain = url.host ?? URL(string: APIConfig.appStoreURL)?.host ?? "appstore-demo.inango.com"
-            let cookieNames = ["token"]
+            let domain = url.host ?? "appstore-demo.inango.com"
+            let cookieNames = ["token", "access_token", "jwt", "next-auth.session-token"]
             let cookieStore = webView.configuration.websiteDataStore.httpCookieStore
             let cookieGroup = DispatchGroup()
             var didSetAnyCookie = false
@@ -1546,7 +1857,7 @@ final class AppStoreWebViewStore {
                 webView.load(request)
             }
         } else {
-            webView.load(URLRequest(url: url))
+            webView.load(URLRequest(url: finalURL))
         }
     }
 
@@ -1555,6 +1866,7 @@ final class AppStoreWebViewStore {
         appStoreAuthTask = nil
         webView = nil
         loadedToken = nil
+        lastIsLandscape = nil
     }
 }
 
@@ -1564,20 +1876,19 @@ struct AppStoreWebView: UIViewRepresentable {
     var isLandscape: Bool = false
 
     func makeUIView(context: Context) -> WKWebView {
-        let wv = AppStoreWebViewStore.shared.getOrCreate(url: url, token: token)
+        let wv = AppStoreWebViewStore.shared.getOrCreate(url: url, token: token, isLandscape: isLandscape)
         AppStoreWebViewStore.shared.navDelegate.isLandscape = isLandscape
         return wv
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
         let store = AppStoreWebViewStore.shared
-        store.navDelegate.isLandscape = isLandscape
+        store.syncSession(url: url, token: token, in: webView)
+        store.updateOrientation(isLandscape, in: webView)
         DispatchQueue.main.async {
+            store.syncSession(url: url, token: token, in: webView)
             webView.setNeedsLayout()
             webView.layoutIfNeeded()
-            if isLandscape {
-                store.navDelegate.injectLandscapeForm(webView)
-            }
         }
     }
 }

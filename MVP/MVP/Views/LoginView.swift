@@ -155,7 +155,7 @@ struct LoginView: View {
         .textFieldStyle(PlainTextFieldStyle())
         .onAppear {
             if email.isEmpty { email = KeychainService.shared.getLastEmail() ?? "" }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { focusedField = .email }
+            focusedField = nil
         }
         .onSubmit {
             if focusedField == .email { focusedField = .password }

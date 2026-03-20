@@ -23,6 +23,16 @@ All notable changes to this project are documented in this file.
   - Uniform icon sizing and visual parity with Android
   - Align avatar position with top-bar bottom edge
 
+Fixed
+- iOS client feedback bundle for BugID #44961:
+  - Synchronize streamed response text with local/cloud TTS playback and block new input while speaking
+  - Align Support endpoint resolution with Android-compatible route handling
+  - Refine landscape top bar and mode tabs (size/position/width/height/spacing) for responsive layout
+  - Isolate Conversation and Support histories to prevent cross-tab message mixing
+  - Keep App Store/Problems content below mode tabs and improve inactive tab contrast/readability
+  - Apply App Store landscape rendering stabilization so content remains upright and responsive
+  - Regenerate required AppIcon assets for App Store validation-critical sizes
+
 
  [2026-03-11]
 
