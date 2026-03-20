@@ -23,12 +23,11 @@ enum ProblemsAPIError: Error, LocalizedError {
 final class ProblemsAPIService {
     static let shared = ProblemsAPIService()
     private let session = URLSession.shared
-    private let demoToken = "demo-token"
 
     private init() {}
 
     func getCatalog() async throws -> ProblemCatalogResponse {
-        try await get(path: "/api/v1/problems/catalog", requiresAuth: false)
+        try await get(path: "/api/v1/problems/catalog", requiresAuth: true)
     }
 
     func getActiveProblems() async throws -> DeviceProblemsResponse {
@@ -51,7 +50,10 @@ final class ProblemsAPIService {
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if requiresAuth {
-            request.setValue("Bearer \(demoToken)", forHTTPHeaderField: "Authorization")
+            guard let token = AuthService.shared.token() else {
+                throw ProblemsAPIError.notAuthenticated
+            }
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         return request
     }
