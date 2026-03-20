@@ -1,9 +1,6 @@
 import Foundation
 import Network
-import Darwin.sys.sysctl
-import Darwin.POSIX.sys.socket
-import Darwin.POSIX.netinet.in
-import Darwin.POSIX.arpa.inet
+import Darwin
 
 // MARK: - Result types
 
