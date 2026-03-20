@@ -416,6 +416,7 @@ struct DialogView: View {
             }
             .padding(4)
             .background(Color.clear)
+            .offset(y: -30)
         }
         .padding(.horizontal, 20)
         .background(Color.black.opacity(0.25))
@@ -448,7 +449,7 @@ struct DialogView: View {
                 }
                 .padding(.trailing, 5)
             }
-            .padding(.leading, 10)
+            .padding(.leading, 12)
 
             HStack(spacing: 3) {
                 ForEach(AppMode.allCases, id: \.self) { mode in
@@ -471,9 +472,9 @@ struct DialogView: View {
     }
 
     private func modeTabButton(mode: AppMode, isLandscape: Bool) -> some View {
-        let iconSize: CGFloat     = isLandscape ? 120 : 81
+        let iconSize: CGFloat     = isLandscape ? 114 : 89
         let textSize: CGFloat     = isLandscape ? 19  : 16
-        let buttonHeight: CGFloat = isLandscape ? 78  : 68
+        let buttonHeight: CGFloat = isLandscape ? 94  : 68
         let buttonWidth: CGFloat  = isLandscape ? 188 : 0
 
         return ZStack(alignment: .bottom) {
@@ -483,7 +484,7 @@ struct DialogView: View {
                 .font(.system(size: textSize, weight: appMode == mode ? .semibold : .regular))
                 .foregroundColor(.white)
                 .lineLimit(1)
-                .padding(.bottom, isLandscape ? 14 : 20)
+                .padding(.bottom, isLandscape ? 2 : 3)
         }
         .frame(
             minWidth: isLandscape ? buttonWidth : 0,
