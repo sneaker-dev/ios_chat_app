@@ -1,16 +1,12 @@
 import SwiftUI
 
-// MARK: - Color constants (Problems screen)
-
 private extension Color {
-    static let problemsRed      = Color(red: 0.718, green: 0.11,  blue: 0.11)   // #B71C1C
-    static let problemsRedLight = Color(red: 0.898, green: 0.224, blue: 0.208)  // #E53935
-    static let statusGreen      = Color(red: 0.298, green: 0.686, blue: 0.314)  // #4CAF50
-    static let statusOrange     = Color(red: 1.0,   green: 0.596, blue: 0.0)    // #FF9800
+    static let problemsRed      = Color(red: 0.718, green: 0.11,  blue: 0.11)
+    static let problemsRedLight = Color(red: 0.898, green: 0.224, blue: 0.208)
+    static let statusGreen      = Color(red: 0.298, green: 0.686, blue: 0.314)
+    static let statusOrange     = Color(red: 1.0,   green: 0.596, blue: 0.0)
     static let statusGray       = Color(red: 0.62,  green: 0.62,  blue: 0.62)
 }
-
-// MARK: - ProblemsView
 
 struct ProblemsView: View {
     @StateObject private var viewModel = ProblemsViewModel()
@@ -30,8 +26,6 @@ struct ProblemsView: View {
         .onAppear { viewModel.load() }
     }
 
-    // MARK: - Loading
-
     private var loadingView: some View {
         VStack(spacing: 16) {
             ProgressView()
@@ -42,8 +36,6 @@ struct ProblemsView: View {
                 .foregroundColor(.white.opacity(0.7))
         }
     }
-
-    // MARK: - Error (empty state)
 
     private var errorView: some View {
         VStack(spacing: 20) {
@@ -69,23 +61,18 @@ struct ProblemsView: View {
         }
     }
 
-    // MARK: - Content list
-
     private var contentList: some View {
         ScrollView {
             LazyVStack(spacing: 10) {
                 headerView
-
                 if let err = viewModel.error {
                     inlineErrorBanner(err)
                 }
-
                 ForEach(viewModel.problems) { problem in
                     ProblemCard(problem: problem) { enable in
                         viewModel.toggleProblem(key: problem.key, enable: enable)
                     }
                 }
-
                 Spacer().frame(height: 20)
             }
             .padding(.horizontal, 16)
@@ -130,8 +117,6 @@ struct ProblemsView: View {
     }
 }
 
-// MARK: - ProblemCard
-
 private struct ProblemCard: View {
     let problem: ProblemUiItem
     let onToggle: (Bool) -> Void
@@ -142,17 +127,13 @@ private struct ProblemCard: View {
                 Text(problem.title)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(problem.enabled ? .white : .white.opacity(0.9))
-
                 Text(problem.summary)
                     .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.65))
                     .lineLimit(3)
-
                 StatusBadge(status: problem.implementationStatus)
             }
-
             Spacer()
-
             VStack(alignment: .trailing, spacing: 8) {
                 if problem.isLoading {
                     ProgressView()
@@ -188,8 +169,6 @@ private struct ProblemCard: View {
     }
 }
 
-// MARK: - StatusBadge
-
 private struct StatusBadge: View {
     let status: String
 
@@ -201,12 +180,8 @@ private struct StatusBadge: View {
         }
     }
 
-    private var label: String {
-        status.capitalized
-    }
-
     var body: some View {
-        Text(label)
+        Text(status.capitalized)
             .font(.system(size: 10, weight: .semibold))
             .foregroundColor(.white)
             .padding(.horizontal, 8)

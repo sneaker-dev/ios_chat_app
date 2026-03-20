@@ -32,6 +32,10 @@
 		AA44992004000000000001 /* AzureTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992004000000000002 /* AzureTTSService.swift */; };
 		AA44992005000000000001 /* BaseTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992005000000000002 /* BaseTTSService.swift */; };
 		AA44992006000000000001 /* CloudTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992006000000000002 /* CloudTTSService.swift */; };
+		AA44992007000000000001 /* ProblemsAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992007000000000002 /* ProblemsAPIService.swift */; };
+		AA44992008000000000001 /* ProblemsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992008000000000002 /* ProblemsModels.swift */; };
+		AA44992009000000000001 /* ProblemsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992009000000000002 /* ProblemsView.swift */; };
+		AA44992010000000000001 /* ProblemsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992010000000000002 /* ProblemsViewModel.swift */; };
 		7E00082F311B1E00C0017C /* SpeechToTextService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00072F311B1E00C0017D /* SpeechToTextService.swift */; };
 		7E00092F311B1E00C0017C /* TextToSpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00082F311B1E00C0017D /* TextToSpeechService.swift */; };
 		7E000A2F311B1E00C0017C /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E00092F311B1E00C0017D /* LoginView.swift */; };
@@ -88,6 +92,10 @@
 		AA44992004000000000002 /* AzureTTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AzureTTSService.swift; sourceTree = "<group>"; };
 		AA44992005000000000002 /* BaseTTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseTTSService.swift; sourceTree = "<group>"; };
 		AA44992006000000000002 /* CloudTTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudTTSService.swift; sourceTree = "<group>"; };
+		AA44992007000000000002 /* ProblemsAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProblemsAPIService.swift; sourceTree = "<group>"; };
+		AA44992008000000000002 /* ProblemsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProblemsModels.swift; sourceTree = "<group>"; };
+		AA44992009000000000002 /* ProblemsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProblemsView.swift; sourceTree = "<group>"; };
+		AA44992010000000000002 /* ProblemsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProblemsViewModel.swift; sourceTree = "<group>"; };
 		7E00072F311B1E00C0017D /* SpeechToTextService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechToTextService.swift; sourceTree = "<group>"; };
 		7E00082F311B1E00C0017D /* TextToSpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextToSpeechService.swift; sourceTree = "<group>"; };
 		7E00092F311B1E00C0017D /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
@@ -195,6 +203,7 @@
 			children = (
 				7E00012F311B1E00C0017D /* AvatarType.swift */,
 				7E00022F311B1E00C0017D /* ChatMessage.swift */,
+				AA44992008000000000002 /* ProblemsModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -209,6 +218,7 @@
 				AA44992004000000000002 /* AzureTTSService.swift */,
 				AA44992005000000000002 /* BaseTTSService.swift */,
 				AA44992006000000000002 /* CloudTTSService.swift */,
+				AA44992007000000000002 /* ProblemsAPIService.swift */,
 				7E00062F311B1E00C0017D /* DialogAPIService.swift */,
 				7E00032F311B1E00C0017D /* KeychainService.swift */,
 				AA44992001000000000002 /* GatewayService.swift */,
@@ -224,6 +234,8 @@
 				7E00092F311B1E00C0017D /* LoginView.swift */,
 				7E000A2F311B1E00C0017D /* AvatarSelectionView.swift */,
 				7E000B2F311B1E00C0017D /* DialogView.swift */,
+				AA44992009000000000002 /* ProblemsView.swift */,
+				AA44992010000000000002 /* ProblemsViewModel.swift */,
 				7E00132F311B1E00C0017D /* Components */,
 			);
 			path = Views;
@@ -388,6 +400,10 @@
 				AA44992004000000000001 /* AzureTTSService.swift in Sources */,
 				AA44992005000000000001 /* BaseTTSService.swift in Sources */,
 				AA44992006000000000001 /* CloudTTSService.swift in Sources */,
+				AA44992007000000000001 /* ProblemsAPIService.swift in Sources */,
+				AA44992008000000000001 /* ProblemsModels.swift in Sources */,
+				AA44992009000000000001 /* ProblemsView.swift in Sources */,
+				AA44992010000000000001 /* ProblemsViewModel.swift in Sources */,
 				7E00082F311B1E00C0017C /* SpeechToTextService.swift in Sources */,
 				7E00092F311B1E00C0017C /* TextToSpeechService.swift in Sources */,
 				7E000A2F311B1E00C0017C /* LoginView.swift in Sources */,

@@ -7,26 +7,23 @@ enum AppMode: String, CaseIterable {
     case chat = "Chat"
     case support = "Support"
     case appStore = "AppStore"
+    case problems = "Problems"
 
     var iconAssetName: String {
         switch self {
-        case .chat:
-            return "TabChat"
-        case .support:
-            return "TabSupport"
-        case .appStore:
-            return "TabAppStore"
+        case .chat:     return "TabChat"
+        case .support:  return "TabSupport"
+        case .appStore: return "TabAppStore"
+        case .problems: return "TabProblems"
         }
     }
 
     var iconSystemName: String {
         switch self {
-        case .chat:
-            return "message.fill"
-        case .support:
-            return "person.2.fill"
-        case .appStore:
-            return "cart.fill"
+        case .chat:     return "message.fill"
+        case .support:  return "person.2.fill"
+        case .appStore: return "cart.fill"
+        case .problems: return "exclamationmark.triangle.fill"
         }
     }
 }
@@ -93,7 +90,6 @@ struct DialogView: View {
     @State private var longRequestNoticeTask: Task<Void, Never>?
     @State private var showSettings = false
     @State private var showWebGateway = false
-    @State private var webButtonTapped = false
     @State private var appMode: AppMode = .chat
 
     @AppStorage("voiceOutputEnabled") private var voiceOutputEnabled = true
@@ -192,7 +188,24 @@ struct DialogView: View {
                     }
                 }
 
-                if isLandscape && (appMode == .appStore || showWebGateway) {
+                if isLandscape {
+                    let landscapeBarH: CGFloat = 72
+                    VStack(spacing: 0) {
+                        Spacer().frame(height: landscapeBarH)
+                        ProblemsView()
+                            .frame(width: w, height: screenH - landscapeBarH)
+                    }
+                    .opacity(appMode == .problems ? 1 : 0)
+                    .allowsHitTesting(appMode == .problems)
+                } else {
+                    ProblemsView()
+                        .frame(width: w, height: screenH - webViewTopPad)
+                        .padding(.top, webViewTopPad)
+                        .opacity(appMode == .problems ? 1 : 0)
+                        .allowsHitTesting(appMode == .problems)
+                }
+
+                if isLandscape && (appMode == .appStore || appMode == .problems || showWebGateway) {
                     VStack {
                         landscapeFullWidthTopBar
                             .frame(width: w)
@@ -365,7 +378,7 @@ struct DialogView: View {
         VStack(spacing: 4) {
             HStack(spacing: 0) {
                 brandLogo(width: 107, height: 43)
-                    .padding(.leading, 26)
+                    .padding(.leading, 20)
 
                 Spacer()
 
@@ -375,29 +388,18 @@ struct DialogView: View {
                     } label: {
                         topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 173, buttonSize: 173)
                     }
-                    .offset(x: 6)
 
                     Button {
-                        webButtonTapped = true
                         withAnimation(.easeInOut(duration: 0.2)) { showWebGateway.toggle() }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { webButtonTapped = false }
                     } label: {
                         topActionIcon(assetName: "WebIcon", fallbackSystemName: "globe", iconSize: 125, buttonSize: 173)
                     }
-                    .offset(x: 3)
-                    .overlay(
-                        webButtonTapped
-                            ? RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.appPrimary, lineWidth: 2)
-                                .padding(6)
-                            : nil
-                    )
 
                     Button { showSettings = true } label: {
                         topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 173, buttonSize: 173)
                     }
-                    .offset(x: -3)
                 }
+                .padding(.trailing, 20)
             }
 
             HStack(spacing: 6) {
@@ -424,7 +426,7 @@ struct DialogView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 brandLogo(width: 120, height: 48)
-                    .padding(.leading, 26)
+                    .padding(.leading, 20)
 
                 Spacer()
 
@@ -434,29 +436,18 @@ struct DialogView: View {
                     } label: {
                         topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 96, buttonSize: 96)
                     }
-                    .offset(x: 6)
 
                     Button {
-                        webButtonTapped = true
                         withAnimation(.easeInOut(duration: 0.2)) { showWebGateway.toggle() }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { webButtonTapped = false }
                     } label: {
                         topActionIcon(assetName: "WebIcon", fallbackSystemName: "globe", iconSize: 69, buttonSize: 96)
                     }
-                    .offset(x: 3)
-                    .overlay(
-                        webButtonTapped
-                            ? RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.appPrimary, lineWidth: 2)
-                                .padding(6)
-                            : nil
-                    )
 
                     Button { showSettings = true } label: {
                         topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 96, buttonSize: 96)
                     }
-                    .offset(x: -3)
                 }
+                .padding(.trailing, 20)
             }
 
             HStack(spacing: 6) {
