@@ -93,6 +93,7 @@ struct DialogView: View {
     @State private var longRequestNoticeTask: Task<Void, Never>?
     @State private var showSettings = false
     @State private var showWebGateway = false
+    @State private var webButtonTapped = false
     @SceneStorage("dialogViewAppMode") private var persistedAppMode = AppMode.chat.rawValue
     @State private var appMode: AppMode = .chat
 
@@ -458,21 +459,24 @@ struct DialogView: View {
                         topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 105, buttonSize: 105)
                     }
 
+                    Button {
+                        webButtonTapped = true
+                        withAnimation(.easeInOut(duration: 0.2)) { showWebGateway.toggle() }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { webButtonTapped = false }
+                    } label: {
+                        topActionIcon(assetName: "WebIcon", fallbackSystemName: "globe", iconSize: 76, buttonSize: 105)
+                    }
+                    .overlay(
+                        webButtonTapped
+                            ? RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.appPrimary, lineWidth: 2)
+                                .padding(6)
+                            : nil
+                    )
+
                     Button { showSettings = true } label: {
                         topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 105, buttonSize: 105)
                     }
-
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) { showWebGateway.toggle() }
-                    } label: {
-                        topActionIcon(assetName: "WebIcon", fallbackSystemName: "globe", iconSize: 105, buttonSize: 105)
-                    }
-                    .overlay(
-                        showWebGateway
-                            ? RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.appPrimary, lineWidth: 2)
-                            : nil
-                    )
                 }
             }
             .offset(y: -30)
@@ -513,21 +517,24 @@ struct DialogView: View {
                         topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 87, buttonSize: 87)
                     }
 
+                    Button {
+                        webButtonTapped = true
+                        withAnimation(.easeInOut(duration: 0.2)) { showWebGateway.toggle() }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { webButtonTapped = false }
+                    } label: {
+                        topActionIcon(assetName: "WebIcon", fallbackSystemName: "globe", iconSize: 62, buttonSize: 87)
+                    }
+                    .overlay(
+                        webButtonTapped
+                            ? RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.appPrimary, lineWidth: 2)
+                                .padding(6)
+                            : nil
+                    )
+
                     Button { showSettings = true } label: {
                         topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 87, buttonSize: 87)
                     }
-
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) { showWebGateway.toggle() }
-                    } label: {
-                        topActionIcon(assetName: "WebIcon", fallbackSystemName: "globe", iconSize: 87, buttonSize: 87)
-                    }
-                    .overlay(
-                        showWebGateway
-                            ? RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.appPrimary, lineWidth: 2)
-                            : nil
-                    )
                 }
             }
 
