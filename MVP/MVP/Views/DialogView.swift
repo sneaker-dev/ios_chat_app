@@ -93,6 +93,7 @@ struct DialogView: View {
     @State private var longRequestNoticeTask: Task<Void, Never>?
     @State private var showSettings = false
     @SceneStorage("dialogViewAppMode") private var persistedAppMode = AppMode.chat.rawValue
+    @State private var showWebGateway = false
     @State private var appMode: AppMode = .chat
 
     private var isInangoUser: Bool {
@@ -219,6 +220,21 @@ struct DialogView: View {
                     }
                 }
 
+                if showWebGateway {
+                    let landscapeBarH: CGFloat = landscapeTopContentInset + 14
+                    if isLandscape {
+                        VStack(spacing: 0) {
+                            Spacer().frame(height: landscapeBarH)
+                            WebGatewayView()
+                                .frame(width: w, height: screenH - landscapeBarH)
+                        }
+                    } else {
+                        WebGatewayView()
+                            .frame(width: w, height: screenH - webViewTopPad)
+                            .padding(.top, webViewTopPad)
+                    }
+                }
+
                 // Problems screen — sits at the same layer as the AppStore WebView
                 if appMode == .problems {
                     let landscapeBarH: CGFloat = landscapeTopContentInset + 14
@@ -235,10 +251,11 @@ struct DialogView: View {
                     }
                 }
 
-                if isLandscape && (appMode == .appStore || appMode == .problems) {
+                if isLandscape && (appMode == .appStore || appMode == .problems || showWebGateway) {
                     VStack {
                         landscapeFullWidthTopBar
                             .frame(width: w)
+                            .offset(y: -15)
                         Spacer()
                     }
                     .zIndex(0)
@@ -418,7 +435,7 @@ struct DialogView: View {
                 .zIndex(20)
             }
 
-            if appMode != .appStore && appMode != .problems {
+            if appMode != .appStore && appMode != .problems && !showWebGateway {
                 landscapeFullWidthTopBar
                     .frame(width: w)
                     .zIndex(0)
@@ -431,7 +448,7 @@ struct DialogView: View {
         VStack(spacing: 2) {
             HStack(spacing: 0) {
                 brandLogo(width: 107, height: 43)
-                    .padding(.leading, 16)
+                    .padding(.leading, 20)
 
                 Spacer()
 
@@ -442,17 +459,27 @@ struct DialogView: View {
                         topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 105, buttonSize: 105)
                     }
 
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) { showWebGateway.toggle() }
+                    } label: {
+                        topActionIcon(assetName: "WebIcon", fallbackSystemName: "globe", iconSize: 80, buttonSize: 105)
+                    }
+
                     Button { showSettings = true } label: {
                         topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 105, buttonSize: 105)
                     }
                 }
+                .padding(.trailing, 20)
             }
             .offset(y: -30)
 
             HStack(spacing: tabSpacing) {
                 ForEach(visibleModes, id: \.self) { mode in
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            appMode = mode
+                            showWebGateway = false
+                        }
                     } label: {
                         modeTabButton(mode: mode, isLandscape: true, modeCount: visibleModes.count)
                     }
@@ -464,6 +491,7 @@ struct DialogView: View {
             .padding(.horizontal, tabHorizontalInset)
             .padding(.vertical, 2)
             .background(Color.clear)
+            .offset(y: -30)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 2)
@@ -473,28 +501,39 @@ struct DialogView: View {
     private var topBar: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                brandLogo(width: 120, height: 48)
-                    .padding(.leading, 16)
+                brandLogo(width: 100, height: 40)
+                    .padding(.leading, 15)
 
-                Spacer()
+                Spacer(minLength: 0)
 
-                HStack(spacing: 4) {
+                HStack(spacing: 0) {
                     Button {
                         NotificationCenter.default.post(name: .changeAvatar, object: nil)
                     } label: {
                         topActionIcon(assetName: "AvatarSelect", fallbackSystemName: "person.2.circle.fill", iconSize: 87, buttonSize: 87)
                     }
 
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) { showWebGateway.toggle() }
+                    } label: {
+                        topActionIcon(assetName: "WebIcon", fallbackSystemName: "globe", iconSize: 69, buttonSize: 69)
+                    }
+
                     Button { showSettings = true } label: {
                         topActionIcon(assetName: "SettingsIcon", fallbackSystemName: "gearshape.fill", iconSize: 87, buttonSize: 87)
                     }
                 }
+                .padding(.trailing, 5)
             }
+            .padding(.leading, 12)
 
             HStack(spacing: tabSpacing) {
                 ForEach(visibleModes, id: \.self) { mode in
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) { appMode = mode }
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            appMode = mode
+                            showWebGateway = false
+                        }
                     } label: {
                         modeTabButton(mode: mode, isLandscape: false, modeCount: visibleModes.count)
                     }
@@ -549,7 +588,12 @@ struct DialogView: View {
                 .padding(.bottom, textPaddingBottom)
                 .offset(y: textLift)
         }
-        .frame(width: buttonWidth, height: buttonHeight)
+        .frame(
+            minWidth: isLandscape ? buttonWidth : 0,
+            maxWidth: isLandscape ? buttonWidth : .infinity,
+            minHeight: buttonHeight,
+            maxHeight: buttonHeight
+        )
         .background(
             RoundedRectangle(cornerRadius: 9)
                 .fill(appMode == mode ? Color.appPrimary : Color.white.opacity(0.45))
@@ -1892,4 +1936,98 @@ struct AppStoreWebView: UIViewRepresentable {
             webView.layoutIfNeeded()
         }
     }
+}
+
+struct WebGatewayView: View {
+
+    private enum LoadState {
+        case detecting
+        case loading(url: URL)
+        case notOnLAN
+        case unreachable(ip: String)
+    }
+
+    @State private var state: LoadState = .detecting
+
+    var body: some View {
+        ZStack {
+            Color(.systemBackground).ignoresSafeArea()
+
+            switch state {
+            case .detecting:
+                VStack(spacing: 16) {
+                    ProgressView().scaleEffect(1.4)
+                    Text("Detecting local gateway…")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            case .loading(let url):
+                WebGatewayWebView(url: url)
+            case .notOnLAN:
+                inlineMessage(
+                    systemImage: "wifi.slash",
+                    title: "Not on a local network",
+                    body: "Connect to a Wi-Fi network whose gateway is accessible on port 80."
+                )
+            case .unreachable(let ip):
+                inlineMessage(
+                    systemImage: "antenna.radiowaves.left.and.right.slash",
+                    title: "Gateway not responding",
+                    body: "The gateway at \(ip) is not reachable on port 80.\nMake sure the device has a web interface enabled."
+                )
+            }
+        }
+        .task { await detect() }
+    }
+
+    private func detect() async {
+        state = .detecting
+        let result = await GatewayService.shared.resolve()
+        await MainActor.run {
+            switch result {
+            case .found(let ip):
+                state = URL(string: "http://\(ip)").map { .loading(url: $0) } ?? .unreachable(ip: ip)
+            case .notOnLAN:
+                state = .notOnLAN
+            case .unreachable(let ip):
+                state = .unreachable(ip: ip)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func inlineMessage(systemImage: String, title: String, body: String) -> some View {
+        VStack(spacing: 20) {
+            Image(systemName: systemImage)
+                .font(.system(size: 52, weight: .light))
+                .foregroundColor(.secondary)
+            Text(title)
+                .font(.title3.weight(.semibold))
+            Text(body)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 36)
+            Button { Task { await detect() } } label: {
+                Label("Retry", systemImage: "arrow.clockwise")
+                    .font(.subheadline.weight(.medium))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(Color.appPrimary.opacity(0.15))
+                    .foregroundColor(Color.appPrimary)
+                    .clipShape(Capsule())
+            }
+        }
+    }
+}
+
+private struct WebGatewayWebView: UIViewRepresentable {
+    let url: URL
+    func makeUIView(context: Context) -> WKWebView {
+        let wv = WKWebView(frame: .zero)
+        wv.allowsBackForwardNavigationGestures = true
+        wv.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10))
+        return wv
+    }
+    func updateUIView(_ webView: WKWebView, context: Context) {}
 }

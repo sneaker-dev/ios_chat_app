@@ -11,5 +11,12 @@
 		<key>UIImageName</key>
 		<string></string>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app accesses your local network gateway's web interface on port 80.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
