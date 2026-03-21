@@ -1,5 +1,7 @@
 import Foundation
 
+// MARK: - Catalog
+
 struct ProblemCatalogItem: Codable, Identifiable {
     let key: String
     let title: String
@@ -17,6 +19,8 @@ struct ProblemCatalogItem: Codable, Identifiable {
 struct ProblemCatalogResponse: Codable {
     let items: [ProblemCatalogItem]
 }
+
+// MARK: - Active problems
 
 struct ActiveProblemState: Codable {
     let key: String
@@ -43,10 +47,12 @@ struct DeviceProblemsResponse: Codable {
     let activeProblems: [ActiveProblemState]
 
     enum CodingKeys: String, CodingKey {
-        case deviceId       = "device_id"
+        case deviceId      = "device_id"
         case activeProblems = "active_problems"
     }
 }
+
+// MARK: - Toggle
 
 struct ProblemToggleResponse: Codable {
     let deviceId: String

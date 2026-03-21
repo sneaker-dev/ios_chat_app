@@ -1,5 +1,7 @@
 import Foundation
 
+// MARK: - UI model
+
 struct ProblemUiItem: Identifiable {
     let key: String
     let title: String
@@ -11,6 +13,8 @@ struct ProblemUiItem: Identifiable {
     var id: String { key }
 }
 
+// MARK: - ViewModel
+
 @MainActor
 final class ProblemsViewModel: ObservableObject {
     @Published var problems: [ProblemUiItem] = []
@@ -19,6 +23,8 @@ final class ProblemsViewModel: ObservableObject {
 
     private let api = ProblemsAPIService.shared
 
+    // MARK: - Load
+
     func load() {
         guard !isLoading else { return }
         isLoading = true
@@ -26,12 +32,15 @@ final class ProblemsViewModel: ObservableObject {
 
         Task {
             do {
-                async let catalogTask = api.getCatalog()
-                async let activeTask  = api.getActiveProblems()
+                async let catalogTask  = api.getCatalog()
+                async let activeTask   = api.getActiveProblems()
+
                 let (catalog, active) = try await (catalogTask, activeTask)
+
                 let activeMap = Dictionary(
                     uniqueKeysWithValues: active.activeProblems.map { ($0.key, $0) }
                 )
+
                 problems = catalog.items.map { item in
                     let state = activeMap[item.key]
                     return ProblemUiItem(
@@ -49,9 +58,13 @@ final class ProblemsViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Toggle
+
     func toggleProblem(key: String, enable: Bool) {
         guard let index = problems.firstIndex(where: { $0.key == key }) else { return }
-        problems[index].enabled   = enable
+
+        // Optimistic update
+        problems[index].enabled = enable
         problems[index].isLoading = true
 
         Task {
@@ -59,11 +72,13 @@ final class ProblemsViewModel: ObservableObject {
                 let response = enable
                     ? try await api.enableProblem(key: key)
                     : try await api.disableProblem(key: key)
+
                 if let i = problems.firstIndex(where: { $0.key == key }) {
                     problems[i].enabled   = response.problem.enabled
                     problems[i].isLoading = false
                 }
             } catch {
+                // Revert optimistic update on failure
                 if let i = problems.firstIndex(where: { $0.key == key }) {
                     problems[i].enabled   = !enable
                     problems[i].isLoading = false

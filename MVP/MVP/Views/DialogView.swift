@@ -289,6 +289,7 @@ struct DialogView: View {
                 messages = messages(for: newMode)
             }
             // .appStore and .problems don't use the chat message list
+            tts.stop()
             typingMessageId = nil
             showTypingIndicator = false
             stopLongRequestNoticeTimer()
