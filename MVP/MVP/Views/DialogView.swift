@@ -470,7 +470,7 @@ struct DialogView: View {
                 }
                 .padding(.trailing, 20)
             }
-            .offset(y: -30)
+            .offset(y: -20)
 
             HStack(spacing: tabSpacing) {
                 ForEach(visibleModes, id: \.self) { mode in
