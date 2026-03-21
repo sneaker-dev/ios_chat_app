@@ -1,14 +1,18 @@
 import Foundation
 
+/// Bootstrap result from a native App Store login attempt.
 struct AppStoreAuthBootstrap {
     let token: String?
     let cookies: [HTTPCookie]
 }
 
+/// Handles native HTTP authentication against the App Store backend.
+/// Extracted from AppStoreWebViewStore so that auth logic lives in the service layer.
 final class AppStoreAuthService {
     static let shared = AppStoreAuthService()
     private init() {}
 
+    /// Attempts to log in using saved credentials and returns a token + cookies on success.
     func login(email: String, password: String) async -> AppStoreAuthBootstrap? {
         let loginPath = APIConfig.appStoreLoginPath
         guard let loginURL = URL(string: APIConfig.appStoreURL + loginPath) else { return nil }
@@ -47,6 +51,7 @@ final class AppStoreAuthService {
         return HTTPCookie.cookies(withResponseHeaderFields: headers, for: url)
     }
 
+    /// The backend returns the JWT as a bare string in the response body.
     private func parseToken(from data: Data) -> String? {
         guard let text = String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines),

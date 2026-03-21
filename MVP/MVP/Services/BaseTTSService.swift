@@ -159,7 +159,7 @@ class BaseTTSService: NSObject, AVAudioPlayerDelegate, ObservableObject {
             guard let player = self.player else { return }
             guard player.duration > 0 else { return }
             let ratio = min(max(player.currentTime / player.duration, 0), 1)
-            let chunkChars = Int((Double(self.currentChunkLength) * ratio).rounded(.down))
+            let chunkChars = Int((Double(max(0, self.currentChunkLength)) * ratio).rounded(.down))
             let current = min(self.completedCharacters + chunkChars, self.totalCharacters)
             self.spokenCharacterCount = current
         }

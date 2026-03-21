@@ -1,4 +1,1 @@
-# Local guides and temp files - never push to GitLab
-MERGE_REQUEST_GUIDE.md
-commit_*.txt
-commit_msg*.txt
+MVP/MVP/Secrets.plist
