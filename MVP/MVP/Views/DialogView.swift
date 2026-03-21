@@ -486,7 +486,7 @@ struct DialogView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .offset(y: -40)
+            .offset(y: -25)
             .padding(.horizontal, tabHorizontalInset)
             .padding(.vertical, 2)
             .background(Color.clear)
