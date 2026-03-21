@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 struct InangoGenericRequest: Encodable {
     let locale: String
@@ -59,15 +60,31 @@ final class DialogAPIService {
 
         let lang = language ?? DialogAPIService.getDeviceLanguage()
         let locale = TextToSpeechService.formatLocale(lang)
-        
-        #if DEBUG
-        print("[MVP] Dialog API: language=\(lang), formatted locale=\(locale), baseURL=\(baseURL ?? APIConfig.baseURL)")
-        #endif
-        
+        AppLogger.dialog.debug("sendMessage language=\(lang, privacy: .public) locale=\(locale, privacy: .public) baseURL=\(baseURL ?? APIConfig.baseURL, privacy: .public)")
+
         let body = InangoGenericRequest(locale: locale, queryText: normalizedText)
         guard let url = resolveEndpointURL(baseURL: baseURL) else { throw DialogAPIError.invalidURL }
         let isSupportRequest = isSupportURL(url)
+        let maxRetries = isSupportRequest ? 1 : 4
 
+        return try await performRequest(
+            body: body,
+            url: url,
+            token: token,
+            isSupportRequest: isSupportRequest,
+            maxRetries: maxRetries,
+            normalizedText: normalizedText
+        )
+    }
+
+    private func performRequest(
+        body: InangoGenericRequest,
+        url: URL,
+        token: String,
+        isSupportRequest: Bool,
+        maxRetries: Int,
+        normalizedText: String
+    ) async throws -> String {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -75,8 +92,6 @@ final class DialogAPIService {
         request.httpBody = try JSONEncoder().encode(body)
         request.timeoutInterval = isSupportRequest ? 18 : 25
 
-        // Support stays responsive but now allows one retry for transient server/network hiccups.
-        let maxRetries = isSupportRequest ? 1 : 4
         var lastError: DialogAPIError?
         for attempt in 0...maxRetries {
             do {
@@ -88,13 +103,11 @@ final class DialogAPIService {
                     throw DialogAPIError.notAuthenticated
                 }
                 if http.statusCode >= 400 {
-                    #if DEBUG
                     let bodyPreview = String(data: data, encoding: .utf8) ?? ""
-                    print("[MVP] Dialog API error: status=\(http.statusCode) url=\(url.absoluteString) body=\(bodyPreview.prefix(500))")
+                    AppLogger.dialog.error("sendMessage error status=\(http.statusCode, privacy: .public) url=\(url.absoluteString, privacy: .public) body=\(String(bodyPreview.prefix(300)), privacy: .public)")
                     if http.statusCode == 500 && (bodyPreview.contains("users/user") || bodyPreview.contains("10.0.5.1")) {
-                        print("[MVP] → Server-side: voice-demo.inango.com's backend failed calling its internal users service.")
+                        AppLogger.dialog.error("server-side: backend failed calling internal users service")
                     }
-                    #endif
                     let msg = userFacingMessage(from: data, statusCode: http.statusCode)
                     if token.hasPrefix("demo-token-") {
                         return "You said: \"\(normalizedText)\". (Need real login to get answers from voice-demo.inango.com.)"
@@ -110,9 +123,7 @@ final class DialogAPIService {
 
                 return try parseQueryResponse(data: data)
             } catch {
-                #if DEBUG
-                print("[MVP] Dialog API request failed: \(error)")
-                #endif
+                AppLogger.dialog.error("sendMessage request failed: \(error.localizedDescription, privacy: .public)")
                 throw error
             }
         }
@@ -168,12 +179,9 @@ final class DialogAPIService {
 
         let normalized = normalizedBaseURL(override)
         guard let parsed = URL(string: normalized) else { return nil }
-        // If override already contains an API path, use it as-is.
         if parsed.path.hasPrefix("/api/") {
             return parsed
         }
-        // Harden Support routing: some environments provide host-only or /support path.
-        // Normalize these to the known support endpoint instead of generic intent path.
         if let host = parsed.host?.lowercased(), host.contains("support-demo.inango.com") {
             let path = parsed.path.lowercased()
             if path.isEmpty || path == "/" || path == "/support" {
