@@ -25,10 +25,6 @@ enum APIConfig {
         ProcessInfo.processInfo.environment["MVP_APP_STORE_LOGIN_PATH"] ?? "/api/auth/login"
     }
 
-    static var problemsBaseURL: String {
-        ProcessInfo.processInfo.environment["MVP_PROBLEMS_BASE_URL"] ?? "https://dash-emulator.inango.com"
-    }
-
     static var useDemoMode: Bool {
         baseURL.contains("api.example.com")
     }
