@@ -236,7 +236,7 @@ struct DialogView: View {
                 }
 
                 // Problems screen — sits at the same layer as the AppStore WebView
-                if appMode == .problems {
+                if appMode == .problems && !showWebGateway {
                     let landscapeBarH: CGFloat = landscapeTopContentInset + 14
                     if isLandscape {
                         VStack(spacing: 0) {
@@ -255,7 +255,6 @@ struct DialogView: View {
                     VStack {
                         landscapeFullWidthTopBar
                             .frame(width: w)
-                            .offset(y: -15)
                         Spacer()
                     }
                     .zIndex(0)
@@ -487,7 +486,7 @@ struct DialogView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .offset(y: -60)
+            .offset(y: -40)
             .padding(.horizontal, tabHorizontalInset)
             .padding(.vertical, 2)
             .background(Color.clear)
