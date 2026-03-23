@@ -776,7 +776,7 @@ struct DialogView: View {
                     .background(stt.isRecording ? Color.speakActive1 : Color.speakNormal1)
                     .clipShape(Circle())
             }
-            .disabled(isLoading || isAnyTTSPlaying)
+            .disabled(isLoading)
 
             Button {
                 wasVoiceInput = false
@@ -860,7 +860,7 @@ struct DialogView: View {
             .clipShape(Capsule())
             .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
         }
-        .disabled(isLoading || isAnyTTSPlaying)
+        .disabled(isLoading)
     }
 
     private var ttsRate: Float {
@@ -940,7 +940,6 @@ struct DialogView: View {
     private func startVoiceInput() {
         guard ensureAuthenticatedOrRedirect() else { return }
         AppLogger.stt.info("startVoiceInput mode=\(appMode.rawValue, privacy: .public)")
-        guard !isAnyTTSPlaying else { return }
         tts.stop()
         CloudTTSService.shared.stop()
         AzureTTSService.shared.stop()
