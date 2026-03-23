@@ -113,7 +113,8 @@ final class DialogAPIService {
                         return "You said: \"\(normalizedText)\". (Need real login to get answers from voice-demo.inango.com.)"
                     }
                     lastError = .serverError(msg)
-                    if http.statusCode >= 500 && attempt < maxRetries {
+                    let isRetryable = http.statusCode >= 500 || http.statusCode == 421
+                    if isRetryable && attempt < maxRetries {
                         let delayNs = UInt64(2 + attempt) * 1_000_000_000
                         try await Task.sleep(nanoseconds: delayNs)
                         continue
@@ -154,11 +155,15 @@ final class DialogAPIService {
         struct ServerErrorBody: Decodable { let detail: String? }
         let raw = String(data: data, encoding: .utf8) ?? ""
         let detail = (try? JSONDecoder().decode(ServerErrorBody.self, from: data))?.detail ?? raw
-        if statusCode >= 500 {
-            return "Voice server is temporarily unavailable. Tap Try again or send another message."
+        let transientMessage = "Voice server is temporarily unavailable. Tap Try again or send another message."
+        if statusCode >= 500 || statusCode == 421 {
+            return transientMessage
+        }
+        if detail.hasPrefix("<") || detail.lowercased().hasPrefix("<!doctype") {
+            return transientMessage
         }
         if detail.contains("Internal Server Error") || detail.contains(" for url: ") || detail.contains("10.") {
-            return "Voice server is temporarily unavailable. Tap Try again or send another message."
+            return transientMessage
         }
         return detail.isEmpty ? "Something went wrong. Please try again." : detail
     }
