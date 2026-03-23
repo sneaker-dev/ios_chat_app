@@ -6,12 +6,12 @@ final class KeychainService {
     static let shared = KeychainService()
 
     private let tokenKey = "com.mvp.authToken"
+    private let appStoreTokenKey = "com.mvp.appStoreToken"
     private let avatarKey = "com.mvp.selectedAvatar"
     private let hasSeenAvatarSelectionKey = "com.mvp.hasSeenAvatarSelection"
     private let lastEmailKey = "com.mvp.lastEmail"
     private let lastPasswordKey = "com.mvp.lastPassword"
     private let deviceIdKey = "com.mvp.deviceId"
-    private let appStoreTokenKey = "com.mvp.appStoreToken"
 
     private init() {}
 
@@ -25,6 +25,18 @@ final class KeychainService {
 
     func removeToken() {
         delete(key: tokenKey)
+    }
+
+    func saveAppStoreToken(_ token: String) {
+        save(key: appStoreTokenKey, value: token)
+    }
+
+    func getAppStoreToken() -> String? {
+        load(key: appStoreTokenKey)
+    }
+
+    func removeAppStoreToken() {
+        delete(key: appStoreTokenKey)
     }
 
     func saveSelectedAvatar(_ avatar: AvatarType) {
@@ -47,18 +59,6 @@ final class KeychainService {
 
     func resetAvatarSelection() {
         delete(key: hasSeenAvatarSelectionKey)
-    }
-
-    func saveAppStoreToken(_ token: String) {
-        save(key: appStoreTokenKey, value: token)
-    }
-
-    func getAppStoreToken() -> String? {
-        load(key: appStoreTokenKey)
-    }
-
-    func removeAppStoreToken() {
-        delete(key: appStoreTokenKey)
     }
 
     func clearAll() {
