@@ -146,6 +146,10 @@ final class SpeechToTextService: NSObject, ObservableObject {
         request.requiresOnDeviceRecognition = preferOnDevice && canUseOnDeviceRecognition
 
         let inputNode = audioEngine.inputNode
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        inputNode.removeTap(onBus: 0)
         let format = inputNode.outputFormat(forBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             self?.recognitionRequest?.append(buffer)
