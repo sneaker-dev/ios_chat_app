@@ -25,61 +25,71 @@ final class GatewayService {
         gatewayFromRoutingTable() ?? gatewayFromInterface()
     }
 
-    // Reads the actual default-route gateway from the kernel routing table.
-    // This is the correct approach: the gateway address is not always .1.
+    // Reads the actual default-route gateway from the kernel routing table via sysctl.
+    // Uses raw byte offsets so no <net/route.h> bridging header is required.
+    // rt_msghdr layout on iOS (both 32-bit and 64-bit, pid_t = Int32):
+    //   offset  0: rtm_msglen  (UInt16)
+    //   offset  2: rtm_version (UInt8)
+    //   offset  3: rtm_type    (UInt8)
+    //   offset  4: rtm_index   (UInt16)
+    //   offset  6: padding     (2 bytes)
+    //   offset  8: rtm_flags   (Int32)
+    //   offset 12: rtm_addrs   (Int32)
+    //   offset 16..91: pid, seq, errno, use, inits, rt_metrics (76 bytes)
+    //   total: 92 bytes
     private func gatewayFromRoutingTable() -> String? {
-        var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_GATEWAY]
+        // Routing constants from <net/route.h> — defined here to avoid bridging header.
+        let rtfGateway: Int32 = 0x2   // RTF_GATEWAY
+        let rtaDst:     Int32 = 0x1   // RTA_DST
+        let rtaGateway: Int32 = 0x2   // RTA_GATEWAY
+        let rtMsgHdrSize      = 92    // sizeof(rt_msghdr) — fixed on iOS
+
+        var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, rtfGateway]
         var needed = 0
         guard sysctl(&mib, 6, nil, &needed, nil, 0) == 0, needed > 0 else { return nil }
         var buf = [UInt8](repeating: 0, count: needed)
         guard sysctl(&mib, 6, &buf, &needed, nil, 0) == 0 else { return nil }
 
-        let rtMsgSize = MemoryLayout<rt_msghdr>.size
-        let wordSize  = MemoryLayout<Int>.size   // 8 on 64-bit iOS
+        let wordSize = MemoryLayout<Int>.size  // 8 on 64-bit iOS
         var pos = 0
 
-        while pos + rtMsgSize <= needed {
-            let (msgLen, addrs, flags) = buf.withUnsafeBytes { ptr -> (Int, Int32, Int32) in
-                let hdr = ptr.load(fromByteOffset: pos, as: rt_msghdr.self)
-                return (Int(hdr.rtm_msglen), hdr.rtm_addrs, hdr.rtm_flags)
-            }
+        while pos + rtMsgHdrSize <= needed {
+            // Read msglen, flags, addrs directly by byte offset.
+            let msgLen = Int(buf.withUnsafeBytes {
+                $0.load(fromByteOffset: pos, as: UInt16.self)
+            })
             guard msgLen > 0, pos + msgLen <= needed else { break }
 
-            let isGatewayRoute = (flags & RTF_GATEWAY) != 0
-            let hasDst         = (addrs & RTA_DST)     != 0
-            let hasGW          = (addrs & RTA_GATEWAY) != 0
+            let flags = buf.withUnsafeBytes { $0.load(fromByteOffset: pos + 8,  as: Int32.self) }
+            let addrs = buf.withUnsafeBytes { $0.load(fromByteOffset: pos + 12, as: Int32.self) }
 
-            if isGatewayRoute && hasDst && hasGW {
-                let addrBase = pos + rtMsgSize
+            if (flags & rtfGateway) != 0 && (addrs & rtaDst) != 0 && (addrs & rtaGateway) != 0 {
+                let addrBase = pos + rtMsgHdrSize
 
-                // First sockaddr after rt_msghdr is RTA_DST.
-                let dstFamily = buf.withUnsafeBytes {
-                    $0.load(fromByteOffset: addrBase + 1, as: UInt8.self)
-                }
+                // sockaddr layout: offset 0 = sa_len (UInt8), offset 1 = sa_family (UInt8)
+                // sockaddr_in:     offset 4 = sin_addr (4 bytes, network byte order)
+                guard addrBase + 8 <= needed else { pos += msgLen; continue }
+
+                let dstFamily = buf[addrBase + 1]
                 if dstFamily == UInt8(AF_INET) {
+                    // sin_addr is at offset 4 within sockaddr_in; 0 means 0.0.0.0 (default route)
                     let dstAddr = buf.withUnsafeBytes {
-                        $0.load(fromByteOffset: addrBase, as: sockaddr_in.self).sin_addr.s_addr
+                        $0.load(fromByteOffset: addrBase + 4, as: UInt32.self)
                     }
-                    // Only the default route has destination 0.0.0.0
                     if dstAddr == 0 {
-                        let dstLen = buf.withUnsafeBytes {
-                            Int($0.load(fromByteOffset: addrBase, as: sockaddr.self).sa_len)
-                        }
-                        // Darwin ROUNDUP: align to wordSize boundary
-                        let dstAligned = dstLen > 0
-                            ? 1 + ((dstLen - 1) | (wordSize - 1))
+                        // Advance past dst sockaddr using Darwin ROUNDUP to wordSize.
+                        let dstSaLen = Int(buf[addrBase])
+                        let dstAligned = dstSaLen > 0
+                            ? 1 + ((dstSaLen - 1) | (wordSize - 1))
                             : wordSize
                         let gwBase = addrBase + dstAligned
 
-                        guard gwBase + MemoryLayout<sockaddr_in>.size <= pos + msgLen else {
-                            pos += msgLen; continue
-                        }
-                        let gwFamily = buf.withUnsafeBytes {
-                            $0.load(fromByteOffset: gwBase + 1, as: UInt8.self)
-                        }
+                        guard gwBase + 8 <= pos + msgLen else { pos += msgLen; continue }
+
+                        let gwFamily = buf[gwBase + 1]
                         if gwFamily == UInt8(AF_INET) {
                             var gwAddr = buf.withUnsafeBytes {
-                                $0.load(fromByteOffset: gwBase, as: sockaddr_in.self).sin_addr
+                                $0.load(fromByteOffset: gwBase + 4, as: in_addr.self)
                             }
                             var out = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
                             if inet_ntop(AF_INET, &gwAddr, &out, socklen_t(INET_ADDRSTRLEN)) != nil {
