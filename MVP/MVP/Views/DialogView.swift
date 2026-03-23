@@ -208,7 +208,7 @@ struct DialogView: View {
                 if appMode == .appStore, let url = URL(string: APIConfig.appStoreURL) {
                     let landscapeBarH: CGFloat = landscapeTopContentInset + 14
                     if isLandscape {
-            VStack(spacing: 0) {
+                        VStack(spacing: 0) {
                             Spacer().frame(height: landscapeBarH)
                             AppStoreWebView(url: url, token: AuthService.shared.token(), isLandscape: true)
                                 .frame(width: w, height: screenH - landscapeBarH)
@@ -451,7 +451,7 @@ struct DialogView: View {
 
                 Spacer()
 
-                        HStack(spacing: 4) {
+                HStack(spacing: 4) {
                     Button {
                         NotificationCenter.default.post(name: .changeAvatar, object: nil)
                     } label: {
@@ -707,7 +707,7 @@ struct DialogView: View {
                 errorBanner(err)
             }
 
-                HStack(spacing: 8) {
+            HStack(spacing: 8) {
                 TextField("Type your message...", text: $inputText)
                     .textFieldStyle(PlainTextFieldStyle())
                     .font(.system(size: 15))
@@ -748,7 +748,7 @@ struct DialogView: View {
     private var landscapeInputRow: some View {
         HStack(spacing: 10) {
             TextField("Type your message...", text: $inputText)
-                    .textFieldStyle(PlainTextFieldStyle())
+                .textFieldStyle(PlainTextFieldStyle())
                 .font(.system(size: 15))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -756,7 +756,7 @@ struct DialogView: View {
                 .foregroundColor(.black)
                 .background(Color.white.opacity(0.85))
                 .clipShape(RoundedRectangle(cornerRadius: 22))
-                    .overlay(
+                .overlay(
                     RoundedRectangle(cornerRadius: 22)
                         .stroke(Color.white.opacity(0.3), lineWidth: 1)
                 )
@@ -768,7 +768,7 @@ struct DialogView: View {
                 Button {
                 if stt.isRecording { stt.stopRecording() }
                 else { startVoiceInput() }
-                } label: {
+            } label: {
                 Image(systemName: stt.isRecording ? "stop.circle.fill" : "mic.fill")
                     .font(.system(size: 20))
                     .foregroundColor(.white)
@@ -776,9 +776,9 @@ struct DialogView: View {
                     .background(stt.isRecording ? Color.speakActive1 : Color.speakNormal1)
                     .clipShape(Circle())
             }
-            .disabled(isLoading || isAnyTTSPlaying)
+            .disabled(isLoading)
 
-                Button {
+            Button {
                 wasVoiceInput = false
                 sendMessage(inputText, fromVoice: false)
                 } label: {
@@ -897,7 +897,7 @@ struct DialogView: View {
 
     private func finishSynchronizedSpeechUI() {
         typingDisplayedCount = typingTargetCount
-            typingMessageId = nil
+        typingMessageId = nil
         typingTargetCount = 0
         avatarState = .idle
     }
@@ -1029,7 +1029,7 @@ struct DialogView: View {
                     let fallback = ChatMessage(text: "I'm having trouble connecting. Please try again.", isFromUser: false)
                     appendMessage(fallback, to: requestMode)
                     if appMode == requestMode {
-                    startTypewriter(messageId: fallback.id, fullText: fallback.text)
+                        startTypewriter(messageId: fallback.id, fullText: fallback.text)
                     }
                     saveChatHistory(for: requestMode)
                 }
