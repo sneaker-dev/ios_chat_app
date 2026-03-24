@@ -987,8 +987,34 @@ struct DialogView: View {
 
         Task {
             do {
-                let apiBaseURL: String? = requestMode == .support ? APIConfig.supportBaseURL : nil
-                let response = try await DialogAPIService.shared.sendMessage(trimmed, language: dialogLanguage, baseURL: apiBaseURL)
+                let response: String
+                if requestMode == .support {
+                    response = try await DialogAPIService.shared.sendSupportMessageStreaming(
+                        trimmed,
+                        language: dialogLanguage
+                    ) { [self] keepAliveText in
+                        await MainActor.run {
+                            guard !keepAliveText.isEmpty else { return }
+                            let kaMsg = ChatMessage(
+                                text: keepAliveText,
+                                isFromUser: false,
+                                wasVoiceInput: fromVoice,
+                                language: dialogLanguage,
+                                suppressTTS: true
+                            )
+                            appendMessage(kaMsg, to: requestMode)
+                            if appMode == requestMode {
+                                startTypewriter(messageId: kaMsg.id, fullText: keepAliveText)
+                            }
+                            stopLongRequestNoticeTimer()
+                            startLongRequestNoticeTimer()
+                            avatarState = .thinking
+                            saveChatHistory(for: requestMode)
+                        }
+                    }
+                } else {
+                    response = try await DialogAPIService.shared.sendMessage(trimmed, language: dialogLanguage, baseURL: nil)
+                }
                 await MainActor.run {
                     stopLongRequestNoticeTimer()
                     showTypingIndicator = false
