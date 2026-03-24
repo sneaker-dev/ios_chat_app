@@ -17,6 +17,43 @@ final class SpeechToTextService: NSObject, ObservableObject {
 
     override init() {
         super.init()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleEngineConfigChange),
+            name: .AVAudioEngineConfigurationChange,
+            object: audioEngine
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSessionInterruption),
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func handleEngineConfigChange(_ notification: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.isRecording else { return }
+            AppLogger.stt.warning("audio engine config changed during recording — stopping session")
+            self.finishRecording(with: self.transcribedText.isEmpty ? nil : self.transcribedText)
+        }
+    }
+
+    @objc private func handleSessionInterruption(_ notification: Notification) {
+        guard let info = notification.userInfo,
+              let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if type == .began && self.isRecording {
+                AppLogger.stt.warning("audio session interrupted (phone call / Siri) — stopping recording")
+                self.finishRecording(with: self.transcribedText.isEmpty ? nil : self.transcribedText)
+            }
+        }
     }
 
     func requestAuthorization(completion: @escaping (Bool) -> Void) {
@@ -275,6 +312,7 @@ final class SpeechToTextService: NSObject, ObservableObject {
         recognitionTask = nil
         audioEngine.inputNode.removeTap(onBus: 0)
         audioEngine.stop()
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         isRecording = false
         let completion = recordingCompletion
         recordingCompletion = nil

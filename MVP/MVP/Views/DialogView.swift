@@ -971,6 +971,7 @@ struct DialogView: View {
         guard requestMode == .chat || requestMode == .support else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        guard !isLoading else { return }
         guard !isAnyTTSPlaying else {
             errorMessage = "Please wait for the current voice response to finish."
             return
@@ -1045,6 +1046,13 @@ struct DialogView: View {
                         }
                     }
                     saveChatHistory(for: requestMode)
+                }
+            } catch is CancellationError {
+                await MainActor.run {
+                    stopLongRequestNoticeTimer()
+                    showTypingIndicator = false
+                    isLoading = false
+                    avatarState = .idle
                 }
             } catch {
                 await MainActor.run {
