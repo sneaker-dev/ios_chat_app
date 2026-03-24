@@ -196,6 +196,104 @@ final class DialogAPIService {
         return URL(string: normalized + APIConfig.dialogPath)
     }
 
+    func sendSupportMessageStreaming(
+        _ text: String,
+        language: String? = nil,
+        onKeepAlive: @Sendable @escaping (String) async -> Void
+    ) async throws -> String {
+        let normalizedText = sanitizeQueryText(text)
+        guard !normalizedText.isEmpty else {
+            throw DialogAPIError.serverError("Please say or type a message.")
+        }
+        guard let token = auth.token() else { throw DialogAPIError.notAuthenticated }
+
+        if APIConfig.useDemoMode {
+            return "You said: \"\(normalizedText)\". (Demo mode.)"
+        }
+
+        let lang   = language ?? DialogAPIService.getDeviceLanguage()
+        let locale = TextToSpeechService.formatLocale(lang)
+        let body   = InangoGenericRequest(locale: locale, queryText: normalizedText)
+
+        guard let url = URL(string: APIConfig.supportBaseURL) else { throw DialogAPIError.invalidURL }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)",  forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(body)
+        request.timeoutInterval = 30
+
+        AppLogger.dialog.debug("sendSupportMessageStreaming url=\(url.absoluteString, privacy: .public)")
+
+        let (asyncBytes, urlResponse) = try await URLSession.shared.bytes(for: request)
+
+        guard let http = urlResponse as? HTTPURLResponse else { throw DialogAPIError.invalidResponse }
+        if http.statusCode == 401 {
+            AuthService.shared.logout()
+            throw DialogAPIError.notAuthenticated
+        }
+        guard (200...299).contains(http.statusCode) else {
+            AppLogger.dialog.error("sendSupportMessageStreaming status=\(http.statusCode, privacy: .public)")
+            throw DialogAPIError.serverError("Server returned \(http.statusCode).")
+        }
+
+        var lineBuffer = ""
+        var finalText: String?
+
+        for try await byte in asyncBytes {
+            let ch = Character(UnicodeScalar(byte))
+            if ch == "\n" {
+                let line = lineBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
+                lineBuffer = ""
+                guard !line.isEmpty else { continue }
+
+                if let kaText = extractKeepAliveText(from: line) {
+                    AppLogger.dialog.debug("keep-alive received: \(kaText.prefix(80), privacy: .public)")
+                    await onKeepAlive(kaText)
+                } else if let final_ = extractFinalResponseText(from: line) {
+                    finalText = final_
+                    break
+                }
+            } else {
+                lineBuffer.append(ch)
+            }
+        }
+
+        if finalText == nil, !lineBuffer.isEmpty {
+            let line = lineBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let kaText = extractKeepAliveText(from: line) {
+                await onKeepAlive(kaText)
+            } else {
+                finalText = extractFinalResponseText(from: line)
+            }
+        }
+
+        guard let result = finalText, !result.isEmpty else {
+            throw DialogAPIError.noData
+        }
+        return result
+    }
+
+    private func extractKeepAliveText(from jsonLine: String) -> String? {
+        guard let data = jsonLine.data(using: .utf8),
+              let obj  = try? JSONDecoder().decode(InangoQueryResponse.self, from: data) else { return nil }
+        let r = obj.queryResponse
+        guard let startRange = r.range(of: "<keep-alive>", options: .caseInsensitive),
+              let endRange   = r.range(of: "</keep-alive>", options: .caseInsensitive),
+              startRange.upperBound <= endRange.lowerBound else { return nil }
+        return String(r[startRange.upperBound..<endRange.lowerBound])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func extractFinalResponseText(from jsonLine: String) -> String? {
+        guard let data = jsonLine.data(using: .utf8),
+              let obj  = try? JSONDecoder().decode(InangoQueryResponse.self, from: data) else { return nil }
+        let r = obj.queryResponse
+        guard !r.lowercased().contains("<keep-alive>"), !r.isEmpty else { return nil }
+        return r
+    }
+
     private func isSupportURL(_ url: URL) -> Bool {
         let host = (url.host ?? "").lowercased()
         let path = url.path.lowercased()
