@@ -971,6 +971,7 @@ struct DialogView: View {
         guard requestMode == .chat || requestMode == .support else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        guard !isLoading else { return }
         guard !isAnyTTSPlaying else {
             errorMessage = "Please wait for the current voice response to finish."
             return
@@ -987,34 +988,8 @@ struct DialogView: View {
 
         Task {
             do {
-                let response: String
-                if requestMode == .support {
-                    response = try await DialogAPIService.shared.sendSupportMessageStreaming(
-                        trimmed,
-                        language: dialogLanguage
-                    ) { [self] keepAliveText in
-                        await MainActor.run {
-                            guard !keepAliveText.isEmpty else { return }
-                            let kaMsg = ChatMessage(
-                                text: keepAliveText,
-                                isFromUser: false,
-                                wasVoiceInput: fromVoice,
-                                language: dialogLanguage,
-                                suppressTTS: true
-                            )
-                            appendMessage(kaMsg, to: requestMode)
-                            if appMode == requestMode {
-                                startTypewriter(messageId: kaMsg.id, fullText: keepAliveText)
-                            }
-                            stopLongRequestNoticeTimer()
-                            startLongRequestNoticeTimer()
-                            avatarState = .thinking
-                            saveChatHistory(for: requestMode)
-                        }
-                    }
-                } else {
-                    response = try await DialogAPIService.shared.sendMessage(trimmed, language: dialogLanguage, baseURL: nil)
-                }
+                let apiBaseURL: String? = requestMode == .support ? APIConfig.supportBaseURL : nil
+                let response = try await DialogAPIService.shared.sendMessage(trimmed, language: dialogLanguage, baseURL: apiBaseURL)
                 await MainActor.run {
                     stopLongRequestNoticeTimer()
                     showTypingIndicator = false
@@ -1045,6 +1020,13 @@ struct DialogView: View {
                         }
                     }
                     saveChatHistory(for: requestMode)
+                }
+            } catch is CancellationError {
+                await MainActor.run {
+                    stopLongRequestNoticeTimer()
+                    showTypingIndicator = false
+                    isLoading = false
+                    avatarState = .idle
                 }
             } catch {
                 await MainActor.run {
