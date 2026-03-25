@@ -23,6 +23,10 @@ final class ProblemsViewModel: ObservableObject {
 
     private let api = ProblemsAPIService.shared
 
+    /// Shown when the backend has no Problems API for this tenant/device (often HTTP 404/403).
+    private static let problemsNotAvailableMessage =
+        "Problem emulation is not available for this account or linked device. If you need it, check with your administrator."
+
     // MARK: - Load
 
     func load() {
@@ -52,7 +56,7 @@ final class ProblemsViewModel: ObservableObject {
                     )
                 }
             } catch {
-                self.error = error.localizedDescription
+                self.error = Self.userFacingProblemsError(error)
             }
             isLoading = false
         }
@@ -83,8 +87,20 @@ final class ProblemsViewModel: ObservableObject {
                     problems[i].enabled   = !enable
                     problems[i].isLoading = false
                 }
-                self.error = error.localizedDescription
+                self.error = Self.userFacingProblemsError(error)
             }
         }
+    }
+
+    private static func userFacingProblemsError(_ error: Error) -> String {
+        if let api = error as? ProblemsAPIError {
+            switch api {
+            case .serverError(let code, _) where code == 404 || code == 403:
+                return problemsNotAvailableMessage
+            default:
+                return api.localizedDescription
+            }
+        }
+        return error.localizedDescription
     }
 }
