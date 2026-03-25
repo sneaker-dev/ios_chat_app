@@ -240,32 +240,82 @@ final class DialogAPIService {
 
         var lineBuffer = ""
         var finalText: String?
+        var keepAliveStreamBuffer = ""
 
         for try await byte in asyncBytes {
             let ch = Character(UnicodeScalar(byte))
             if ch == "\n" {
-                let line = lineBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
+                let line = lineBuffer
                 lineBuffer = ""
-                guard !line.isEmpty else { continue }
 
-                if let kaText = extractKeepAliveText(from: line) {
-                    AppLogger.dialog.debug("keep-alive received: \(kaText.prefix(80), privacy: .public)")
-                    await onKeepAlive(kaText)
-                } else if let final_ = extractFinalResponseText(from: line) {
-                    finalText = final_
-                    break
+                if !keepAliveStreamBuffer.isEmpty {
+                    keepAliveStreamBuffer += "\n" + line
+                    if keepAliveStreamBuffer.lowercased().contains("</keep-alive>") {
+                        let assembled = keepAliveStreamBuffer
+                        keepAliveStreamBuffer = ""
+                        if let kaText = extractKeepAliveInner(from: assembled) {
+                            AppLogger.dialog.debug("keep-alive (multi-line) received: \(kaText.prefix(80), privacy: .public)")
+                            await onKeepAlive(kaText)
+                        }
+                    }
+                    continue
+                }
+
+                let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+
+                var handled = false
+                if let data = trimmed.data(using: .utf8),
+                   let obj = try? JSONDecoder().decode(InangoQueryResponse.self, from: data) {
+                    let r = obj.queryResponse
+                    if let kaText = extractKeepAliveInner(from: r) {
+                        AppLogger.dialog.debug("keep-alive received: \(kaText.prefix(80), privacy: .public)")
+                        await onKeepAlive(kaText)
+                        handled = true
+                    } else if !r.isEmpty, !r.lowercased().contains("<keep-alive>") {
+                        finalText = r
+                        break
+                    } else if r.lowercased().contains("<keep-alive>"), !r.lowercased().contains("</keep-alive>") {
+                        keepAliveStreamBuffer = trimmed
+                        handled = true
+                    } else {
+                        handled = true
+                    }
+                }
+
+                if !handled {
+                    let lower = trimmed.lowercased()
+                    if lower.contains("<keep-alive>"), lower.contains("</keep-alive>"),
+                       let kaText = extractKeepAliveInner(from: trimmed) {
+                        AppLogger.dialog.debug("keep-alive (raw) received: \(kaText.prefix(80), privacy: .public)")
+                        await onKeepAlive(kaText)
+                    } else if lower.contains("<keep-alive>") {
+                        keepAliveStreamBuffer = trimmed
+                    } else if let final_ = extractFinalResponseText(from: trimmed) {
+                        finalText = final_
+                        break
+                    } else {
+                        AppLogger.dialog.notice("Unrecognized streaming line: \(String(trimmed.prefix(120)), privacy: .public)")
+                    }
                 }
             } else {
                 lineBuffer.append(ch)
             }
         }
 
+        if finalText == nil, !keepAliveStreamBuffer.isEmpty {
+            if let kaText = extractKeepAliveInner(from: keepAliveStreamBuffer) {
+                await onKeepAlive(kaText)
+            }
+            keepAliveStreamBuffer = ""
+        }
+
         if finalText == nil, !lineBuffer.isEmpty {
-            let line = lineBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let kaText = extractKeepAliveText(from: line) {
+            let trimmed = lineBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let kaText = extractKeepAliveInner(from: trimmed) {
                 await onKeepAlive(kaText)
             } else {
-                finalText = extractFinalResponseText(from: line)
+                finalText = extractFinalResponseText(from: trimmed)
             }
         }
 
@@ -275,23 +325,25 @@ final class DialogAPIService {
         return result
     }
 
-    private func extractKeepAliveText(from jsonLine: String) -> String? {
-        guard let data = jsonLine.data(using: .utf8),
-              let obj  = try? JSONDecoder().decode(InangoQueryResponse.self, from: data) else { return nil }
-        let r = obj.queryResponse
-        guard let startRange = r.range(of: "<keep-alive>", options: .caseInsensitive),
-              let endRange   = r.range(of: "</keep-alive>", options: .caseInsensitive),
+    /// Inner text between `<keep-alive>` and `</keep-alive>` (case-insensitive). Works for JSON `queryResponse`, raw XML-ish lines, or buffered multi-line payloads.
+    private func extractKeepAliveInner(from text: String) -> String? {
+        guard let startRange = text.range(of: "<keep-alive>", options: .caseInsensitive),
+              let endRange = text.range(of: "</keep-alive>", options: .caseInsensitive),
               startRange.upperBound <= endRange.lowerBound else { return nil }
-        return String(r[startRange.upperBound..<endRange.lowerBound])
+        return String(text[startRange.upperBound..<endRange.lowerBound])
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func extractFinalResponseText(from jsonLine: String) -> String? {
-        guard let data = jsonLine.data(using: .utf8),
-              let obj  = try? JSONDecoder().decode(InangoQueryResponse.self, from: data) else { return nil }
-        let r = obj.queryResponse
-        guard !r.lowercased().contains("<keep-alive>"), !r.isEmpty else { return nil }
-        return r
+    private func extractFinalResponseText(from line: String) -> String? {
+        if let data = line.data(using: .utf8),
+           let obj = try? JSONDecoder().decode(InangoQueryResponse.self, from: data) {
+            let r = obj.queryResponse
+            guard !r.lowercased().contains("<keep-alive>"), !r.isEmpty else { return nil }
+            return r
+        }
+        let t = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty, !t.lowercased().contains("<keep-alive>") else { return nil }
+        return t
     }
 
     private func isSupportURL(_ url: URL) -> Bool {
