@@ -253,9 +253,8 @@ final class DialogAPIService {
         } catch let urlErr as URLError {
             AppLogger.dialog.error("sendSupportMessageStreaming connect failed code=\(urlErr.code.rawValue, privacy: .public)")
             throw DialogAPIError.serverError("Connection to server lost. Please try again.")
-        } catch {
-            throw DialogAPIError.serverError("Failed to connect. Please try again.")
         }
+        // All other errors (including CancellationError) propagate as-is.
 
         guard let http = urlResponse as? HTTPURLResponse else { throw DialogAPIError.invalidResponse }
         if http.statusCode == 401 {
@@ -274,7 +273,6 @@ final class DialogAPIService {
         var finalText: String?
         var keepAliveStreamBuffer = ""
 
-        do {
         for try await byte in asyncBytes {
             let ch = Character(UnicodeScalar(byte))
             if ch == "\n" {
@@ -335,13 +333,7 @@ final class DialogAPIService {
                 lineBuffer.append(ch)
             }
         }
-        } catch let urlErr as URLError {
-            AppLogger.dialog.error("sendSupportMessageStreaming stream interrupted code=\(urlErr.code.rawValue, privacy: .public)")
-            if let partial = finalText, !partial.isEmpty { return partial }
-            throw DialogAPIError.serverError("Connection lost during response. Please try again.")
-        } catch {
-            throw error
-        }
+        // URLErrors from mid-stream (e.g. server restart) propagate as-is to the caller's catch.
 
         if finalText == nil, !keepAliveStreamBuffer.isEmpty {
             if let kaText = extractKeepAliveInner(from: keepAliveStreamBuffer) {
