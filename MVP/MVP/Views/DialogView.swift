@@ -37,7 +37,8 @@ struct SupportedLanguages {
     static let all: [SupportedLanguageItem] = [
         SupportedLanguageItem(code: "system", displayName: "System Default"),
         SupportedLanguageItem(code: "en-US", displayName: "English (US)"),
-        SupportedLanguageItem(code: "es-ES", displayName: "Spanish"),
+        SupportedLanguageItem(code: "es-ES", displayName: "Spanish (Spain)"),
+        SupportedLanguageItem(code: "es-CL", displayName: "Spanish (Chile)"),
         SupportedLanguageItem(code: "fr-FR", displayName: "French"),
         SupportedLanguageItem(code: "de-DE", displayName: "German"),
         SupportedLanguageItem(code: "it-IT", displayName: "Italian"),
@@ -166,7 +167,6 @@ struct DialogView: View {
     }
 
     private var dialogLanguage: String {
-        if appMode == .support { return "en-US" }
         if selectedLanguage == "system" { return DialogAPIService.getDeviceLanguage() }
         return selectedLanguage
     }
