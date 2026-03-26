@@ -123,6 +123,26 @@ final class DialogAPIService {
                 }
 
                 return try parseQueryResponse(data: data)
+            } catch let urlErr as URLError {
+                let isRetryableConnection = [
+                    URLError.networkConnectionLost,
+                    URLError.notConnectedToInternet,
+                    URLError.cannotConnectToHost,
+                    URLError.cannotFindHost,
+                    URLError.timedOut
+                ].contains(urlErr.code)
+                AppLogger.dialog.error("sendMessage URLError code=\(urlErr.code.rawValue, privacy: .public) attempt=\(attempt, privacy: .public)")
+                if isRetryableConnection && attempt < maxRetries {
+                    let delayNs = UInt64(1 + attempt) * 1_000_000_000
+                    try? await Task.sleep(nanoseconds: delayNs)
+                    lastError = .serverError("Connection interrupted. Retrying…")
+                    continue
+                }
+                throw DialogAPIError.serverError(
+                    urlErr.code == .notConnectedToInternet
+                        ? "No network connection. Please check your connection and try again."
+                        : "Connection to server lost. Please try again."
+                )
             } catch {
                 AppLogger.dialog.error("sendMessage request failed: \(error.localizedDescription, privacy: .public)")
                 throw error
@@ -226,7 +246,16 @@ final class DialogAPIService {
 
         AppLogger.dialog.debug("sendSupportMessageStreaming url=\(url.absoluteString, privacy: .public)")
 
-        let (asyncBytes, urlResponse) = try await URLSession.shared.bytes(for: request)
+        let asyncBytes: URLSession.AsyncBytes
+        let urlResponse: URLResponse
+        do {
+            (asyncBytes, urlResponse) = try await URLSession.shared.bytes(for: request)
+        } catch let urlErr as URLError {
+            AppLogger.dialog.error("sendSupportMessageStreaming connect failed code=\(urlErr.code.rawValue, privacy: .public)")
+            throw DialogAPIError.serverError("Connection to server lost. Please try again.")
+        } catch {
+            throw DialogAPIError.serverError("Failed to connect. Please try again.")
+        }
 
         guard let http = urlResponse as? HTTPURLResponse else { throw DialogAPIError.invalidResponse }
         if http.statusCode == 401 {
@@ -235,13 +264,17 @@ final class DialogAPIService {
         }
         guard (200...299).contains(http.statusCode) else {
             AppLogger.dialog.error("sendSupportMessageStreaming status=\(http.statusCode, privacy: .public)")
-            throw DialogAPIError.serverError("Server returned \(http.statusCode).")
+            let msg = http.statusCode == 404 || http.statusCode == 403
+                ? "Service unavailable for this account. Please contact your administrator."
+                : "Server returned \(http.statusCode)."
+            throw DialogAPIError.serverError(msg)
         }
 
         var lineBuffer = ""
         var finalText: String?
         var keepAliveStreamBuffer = ""
 
+        do {
         for try await byte in asyncBytes {
             let ch = Character(UnicodeScalar(byte))
             if ch == "\n" {
@@ -301,6 +334,13 @@ final class DialogAPIService {
             } else {
                 lineBuffer.append(ch)
             }
+        }
+        } catch let urlErr as URLError {
+            AppLogger.dialog.error("sendSupportMessageStreaming stream interrupted code=\(urlErr.code.rawValue, privacy: .public)")
+            if let partial = finalText, !partial.isEmpty { return partial }
+            throw DialogAPIError.serverError("Connection lost during response. Please try again.")
+        } catch {
+            throw error
         }
 
         if finalText == nil, !keepAliveStreamBuffer.isEmpty {
