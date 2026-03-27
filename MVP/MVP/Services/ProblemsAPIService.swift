@@ -119,10 +119,8 @@ final class ProblemsAPIService {
         }
 
         guard (200...299).contains(http.statusCode) else {
-            let message = (try? JSONDecoder().decode([String: String].self, from: data))?["detail"]
-                ?? HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
-            let requestPath = request.url?.absoluteString ?? "unknown URL"
-            throw ProblemsAPIError.serverError(http.statusCode, "\(message) (\(requestPath))")
+            let message = Self.extractDetailMessage(from: data, statusCode: http.statusCode)
+            throw ProblemsAPIError.serverError(http.statusCode, message)
         }
 
         do {
@@ -130,5 +128,29 @@ final class ProblemsAPIService {
         } catch {
             throw ProblemsAPIError.decodingFailed(error.localizedDescription)
         }
+    }
+
+    /// Extracts a human-readable error message from an API error response body.
+    ///
+    /// Handles the Problems API error format:
+    ///   `{ "detail": { "code": "ssh_execution_failed", "message": "..." } }`
+    /// and the simpler flat format:
+    ///   `{ "detail": "some message" }`
+    /// Falls back to the HTTP status description if neither is present.
+    private static func extractDetailMessage(from data: Data, statusCode: Int) -> String {
+        struct DetailObject: Decodable { let message: String? }
+        struct NestedErrorBody: Decodable { let detail: DetailObject? }
+        if let body = try? JSONDecoder().decode(NestedErrorBody.self, from: data),
+           let msg = body.detail?.message, !msg.isEmpty {
+            return msg
+        }
+
+        struct FlatErrorBody: Decodable { let detail: String? }
+        if let body = try? JSONDecoder().decode(FlatErrorBody.self, from: data),
+           let msg = body.detail, !msg.isEmpty {
+            return msg
+        }
+
+        return HTTPURLResponse.localizedString(forStatusCode: statusCode)
     }
 }
