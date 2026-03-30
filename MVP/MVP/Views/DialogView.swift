@@ -75,6 +75,7 @@ struct DialogView: View {
     @StateObject private var tts = TextToSpeechService()
     @StateObject private var cloudTTS = CloudTTSService.shared
     @StateObject private var azureTTS = AzureTTSService.shared
+    @ObservedObject private var serverConfig = ServerConfigStore.shared
 
     @State private var messages: [ChatMessage] = []
     @State private var chatMessages: [ChatMessage] = []
@@ -1387,6 +1388,10 @@ struct DialogView: View {
                     settingsInfoRow(label: "Platform", value: "iOS")
                 }
 
+                if isInangoUser {
+                    ServerConfigSettingsSection(store: serverConfig)
+                }
+
                 Section {
                     Button(role: .destructive) {
                         showSettings = false
@@ -2062,4 +2067,111 @@ private struct WebGatewayWebView: UIViewRepresentable {
         return wv
     }
     func updateUIView(_ webView: WKWebView, context: Context) {}
+}
+
+// MARK: - Server Configuration Settings Section
+
+/// Displayed only for @inango-systems.com users; lets them override each server endpoint.
+private struct ServerConfigSettingsSection: View {
+    @ObservedObject var store: ServerConfigStore
+
+    @State private var authInput: String = ""
+    @State private var voiceInput: String = ""
+    @State private var supportInput: String = ""
+    @State private var problemsInput: String = ""
+    @State private var showResetConfirm = false
+
+    private func isValid(_ s: String) -> Bool { ServerConfigStore.isValidURL(s) }
+
+    var body: some View {
+        Section(header: Text("Server Configuration")) {
+            serverURLField(
+                label: "Auth / AppStore URL",
+                text: $authInput,
+                placeholder: ServerConfigStore.defaultAuthBaseURL
+            ) { store.authBaseURL = authInput }
+
+            serverURLField(
+                label: "Voice API URL",
+                text: $voiceInput,
+                placeholder: ServerConfigStore.defaultVoiceBaseURL
+            ) { store.voiceBaseURL = voiceInput }
+
+            serverURLField(
+                label: "Support URL",
+                text: $supportInput,
+                placeholder: ServerConfigStore.defaultSupportBaseURL
+            ) { store.supportBaseURL = supportInput }
+
+            serverURLField(
+                label: "Problems URL",
+                text: $problemsInput,
+                placeholder: ServerConfigStore.defaultProblemsBaseURL
+            ) { store.problemsBaseURL = problemsInput }
+
+            Button(role: .destructive) {
+                showResetConfirm = true
+            } label: {
+                Label("Reset to Defaults", systemImage: "arrow.counterclockwise")
+            }
+        }
+        .onAppear { syncInputsFromStore() }
+        .confirmationDialog(
+            "Reset all server URLs to defaults?",
+            isPresented: $showResetConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Reset", role: .destructive) {
+                store.resetToDefaults()
+                syncInputsFromStore()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private func syncInputsFromStore() {
+        authInput     = store.authBaseURL
+        voiceInput    = store.voiceBaseURL
+        supportInput  = store.supportBaseURL
+        problemsInput = store.problemsBaseURL
+    }
+
+    @ViewBuilder
+    private func serverURLField(
+        label: String,
+        text: Binding<String>,
+        placeholder: String,
+        onCommit: @escaping () -> Void
+    ) -> some View {
+        let valid = isValid(text.wrappedValue)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+            HStack {
+                TextField(placeholder, text: text)
+                    .autocapitalization(.none)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(valid ? .primary : .red)
+                    .onSubmit { if valid { onCommit() } }
+                if !text.wrappedValue.isEmpty {
+                    Button {
+                        if valid { onCommit() }
+                    } label: {
+                        Image(systemName: valid ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundColor(valid ? .green : .red)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if !text.wrappedValue.isEmpty && !valid {
+                Text("Enter a valid http(s)://… URL")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+            }
+        }
+        .padding(.vertical, 2)
+    }
 }
