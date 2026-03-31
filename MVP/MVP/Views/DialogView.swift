@@ -2155,15 +2155,25 @@ private struct ServerConfigSettingsSection: View {
                     .keyboardType(.URL)
                     .font(.system(size: 14, design: .monospaced))
                     .foregroundColor(valid ? .primary : .red)
-                    .onSubmit { if valid { onCommit() } }
+                    .onSubmit {
+                        if valid {
+                            onCommit()
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        }
+                    }
                 if !text.wrappedValue.isEmpty {
+                    // .borderless is required for reliable tap detection inside a List row.
                     Button {
-                        if valid { onCommit() }
+                        if valid {
+                            onCommit()
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        }
                     } label: {
                         Image(systemName: valid ? "checkmark.circle.fill" : "xmark.circle.fill")
                             .foregroundColor(valid ? .green : .red)
+                            .font(.system(size: 20))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
                 }
             }
             if !text.wrappedValue.isEmpty && !valid {
