@@ -2080,8 +2080,25 @@ private struct ServerConfigSettingsSection: View {
     @State private var supportInput: String = ""
     @State private var problemsInput: String = ""
     @State private var showResetConfirm = false
+    @State private var savedMessage: String? = nil
+    @State private var savedMessageTask: Task<Void, Never>? = nil
 
     private func isValid(_ s: String) -> Bool { ServerConfigStore.isValidURL(s) }
+
+    private func commit(_ message: String = "Settings saved", action: () -> Void) {
+        action()
+        showSavedBanner(message)
+    }
+
+    private func showSavedBanner(_ message: String) {
+        savedMessage = message
+        savedMessageTask?.cancel()
+        savedMessageTask = Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { savedMessage = nil }
+        }
+    }
 
     var body: some View {
         Section(header: Text("Server Configuration")) {
@@ -2089,25 +2106,37 @@ private struct ServerConfigSettingsSection: View {
                 label: "Auth / AppStore URL",
                 text: $authInput,
                 placeholder: ServerConfigStore.defaultAuthBaseURL
-            ) { store.authBaseURL = authInput }
+            ) { commit { store.authBaseURL = authInput } }
 
             serverURLField(
                 label: "Voice API URL",
                 text: $voiceInput,
                 placeholder: ServerConfigStore.defaultVoiceBaseURL
-            ) { store.voiceBaseURL = voiceInput }
+            ) { commit { store.voiceBaseURL = voiceInput } }
 
             serverURLField(
                 label: "Support URL",
                 text: $supportInput,
                 placeholder: ServerConfigStore.defaultSupportBaseURL
-            ) { store.supportBaseURL = supportInput }
+            ) { commit { store.supportBaseURL = supportInput } }
 
             serverURLField(
                 label: "Problems URL",
                 text: $problemsInput,
                 placeholder: ServerConfigStore.defaultProblemsBaseURL
-            ) { store.problemsBaseURL = problemsInput }
+            ) { commit { store.problemsBaseURL = problemsInput } }
+
+            if let msg = savedMessage {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text(msg)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.green)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+                .animation(.easeInOut(duration: 0.3), value: savedMessage)
+            }
 
             Button(role: .destructive) {
                 showResetConfirm = true
@@ -2124,6 +2153,7 @@ private struct ServerConfigSettingsSection: View {
             Button("Reset", role: .destructive) {
                 store.resetToDefaults()
                 syncInputsFromStore()
+                showSavedBanner("Settings reset to defaults")
             }
             Button("Cancel", role: .cancel) {}
         }
