@@ -34,6 +34,17 @@ final class DialogAPIService {
     static let shared = DialogAPIService()
     private let auth = AuthService.shared
 
+    /// Dedicated session for Support streaming: no URL cache on disk, `reloadIgnoringLocalCacheData` so bytes are
+    /// consumed as delivered instead of going through behaviors tied to the shared session cache.
+    private static let supportStreamingSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 600
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.urlCache = nil
+        return URLSession(configuration: config)
+    }()
+
     private init() {}
 
     static func getDeviceLanguage() -> String {
@@ -239,6 +250,9 @@ final class DialogAPIService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)",  forHTTPHeaderField: "Authorization")
+        // identity: prefer uncompressed body so gzip does not batch small server writes before decode.
+        request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
         request.httpBody = try JSONEncoder().encode(body)
         request.timeoutInterval = 30
 
@@ -247,7 +261,7 @@ final class DialogAPIService {
         let asyncBytes: URLSession.AsyncBytes
         let urlResponse: URLResponse
         do {
-            (asyncBytes, urlResponse) = try await URLSession.shared.bytes(for: request)
+            (asyncBytes, urlResponse) = try await Self.supportStreamingSession.bytes(for: request)
         } catch let urlErr as URLError {
             AppLogger.dialog.error("sendSupportMessageStreaming connect failed code=\(urlErr.code.rawValue, privacy: .public)")
             throw DialogAPIError.serverError("Connection to server lost. Please try again.")
@@ -329,6 +343,12 @@ final class DialogAPIService {
                 }
             } else {
                 lineBuffer.append(ch)
+                // Emit keep-alive as soon as `</keep-alive>` is present without waiting for `\n`
+                // (chunked streams may omit line breaks between events; BugID 45011).
+                if keepAliveStreamBuffer.isEmpty,
+                   lineBuffer.lowercased().contains("</keep-alive>") {
+                    await drainCompleteKeepAliveSegments(lineBuffer: &lineBuffer, onKeepAlive: onKeepAlive)
+                }
             }
         }
         // URLErrors from mid-stream (e.g. server restart) propagate as-is to the caller's catch.
@@ -341,6 +361,7 @@ final class DialogAPIService {
         }
 
         if finalText == nil, !lineBuffer.isEmpty {
+            await drainCompleteKeepAliveSegments(lineBuffer: &lineBuffer, onKeepAlive: onKeepAlive)
             let trimmed = lineBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
             if let kaText = extractKeepAliveInner(from: trimmed) {
                 await onKeepAlive(kaText)
@@ -353,6 +374,40 @@ final class DialogAPIService {
             throw DialogAPIError.noData
         }
         return result
+    }
+
+    /// Emit complete keep-alive segments as soon as the closing tag appears (no newline required).
+    private func drainCompleteKeepAliveSegments(
+        lineBuffer: inout String,
+        onKeepAlive: @Sendable @escaping (String) async -> Void
+    ) async {
+        while true {
+            guard let endRange = lineBuffer.range(of: "</keep-alive>", options: .caseInsensitive),
+                  let startRange = lineBuffer.range(of: "<keep-alive>", options: .caseInsensitive),
+                  startRange.lowerBound < endRange.lowerBound else { break }
+            let segment = String(lineBuffer[..<endRange.upperBound])
+            guard let kaText = extractKeepAliveInner(from: segment) else { break }
+            AppLogger.dialog.debug("keep-alive (incremental) received: \(kaText.prefix(80), privacy: .public)")
+            await onKeepAlive(kaText)
+            lineBuffer.removeSubrange(..<endRange.upperBound)
+            trimStaleJsonAfterKeepAliveDrain(&lineBuffer)
+        }
+    }
+
+    private func trimStaleJsonAfterKeepAliveDrain(_ buffer: inout String) {
+        while buffer.first?.isWhitespace == true { buffer.removeFirst() }
+        if buffer.first == "," {
+            buffer.removeFirst()
+            while buffer.first?.isWhitespace == true { buffer.removeFirst() }
+        }
+        if buffer.first == "\"" {
+            buffer.removeFirst()
+            while buffer.first?.isWhitespace == true { buffer.removeFirst() }
+        }
+        if buffer.first == "}" {
+            buffer.removeFirst()
+            while buffer.first?.isWhitespace == true { buffer.removeFirst() }
+        }
     }
 
     /// Inner text between `<keep-alive>` and `</keep-alive>` (case-insensitive). Works for JSON `queryResponse`, raw XML-ish lines, or buffered multi-line payloads.
