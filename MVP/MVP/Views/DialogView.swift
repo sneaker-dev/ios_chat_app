@@ -1005,12 +1005,16 @@ struct DialogView: View {
                                 suppressTTS: true
                             )
                             appendMessage(kaMsg, to: requestMode)
-                            if appMode == requestMode {
-                                startTypewriter(messageId: kaMsg.id, fullText: keepAliveText)
-                            }
                             stopLongRequestNoticeTimer()
                             startLongRequestNoticeTimer()
-                            avatarState = .thinking
+                            avatarState = .speaking
+                            if appMode == requestMode {
+                                startTypewriter(messageId: kaMsg.id, fullText: keepAliveText) {
+                                    // Typewriter finished; if still waiting for the final response
+                                    // return to thinking so the avatar doesn't freeze on speaking.
+                                    if isLoading { avatarState = .thinking }
+                                }
+                            }
                             saveChatHistory(for: requestMode)
                         }
                     }
@@ -1039,9 +1043,7 @@ struct DialogView: View {
                     } else {
                         if appMode == requestMode {
                             avatarState = .speaking
-                            startTypewriter(messageId: botMsg.id, fullText: displayText)
-                            let displayTime = Double(displayText.count) * 0.025 + 0.5
-                            DispatchQueue.main.asyncAfter(deadline: .now() + displayTime) {
+                            startTypewriter(messageId: botMsg.id, fullText: displayText) {
                                 if avatarState == .speaking { avatarState = .idle }
                             }
                         }
@@ -1133,11 +1135,11 @@ struct DialogView: View {
         }
     }
 
-    private func startTypewriter(messageId: UUID, fullText: String, wordByWord: Bool = false, msPerWord: Int = 0) {
+    private func startTypewriter(messageId: UUID, fullText: String, wordByWord: Bool = false, msPerWord: Int = 0, onCompletion: (() -> Void)? = nil) {
         typingMessageId = messageId; typingDisplayedCount = 0
         let total = fullText.count
-        guard total > 0 else { typingMessageId = nil; return }
-        if !streamingTextEnabled { typingDisplayedCount = total; typingMessageId = nil; return }
+        guard total > 0 else { typingMessageId = nil; onCompletion?(); return }
+        if !streamingTextEnabled { typingDisplayedCount = total; typingMessageId = nil; onCompletion?(); return }
         if wordByWord && msPerWord > 0 {
             Task { @MainActor in
                 let words = fullText.split(separator: " ", omittingEmptySubsequences: false)
@@ -1149,6 +1151,7 @@ struct DialogView: View {
                     if i < words.count - 1 { try? await Task.sleep(nanoseconds: UInt64(msPerWord) * 1_000_000) }
                 }
                 typingDisplayedCount = total; typingMessageId = nil
+                onCompletion?()
             }
         } else {
             Task { @MainActor in
@@ -1158,6 +1161,7 @@ struct DialogView: View {
                     typingDisplayedCount = i
                 }
                 typingMessageId = nil
+                onCompletion?()
             }
         }
     }
