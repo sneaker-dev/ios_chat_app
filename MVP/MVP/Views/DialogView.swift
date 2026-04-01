@@ -75,6 +75,7 @@ struct DialogView: View {
     @StateObject private var tts = TextToSpeechService()
     @StateObject private var cloudTTS = CloudTTSService.shared
     @StateObject private var azureTTS = AzureTTSService.shared
+    @ObservedObject private var serverConfig = ServerConfigStore.shared
 
     @State private var messages: [ChatMessage] = []
     @State private var chatMessages: [ChatMessage] = []
@@ -971,6 +972,7 @@ struct DialogView: View {
         guard requestMode == .chat || requestMode == .support else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        guard !isLoading else { return }
         guard !isAnyTTSPlaying else {
             errorMessage = "Please wait for the current voice response to finish."
             return
@@ -1045,6 +1047,13 @@ struct DialogView: View {
                         }
                     }
                     saveChatHistory(for: requestMode)
+                }
+            } catch is CancellationError {
+                await MainActor.run {
+                    stopLongRequestNoticeTimer()
+                    showTypingIndicator = false
+                    isLoading = false
+                    avatarState = .idle
                 }
             } catch {
                 await MainActor.run {
@@ -1377,6 +1386,10 @@ struct DialogView: View {
                     settingsInfoRow(label: "Version", value: "v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")")
                     settingsInfoRow(label: "Build", value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1")
                     settingsInfoRow(label: "Platform", value: "iOS")
+                }
+
+                if isInangoUser {
+                    ServerConfigSettingsSection(store: serverConfig)
                 }
 
                 Section {
@@ -2054,4 +2067,151 @@ private struct WebGatewayWebView: UIViewRepresentable {
         return wv
     }
     func updateUIView(_ webView: WKWebView, context: Context) {}
+}
+
+// MARK: - Server Configuration Settings Section
+
+/// Displayed only for @inango-systems.com users; lets them override each server endpoint.
+private struct ServerConfigSettingsSection: View {
+    @ObservedObject var store: ServerConfigStore
+
+    @State private var authInput: String = ""
+    @State private var voiceInput: String = ""
+    @State private var supportInput: String = ""
+    @State private var problemsInput: String = ""
+    @State private var showResetConfirm = false
+    @State private var savedMessage: String? = nil
+    @State private var savedMessageTask: Task<Void, Never>? = nil
+
+    private func isValid(_ s: String) -> Bool { ServerConfigStore.isValidURL(s) }
+
+    private func commit(_ message: String = "Settings saved", action: () -> Void) {
+        action()
+        showSavedBanner(message)
+    }
+
+    private func showSavedBanner(_ message: String) {
+        savedMessage = message
+        savedMessageTask?.cancel()
+        savedMessageTask = Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { savedMessage = nil }
+        }
+    }
+
+    var body: some View {
+        Section(header: Text("Server Configuration")) {
+            serverURLField(
+                label: "Auth / AppStore URL",
+                text: $authInput,
+                placeholder: ServerConfigStore.defaultAuthBaseURL
+            ) { commit { store.authBaseURL = authInput } }
+
+            serverURLField(
+                label: "Voice API URL",
+                text: $voiceInput,
+                placeholder: ServerConfigStore.defaultVoiceBaseURL
+            ) { commit { store.voiceBaseURL = voiceInput } }
+
+            serverURLField(
+                label: "Support URL",
+                text: $supportInput,
+                placeholder: ServerConfigStore.defaultSupportBaseURL
+            ) { commit { store.supportBaseURL = supportInput } }
+
+            serverURLField(
+                label: "Problems URL",
+                text: $problemsInput,
+                placeholder: ServerConfigStore.defaultProblemsBaseURL
+            ) { commit { store.problemsBaseURL = problemsInput } }
+
+            if let msg = savedMessage {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text(msg)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.green)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+                .animation(.easeInOut(duration: 0.3), value: savedMessage)
+            }
+
+            Button(role: .destructive) {
+                showResetConfirm = true
+            } label: {
+                Label("Reset to Defaults", systemImage: "arrow.counterclockwise")
+            }
+        }
+        .onAppear { syncInputsFromStore() }
+        .confirmationDialog(
+            "Reset all server URLs to defaults?",
+            isPresented: $showResetConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Reset", role: .destructive) {
+                store.resetToDefaults()
+                syncInputsFromStore()
+                showSavedBanner("Settings reset to defaults")
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private func syncInputsFromStore() {
+        authInput     = store.authBaseURL
+        voiceInput    = store.voiceBaseURL
+        supportInput  = store.supportBaseURL
+        problemsInput = store.problemsBaseURL
+    }
+
+    @ViewBuilder
+    private func serverURLField(
+        label: String,
+        text: Binding<String>,
+        placeholder: String,
+        onCommit: @escaping () -> Void
+    ) -> some View {
+        let valid = isValid(text.wrappedValue)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+            HStack {
+                TextField(placeholder, text: text)
+                    .autocapitalization(.none)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(valid ? .primary : .red)
+                    .onSubmit {
+                        if valid {
+                            onCommit()
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        }
+                    }
+                if !text.wrappedValue.isEmpty {
+                    // .borderless is required for reliable tap detection inside a List row.
+                    Button {
+                        if valid {
+                            onCommit()
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        }
+                    } label: {
+                        Image(systemName: valid ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundColor(valid ? .green : .red)
+                            .font(.system(size: 20))
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+            if !text.wrappedValue.isEmpty && !valid {
+                Text("Enter a valid http(s)://… URL")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+            }
+        }
+        .padding(.vertical, 2)
+    }
 }
