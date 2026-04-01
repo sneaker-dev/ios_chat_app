@@ -2,17 +2,20 @@ import Foundation
 
 enum APIConfig {
     static var authBaseURL: String {
-        ProcessInfo.processInfo.environment["MVP_AUTH_BASE_URL"] ?? "https://appstore-demo.inango.com"
+        ProcessInfo.processInfo.environment["MVP_AUTH_BASE_URL"]
+            ?? ServerConfigStore.shared.authBaseURL
     }
 
     static var baseURL: String {
-        ProcessInfo.processInfo.environment["MVP_API_BASE_URL"] ?? "https://voice-demo.inango.com"
+        ProcessInfo.processInfo.environment["MVP_API_BASE_URL"]
+            ?? ServerConfigStore.shared.voiceBaseURL
     }
 
     /// Host or base URL for Support (same style as `baseURL` / Voice). The streaming client appends
     /// `supportChatAPIPath` unless the user already saved a full `/api/...` URL.
     static var supportBaseURL: String {
-        ProcessInfo.processInfo.environment["MVP_SUPPORT_BASE_URL"] ?? "https://support-demo.inango.com"
+        ProcessInfo.processInfo.environment["MVP_SUPPORT_BASE_URL"]
+            ?? ServerConfigStore.shared.supportBaseURL
     }
 
     /// POST path for Support chat, appended when `supportBaseURL` has no `/api/` path.
@@ -21,11 +24,14 @@ enum APIConfig {
     }
 
     static var appStoreURL: String {
-        ProcessInfo.processInfo.environment["MVP_APP_STORE_URL"] ?? "https://appstore-demo.inango.com"
+        // Auth and AppStore share the same server; use the user-configured auth URL.
+        ProcessInfo.processInfo.environment["MVP_APP_STORE_URL"]
+            ?? ServerConfigStore.shared.authBaseURL
     }
 
     static var problemsBaseURL: String {
-        ProcessInfo.processInfo.environment["MVP_PROBLEMS_BASE_URL"] ?? "https://dash-emulator.inango.com"
+        ProcessInfo.processInfo.environment["MVP_PROBLEMS_BASE_URL"]
+            ?? ServerConfigStore.shared.problemsBaseURL
     }
 
     static var appStoreLoginPath: String {
