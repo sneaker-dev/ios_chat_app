@@ -9,8 +9,15 @@ enum APIConfig {
         ProcessInfo.processInfo.environment["MVP_API_BASE_URL"] ?? "https://voice-demo.inango.com"
     }
 
+    /// Host or base URL for Support (same style as `baseURL` / Voice). The streaming client appends
+    /// `supportChatAPIPath` unless the user already saved a full `/api/...` URL.
     static var supportBaseURL: String {
-        ProcessInfo.processInfo.environment["MVP_SUPPORT_BASE_URL"] ?? "https://support-demo.inango.com/api/v1/support/chat"
+        ProcessInfo.processInfo.environment["MVP_SUPPORT_BASE_URL"] ?? "https://support-demo.inango.com"
+    }
+
+    /// POST path for Support chat, appended when `supportBaseURL` has no `/api/` path.
+    static var supportChatAPIPath: String {
+        ProcessInfo.processInfo.environment["MVP_SUPPORT_CHAT_PATH"] ?? "/api/v1/support/chat"
     }
 
     static var appStoreURL: String {

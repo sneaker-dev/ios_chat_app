@@ -221,10 +221,24 @@ final class DialogAPIService {
         if let host = parsed.host?.lowercased(), host.contains("support-demo.inango.com") {
             let path = parsed.path.lowercased()
             if path.isEmpty || path == "/" || path == "/support" {
-                return URL(string: "https://support-demo.inango.com/api/v1/support/chat")
+                return resolveSupportChatURL("https://support-demo.inango.com")
             }
         }
         return URL(string: normalized + APIConfig.dialogPath)
+    }
+
+    /// Resolves the Support streaming POST URL. Settings may store only a host (like Voice URL);
+    /// in that case append `supportChatAPIPath`. If the string already contains `/api/`, use it as-is.
+    private func resolveSupportChatURL(_ raw: String) -> URL? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard let parsed = URL(string: trimmed) else { return nil }
+        let path = parsed.path.lowercased()
+        if path.contains("/api/") {
+            return parsed
+        }
+        let base = normalizedBaseURL(trimmed)
+        return URL(string: base + APIConfig.supportChatAPIPath)
     }
 
     func sendSupportMessageStreaming(
@@ -246,7 +260,7 @@ final class DialogAPIService {
         let locale = TextToSpeechService.formatLocale(lang)
         let body   = InangoGenericRequest(locale: locale, queryText: normalizedText)
 
-        guard let url = URL(string: APIConfig.supportBaseURL) else { throw DialogAPIError.invalidURL }
+        guard let url = resolveSupportChatURL(APIConfig.supportBaseURL) else { throw DialogAPIError.invalidURL }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
