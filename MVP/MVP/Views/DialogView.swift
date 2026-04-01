@@ -723,8 +723,9 @@ struct DialogView: View {
                             .stroke(Color.white.opacity(0.3), lineWidth: 1)
                     )
                     .onChange(of: inputText) { val in
-                        if !val.isEmpty && avatarState == .idle { avatarState = .thinking }
-                        else if val.isEmpty && avatarState == .thinking && !stt.isRecording { avatarState = .idle }
+                        guard !isLoading else { return }
+                        if !val.isEmpty { avatarState = .thinking }
+                        else if !stt.isRecording { avatarState = .idle }
                     }
 
                 Button {
@@ -762,8 +763,9 @@ struct DialogView: View {
                         .stroke(Color.white.opacity(0.3), lineWidth: 1)
                 )
                 .onChange(of: inputText) { val in
-                    if !val.isEmpty && avatarState == .idle { avatarState = .thinking }
-                    else if val.isEmpty && avatarState == .thinking && !stt.isRecording { avatarState = .idle }
+                    guard !isLoading else { return }
+                    if !val.isEmpty { avatarState = .thinking }
+                    else if !stt.isRecording { avatarState = .idle }
                 }
 
                 Button {
