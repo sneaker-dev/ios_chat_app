@@ -34,6 +34,17 @@ final class DialogAPIService {
     static let shared = DialogAPIService()
     private let auth = AuthService.shared
 
+    /// Dedicated session for Support streaming: no URL cache on disk, `reloadIgnoringLocalCacheData` so bytes are
+    /// consumed as delivered instead of going through behaviors tied to the shared session cache.
+    private static let supportStreamingSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 600
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.urlCache = nil
+        return URLSession(configuration: config)
+    }()
+
     private init() {}
 
     static func getDeviceLanguage() -> String {
@@ -241,6 +252,9 @@ final class DialogAPIService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)",  forHTTPHeaderField: "Authorization")
+        // identity: prefer uncompressed body so gzip does not batch small server writes before decode.
+        request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
         request.httpBody = try JSONEncoder().encode(body)
         request.timeoutInterval = 30
 
@@ -249,7 +263,7 @@ final class DialogAPIService {
         let asyncBytes: URLSession.AsyncBytes
         let urlResponse: URLResponse
         do {
-            (asyncBytes, urlResponse) = try await URLSession.shared.bytes(for: request)
+            (asyncBytes, urlResponse) = try await Self.supportStreamingSession.bytes(for: request)
         } catch let urlErr as URLError {
             AppLogger.dialog.error("sendSupportMessageStreaming connect failed code=\(urlErr.code.rawValue, privacy: .public)")
             throw DialogAPIError.serverError("Connection to server lost. Please try again.")
