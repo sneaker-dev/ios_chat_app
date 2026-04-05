@@ -8,13 +8,17 @@ struct LoginView: View {
     @State private var errorMessage: String?
     @State private var showPassword = false
     @FocusState private var focusedField: Field?
-    private enum Field { case email, password }
+    private enum Field: Hashable { case email, password }
+
+    /// Extra scroll space so the focused field can sit above the software keyboard.
+    private let keyboardScrollPadding: CGFloat = 280
 
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width
+            let layoutH = geo.size.height
             let screenH = UIScreen.main.bounds.height
-            let isLandscape = w > screenH
+            let isLandscape = w > layoutH
 
             ZStack {
                 Color.black.ignoresSafeArea()
@@ -23,7 +27,7 @@ struct LoginView: View {
                     Image("LoginBackground")
                         .resizable()
                         .scaledToFill()
-                        .frame(width: w, height: screenH)
+                        .frame(width: w, height: max(layoutH, screenH))
                         .clipped()
                         .ignoresSafeArea()
                         .allowsHitTesting(false)
@@ -31,7 +35,8 @@ struct LoginView: View {
 
                 Color.black.opacity(0.5).ignoresSafeArea().allowsHitTesting(false)
 
-                ScrollView(.vertical, showsIndicators: false) {
+                ScrollViewReader { scrollProxy in
+                    ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 0) {
                         Spacer(minLength: isLandscape ? 12 : 20)
 
@@ -67,6 +72,7 @@ struct LoginView: View {
                                             .stroke(focusedField == .email ? Color.appPrimary : Color(hex: 0xE0E0E0), lineWidth: 1.5)
                                     )
                             }
+                            .id("loginEmail")
 
                             VStack(alignment: .leading, spacing: 5) {
                                 Text("Password").font(.system(size: 13, weight: .medium))
@@ -101,6 +107,7 @@ struct LoginView: View {
                                         .stroke(focusedField == .password ? Color.appPrimary : Color(hex: 0xE0E0E0), lineWidth: 1.5)
                                 )
                             }
+                            .id("loginPassword")
 
                             if let err = errorMessage {
                                 Text(err)
@@ -144,14 +151,22 @@ struct LoginView: View {
                         .padding(.top, isLandscape ? 10 : 16)
 
                         Spacer(minLength: isLandscape ? 12 : 40)
+
+                        Color.clear
+                            .frame(height: keyboardScrollPadding)
+                            .id("loginScrollBottomPadding")
                     }
-                    .frame(minHeight: screenH)
+                    .frame(minHeight: max(layoutH, screenH))
+                    .padding(.bottom, 8)
+                    }
+                    .onChange(of: focusedField) { field in
+                        scrollFocusedFieldIntoView(field, proxy: scrollProxy)
+                    }
                 }
             }
-            .frame(width: w, height: screenH)
+            .frame(width: w, height: layoutH)
             .clipped()
         }
-        .ignoresSafeArea(.all, edges: .all)
         .textFieldStyle(PlainTextFieldStyle())
         .onAppear {
             if email.isEmpty { email = KeychainService.shared.getLastEmail() ?? "" }
@@ -160,6 +175,20 @@ struct LoginView: View {
         .onSubmit {
             if focusedField == .email { focusedField = .password }
             else if focusedField == .password { submit() }
+        }
+    }
+
+    /// Scrolls the active field above the keyboard. Root view must not ignore keyboard safe area.
+    private func scrollFocusedFieldIntoView(_ field: Field?, proxy: ScrollViewProxy) {
+        guard let field else { return }
+        let anchor: UnitPoint = field == .password
+            ? UnitPoint(x: 0.5, y: 0.15)
+            : UnitPoint(x: 0.5, y: 0.28)
+        let id = field == .password ? "loginPassword" : "loginEmail"
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.easeOut(duration: 0.28)) {
+                proxy.scrollTo(id, anchor: anchor)
+            }
         }
     }
 
