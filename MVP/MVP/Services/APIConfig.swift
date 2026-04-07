@@ -2,23 +2,28 @@ import Foundation
 
 enum APIConfig {
     static var authBaseURL: String {
-        ProcessInfo.processInfo.environment["MVP_AUTH_BASE_URL"] ?? "https://appstore-demo.inango.com"
+        ProcessInfo.processInfo.environment["MVP_AUTH_BASE_URL"]
+            ?? ServerConfigStore.shared.authBaseURL
     }
 
     static var baseURL: String {
-        ProcessInfo.processInfo.environment["MVP_API_BASE_URL"] ?? "https://voice-demo.inango.com"
+        ProcessInfo.processInfo.environment["MVP_API_BASE_URL"]
+            ?? ServerConfigStore.shared.voiceBaseURL
     }
 
     static var supportBaseURL: String {
-        ProcessInfo.processInfo.environment["MVP_SUPPORT_BASE_URL"] ?? "https://support-demo.inango.com/api/v1/support/chat"
+        ProcessInfo.processInfo.environment["MVP_SUPPORT_BASE_URL"]
+            ?? ServerConfigStore.shared.supportBaseURL
     }
 
     static var appStoreURL: String {
-        ProcessInfo.processInfo.environment["MVP_APP_STORE_URL"] ?? "https://appstore-demo.inango.com"
+        ProcessInfo.processInfo.environment["MVP_APP_STORE_URL"]
+            ?? ServerConfigStore.shared.authBaseURL
     }
 
     static var problemsBaseURL: String {
-        ProcessInfo.processInfo.environment["MVP_PROBLEMS_BASE_URL"] ?? "https://dash-emulator.inango.com"
+        ProcessInfo.processInfo.environment["MVP_PROBLEMS_BASE_URL"]
+            ?? ServerConfigStore.shared.problemsBaseURL
     }
 
     static var appStoreLoginPath: String {
@@ -32,9 +37,11 @@ enum APIConfig {
     static var loginPath: String {
         ProcessInfo.processInfo.environment["MVP_LOGIN_PATH"] ?? "/api/v1/auth/login"
     }
+
     static var registerPath: String {
         ProcessInfo.processInfo.environment["MVP_REGISTER_PATH"] ?? "/api/v1/auth/register"
     }
+
     static var dialogPath: String {
         ProcessInfo.processInfo.environment["MVP_DIALOG_PATH"] ?? "/api/v1/intent/generic"
     }
