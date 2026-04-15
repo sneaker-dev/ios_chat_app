@@ -20,10 +20,6 @@ private extension Color {
     static let statusGreen      = Color(red: 0.298, green: 0.686, blue: 0.314)  // #4CAF50
     static let statusOrange     = Color(red: 1.0,   green: 0.596, blue: 0.0)    // #FF9800
     static let statusGray       = Color(red: 0.62,  green: 0.62,  blue: 0.62)
-    /// Tooltip fill: neutral dark at `ProblemsTabOpacity.tooltipBackgroundFill` (same alpha scale as row fills).
-    static let problemsHelpSurface = Color(red: 0.118, green: 0.118, blue: 0.118)
-        .opacity(ProblemsTabOpacity.tooltipBackgroundFill)
-    static let problemsTextPrimary = Color.white.opacity(0.92)
     static let problemsTextSecondary = Color.white.opacity(0.85)
 }
 
