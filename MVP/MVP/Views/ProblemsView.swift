@@ -154,10 +154,79 @@ struct ProblemsView: View {
     }
 }
 
-// MARK: - Help tooltip (anchored on row; frosted gray like inactive problem cards)
+// MARK: - Help tooltip (overlay; speech-bubble shape; same gray chrome as problem rows)
+
+/// Rounded body with a small tail on the **top** edge so it reads as a callout toward the help control above.
+private struct ProblemsHelpBubbleShape: Shape {
+    /// Tail tip X as a fraction of width from **leading** (0…1); default sits toward trailing for the `?` anchor.
+    var tailCenterFraction: CGFloat = 0.82
+
+    func path(in rect: CGRect) -> Path {
+        let tailHeight: CGFloat = 7
+        let tailWidth: CGFloat = 12
+        let r = min(
+            CGFloat(10),
+            max(3, (rect.width - tailWidth) * 0.06),
+            max(3, (rect.height - tailHeight) * 0.18)
+        )
+        let bodyTop = rect.minY + tailHeight
+        let left = rect.minX
+        let right = rect.maxX
+        let bottom = rect.maxY
+
+        var cx = left + rect.width * tailCenterFraction
+        let minTailX = left + r + tailWidth * 0.5 + 2
+        let maxTailX = right - r - tailWidth * 0.5 - 2
+        cx = min(max(cx, minTailX), maxTailX)
+        let tLeft = cx - tailWidth / 2
+        let tRight = cx + tailWidth / 2
+
+        var p = Path()
+        p.move(to: CGPoint(x: left + r, y: bottom))
+        p.addArc(
+            center: CGPoint(x: left + r, y: bottom - r),
+            radius: r,
+            startAngle: Angle(degrees: 90),
+            endAngle: Angle(degrees: 180),
+            clockwise: false
+        )
+        p.addLine(to: CGPoint(x: left, y: bodyTop + r))
+        p.addArc(
+            center: CGPoint(x: left + r, y: bodyTop + r),
+            radius: r,
+            startAngle: Angle(degrees: 180),
+            endAngle: Angle(degrees: 270),
+            clockwise: false
+        )
+        p.addLine(to: CGPoint(x: tLeft, y: bodyTop))
+        p.addLine(to: CGPoint(x: cx, y: rect.minY))
+        p.addLine(to: CGPoint(x: tRight, y: bodyTop))
+        p.addLine(to: CGPoint(x: right - r, y: bodyTop))
+        p.addArc(
+            center: CGPoint(x: right - r, y: bodyTop + r),
+            radius: r,
+            startAngle: Angle(degrees: 270),
+            endAngle: Angle(degrees: 0),
+            clockwise: false
+        )
+        p.addLine(to: CGPoint(x: right, y: bottom - r))
+        p.addArc(
+            center: CGPoint(x: right - r, y: bottom - r),
+            radius: r,
+            startAngle: Angle(degrees: 0),
+            endAngle: Angle(degrees: 90),
+            clockwise: false
+        )
+        p.addLine(to: CGPoint(x: left + r, y: bottom))
+        p.closeSubpath()
+        return p
+    }
+}
 
 private struct ProblemsHelpTooltipPanel: View {
     let text: String
+
+    private let tailReserve: CGFloat = 7
 
     var body: some View {
         Text(text)
@@ -166,14 +235,15 @@ private struct ProblemsHelpTooltipPanel: View {
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: 280)
+            .padding(.top, 6 + tailReserve)
+            .padding(.bottom, 12)
+            .frame(maxWidth: 280, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                ProblemsHelpBubbleShape(tailCenterFraction: 0.82)
                     .fill(Color.white.opacity(ProblemsTabOpacity.problemRowInactiveFill))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10)
+                ProblemsHelpBubbleShape(tailCenterFraction: 0.82)
                     .stroke(Color.white.opacity(ProblemsTabOpacity.chromeStroke), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
@@ -200,7 +270,7 @@ private struct ProblemCard: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .top, spacing: 4) {
+                HStack(alignment: .center, spacing: 4) {
                     Text(problem.title)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white)
@@ -208,26 +278,19 @@ private struct ProblemCard: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     if helpText != nil {
-                        VStack(alignment: .trailing, spacing: 6) {
-                            Button {
-                                if isHelpExpanded {
-                                    helpExpandedKey = nil
-                                } else {
-                                    helpExpandedKey = problem.key
-                                }
-                            } label: {
-                                Image(systemName: "questionmark.circle")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.problemsTextSecondary)
+                        Button {
+                            if isHelpExpanded {
+                                helpExpandedKey = nil
+                            } else {
+                                helpExpandedKey = problem.key
                             }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Problem description help")
-
-                            if isHelpExpanded, let hint = helpText {
-                                ProblemsHelpTooltipPanel(text: hint)
-                                    .transition(.opacity)
-                            }
+                        } label: {
+                            Image(systemName: "questionmark.circle")
+                                .font(.system(size: 20))
+                                .foregroundColor(.problemsTextSecondary)
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Problem description help")
                     }
                 }
 
@@ -274,6 +337,16 @@ private struct ProblemCard: View {
                     lineWidth: 1
                 )
         )
+        /// Tooltip is an overlay so it does not participate in row layout (no card height jump).
+        .overlay(alignment: .topTrailing) {
+            if isHelpExpanded, let hint = helpText {
+                ProblemsHelpTooltipPanel(text: hint)
+                    .transition(.opacity)
+                    .padding(.top, 30)
+                    .padding(.trailing, 56)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 }
 
