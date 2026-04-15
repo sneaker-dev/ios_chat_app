@@ -8,6 +8,10 @@ private extension Color {
     static let statusGreen      = Color(red: 0.298, green: 0.686, blue: 0.314)  // #4CAF50
     static let statusOrange     = Color(red: 1.0,   green: 0.596, blue: 0.0)    // #FF9800
     static let statusGray       = Color(red: 0.62,  green: 0.62,  blue: 0.62)
+    /// Help balloon surface (aligned with Android Problems `DarkCard`).
+    static let problemsHelpSurface = Color(red: 0.118, green: 0.118, blue: 0.118).opacity(0.92)
+    static let problemsTextPrimary = Color.white.opacity(0.92)
+    static let problemsTextSecondary = Color.white.opacity(0.85)
 }
 
 // MARK: - ProblemsView
@@ -94,15 +98,10 @@ struct ProblemsView: View {
     }
 
     private var headerView: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Device Problems")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
-                Text("Emulate hardware & network issues")
-                    .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.55))
-            }
+        HStack(alignment: .center) {
+            Text("Board Problem Emulation")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundColor(.white.opacity(0.92))
             Spacer()
             if viewModel.isLoading {
                 ProgressView()
@@ -136,24 +135,48 @@ private struct ProblemCard: View {
     let problem: ProblemUiItem
     let onToggle: (Bool) -> Void
 
+    @State private var showHelp = false
+
+    private var helpText: String? {
+        guard let s = problem.endUserDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !s.isEmpty else { return nil }
+        return s
+    }
+
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(problem.title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(problem.enabled ? .white : .white.opacity(0.9))
+        ZStack(alignment: .top) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .center, spacing: 4) {
+                        Text(problem.title)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
-                Text(problem.summary)
-                    .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.65))
-                    .lineLimit(3)
+                        if helpText != nil {
+                            Button {
+                                showHelp.toggle()
+                            } label: {
+                                Image(systemName: "questionmark.circle")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.problemsTextSecondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Problem description help")
+                        }
+                    }
 
-                StatusBadge(status: problem.implementationStatus)
-            }
+                    Text(problem.summary)
+                        .font(.system(size: 12))
+                        .foregroundColor(.problemsTextSecondary)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
 
-            Spacer()
+                    StatusBadge(status: problem.implementationStatus)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            VStack(alignment: .trailing, spacing: 8) {
                 if problem.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .problemsRedLight))
@@ -168,10 +191,38 @@ private struct ProblemCard: View {
                     .frame(width: 51, height: 32)
                 }
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            if showHelp, let hint = helpText {
+                ZStack {
+                    Color.black.opacity(0.001)
+                        .contentShape(Rectangle())
+                        .onTapGesture { showHelp = false }
+
+                    Text(hint)
+                        .font(.system(size: 13))
+                        .foregroundColor(.problemsTextPrimary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: 300)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.problemsHelpSurface)
+                        )
+                        .padding(.horizontal, 8)
+                        .frame(maxWidth: .infinity)
+                }
+                .padding(.top, 40)
+                .transition(.opacity)
+            }
         }
-        .padding(14)
+        .animation(.easeOut(duration: 0.18), value: showHelp)
+        .zIndex(showHelp ? 1 : 0)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 10)
                 .fill(
                     problem.enabled
                         ? Color.problemsRed.opacity(0.22)
@@ -179,12 +230,13 @@ private struct ProblemCard: View {
                 )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 10)
                 .stroke(
                     problem.enabled ? Color.problemsRed.opacity(0.6) : Color.white.opacity(0.12),
                     lineWidth: 1
                 )
         )
+        .onChange(of: problem.key) { _ in showHelp = false }
     }
 }
 

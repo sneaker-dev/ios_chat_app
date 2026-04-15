@@ -7,10 +7,20 @@ struct ProblemUiItem: Identifiable {
     let title: String
     let summary: String
     let implementationStatus: String
+    /// Catalog `description` only; nil hides the help control (Redmine #45250).
+    let endUserDescription: String?
     var enabled: Bool
     var isLoading: Bool = false
 
     var id: String { key }
+}
+
+private extension Optional where Wrapped == String {
+    /// Non-empty trimmed catalog `description`, else nil.
+    func normalizedEndUserDescription() -> String? {
+        guard let s = self?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty else { return nil }
+        return s
+    }
 }
 
 // MARK: - ViewModel
@@ -52,6 +62,7 @@ final class ProblemsViewModel: ObservableObject {
                         title: item.title,
                         summary: item.summary,
                         implementationStatus: item.implementationStatus,
+                        endUserDescription: item.description.normalizedEndUserDescription(),
                         enabled: state?.enabled ?? false
                     )
                 }
@@ -78,8 +89,16 @@ final class ProblemsViewModel: ObservableObject {
                     : try await api.disableProblem(key: key)
 
                 if let i = problems.firstIndex(where: { $0.key == key }) {
-                    problems[i].enabled   = response.problem.enabled
-                    problems[i].isLoading = false
+                    let prev = problems[i]
+                    problems[i] = ProblemUiItem(
+                        key: prev.key,
+                        title: prev.title,
+                        summary: prev.summary,
+                        implementationStatus: prev.implementationStatus,
+                        endUserDescription: prev.endUserDescription,
+                        enabled: response.problem.enabled,
+                        isLoading: false
+                    )
                 }
             } catch {
                 // Revert optimistic update on failure

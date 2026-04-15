@@ -7,11 +7,13 @@ struct ProblemCatalogItem: Codable, Identifiable {
     let title: String
     let summary: String
     let implementationStatus: String
+    /// End-user-facing line from `GET /api/v1/problems/catalog` (optional; Redmine #45250).
+    let description: String?
 
     var id: String { key }
 
     enum CodingKeys: String, CodingKey {
-        case key, title, summary
+        case key, title, summary, description
         case implementationStatus = "implementation_status"
     }
 }
@@ -32,9 +34,10 @@ struct ActiveProblemState: Codable {
     let updatedAt: String?
     let requestedBy: String?
     let note: String
+    let description: String?
 
     enum CodingKeys: String, CodingKey {
-        case key, title, summary, enabled, note
+        case key, title, summary, enabled, note, description
         case implementationStatus = "implementation_status"
         case enabledAt            = "enabled_at"
         case updatedAt            = "updated_at"
