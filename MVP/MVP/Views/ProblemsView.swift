@@ -79,17 +79,6 @@ struct ProblemsView: View {
                 .padding(.top, 12)
             }
             .allowsHitTesting(helpExpandedProblemKey == nil)
-
-            if let key = helpExpandedProblemKey,
-               let problem = viewModel.problems.first(where: { $0.key == key }),
-               let raw = problem.endUserDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
-               !raw.isEmpty
-            {
-                ProblemsHelpTooltipPanel(text: raw)
-                    .padding(.horizontal, 20)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    .transition(.opacity)
-            }
         }
         .animation(.easeOut(duration: 0.18), value: helpExpandedProblemKey)
     }
@@ -165,28 +154,29 @@ struct ProblemsView: View {
     }
 }
 
-// MARK: - Help tooltip (speech bubble, matches Chat / `ChatBubbleView` assistant styling)
+// MARK: - Help tooltip (anchored on row; frosted gray like inactive problem cards)
 
 private struct ProblemsHelpTooltipPanel: View {
     let text: String
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 0) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(text)
-                    .font(.system(size: 15))
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .foregroundColor(Color.aiBubbleText)
-                    .background(Color.aiBubble)
-                    .clipShape(BubbleShape(isFromUser: false))
-                    .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
-            }
-            Spacer(minLength: 50)
-        }
-        .frame(maxWidth: 300, alignment: .leading)
+        Text(text)
+            .font(.system(size: 13))
+            .foregroundColor(.white.opacity(0.95))
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: 280)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.white.opacity(ProblemsTabOpacity.problemRowInactiveFill))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.white.opacity(ProblemsTabOpacity.chromeStroke), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
     }
 }
 
@@ -210,7 +200,7 @@ private struct ProblemCard: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .center, spacing: 4) {
+                HStack(alignment: .top, spacing: 4) {
                     Text(problem.title)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white)
@@ -218,19 +208,26 @@ private struct ProblemCard: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     if helpText != nil {
-                        Button {
-                            if isHelpExpanded {
-                                helpExpandedKey = nil
-                            } else {
-                                helpExpandedKey = problem.key
+                        VStack(alignment: .trailing, spacing: 6) {
+                            Button {
+                                if isHelpExpanded {
+                                    helpExpandedKey = nil
+                                } else {
+                                    helpExpandedKey = problem.key
+                                }
+                            } label: {
+                                Image(systemName: "questionmark.circle")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.problemsTextSecondary)
                             }
-                        } label: {
-                            Image(systemName: "questionmark.circle")
-                                .font(.system(size: 20))
-                                .foregroundColor(.problemsTextSecondary)
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Problem description help")
+
+                            if isHelpExpanded, let hint = helpText {
+                                ProblemsHelpTooltipPanel(text: hint)
+                                    .transition(.opacity)
+                            }
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Problem description help")
                     }
                 }
 
@@ -260,6 +257,8 @@ private struct ProblemCard: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+        .animation(.easeOut(duration: 0.18), value: isHelpExpanded)
+        .zIndex(isHelpExpanded ? 2 : 0)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(
