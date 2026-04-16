@@ -23,6 +23,11 @@ struct ChatBubbleView: View {
                     .clipShape(BubbleShape(isFromUser: message.isFromUser))
                     .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
 
+                if !message.isFromUser, let s = message.videoUrl, let videoURL = URL(string: s) {
+                    ChatAssistantInlineVideo(url: videoURL)
+                        .padding(.top, 6)
+                }
+
                 HStack(spacing: 3) {
                     if message.wasVoiceInput {
                         Image(systemName: "mic.fill")

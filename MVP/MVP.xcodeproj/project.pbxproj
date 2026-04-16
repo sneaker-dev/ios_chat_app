@@ -43,6 +43,7 @@
 		7E000C2F311B1E00C0017C /* DialogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E000B2F311B1E00C0017D /* DialogView.swift */; };
 		7E000D2F311B1E00C0017C /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E000C2F311B1E00C0017D /* AvatarView.swift */; };
 		7E000E2F311B1E00C0017C /* ChatBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E000D2F311B1E00C0017D /* ChatBubbleView.swift */; };
+		AA44992011000000000001 /* ChatAssistantInlineVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992011000000000002 /* ChatAssistantInlineVideo.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -103,6 +104,7 @@
 		7E000B2F311B1E00C0017D /* DialogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialogView.swift; sourceTree = "<group>"; };
 		7E000C2F311B1E00C0017D /* AvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarView.swift; sourceTree = "<group>"; };
 		7E000D2F311B1E00C0017D /* ChatBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatBubbleView.swift; sourceTree = "<group>"; };
+		AA44992011000000000002 /* ChatAssistantInlineVideo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAssistantInlineVideo.swift; sourceTree = "<group>"; };
 		7E000F2F311B1E00C0017D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -411,6 +413,7 @@
 				7E000C2F311B1E00C0017C /* DialogView.swift in Sources */,
 				7E000D2F311B1E00C0017C /* AvatarView.swift in Sources */,
 				7E000E2F311B1E00C0017C /* ChatBubbleView.swift in Sources */,
+				AA44992011000000000001 /* ChatAssistantInlineVideo.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

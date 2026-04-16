@@ -991,9 +991,9 @@ struct DialogView: View {
 
         Task {
             do {
-                let response: String
+                let queryResult: DialogQueryResult
                 if requestMode == .support {
-                    response = try await DialogAPIService.shared.sendSupportMessageStreaming(
+                    queryResult = try await DialogAPIService.shared.sendSupportMessageStreaming(
                         trimmed,
                         language: dialogLanguage
                     ) { [self] keepAliveText in
@@ -1021,14 +1021,21 @@ struct DialogView: View {
                         }
                     }
                 } else {
-                    response = try await DialogAPIService.shared.sendMessage(trimmed, language: dialogLanguage, baseURL: nil)
+                    queryResult = try await DialogAPIService.shared.sendMessage(trimmed, language: dialogLanguage, baseURL: nil)
                 }
                 await MainActor.run {
                     stopLongRequestNoticeTimer()
                     showTypingIndicator = false
+                    let response = queryResult.queryResponse
                     let displayText = stripNoSpeechForDisplay(response)
                     let ttsText = stripNoSpeechForTTS(response)
-                    let botMsg = ChatMessage(text: displayText, isFromUser: false, wasVoiceInput: fromVoice, language: dialogLanguage)
+                    let botMsg = ChatMessage(
+                        text: displayText,
+                        isFromUser: false,
+                        wasVoiceInput: fromVoice,
+                        language: dialogLanguage,
+                        videoUrl: queryResult.videoUrl
+                    )
                     appendMessage(botMsg, to: requestMode)
                     isLoading = false
                     let shouldSpeak = voiceOutputEnabled

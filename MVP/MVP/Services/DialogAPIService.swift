@@ -8,6 +8,22 @@ struct InangoGenericRequest: Encodable {
 
 struct InangoQueryResponse: Decodable {
     let queryResponse: String
+    let videoUrl: String?
+    enum CodingKeys: String, CodingKey {
+        case queryResponse
+        case videoUrl
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        queryResponse = try c.decode(String.self, forKey: .queryResponse)
+        videoUrl = try c.decodeIfPresent(String.self, forKey: .videoUrl).flatMap { $0.isEmpty ? nil : $0 }
+    }
+}
+
+/// Parsed assistant reply from generic or support intent (Redmine #45268).
+struct DialogQueryResult: Sendable {
+    let queryResponse: String
+    let videoUrl: String?
 }
 
 enum DialogAPIError: Error, LocalizedError {
@@ -47,6 +63,36 @@ final class DialogAPIService {
 
     private init() {}
 
+    // MARK: - TEMP camera IoT client stub (parity with Android #45268; remove when backend serves this intent)
+
+    private static let stubCameraVideoURL =
+        "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4"
+    private static let stubCameraQueryResponse =
+        "Here is a sample stream (temporary in-app stub until chat supports this intent)."
+
+    private static let cameraIntentStubRegexes: [NSRegularExpression] = {
+        let patterns = [
+            "^stub\\s+camera\\s+stream\\s*$",
+            "^__stub_camera_stream__\\s*$",
+            "^show\\s+(me\\s+)?the\\s+camera\\b",
+            "^display\\s+the\\s+camera\\b",
+        ]
+        return patterns.compactMap { try? NSRegularExpression(pattern: $0, options: .caseInsensitive) }
+    }()
+
+    private func matchesCameraIntentStub(_ trimmed: String) -> Bool {
+        let ns = trimmed as NSString
+        let full = NSRange(location: 0, length: ns.length)
+        return Self.cameraIntentStubRegexes.contains { $0.firstMatch(in: trimmed, options: [], range: full) != nil }
+    }
+
+    private func stubCameraIntentResult(for normalizedText: String) -> DialogQueryResult? {
+        let t = normalizedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard matchesCameraIntentStub(t) else { return nil }
+        AppLogger.dialog.warning("TEMP camera IoT stub: bypassing API for query=\(t, privacy: .public) (remove with backend #45268)")
+        return DialogQueryResult(queryResponse: Self.stubCameraQueryResponse, videoUrl: Self.stubCameraVideoURL)
+    }
+
     static func getDeviceLanguage() -> String {
         let rawLanguage = Locale.current.languageCode ?? "en"
         switch rawLanguage {
@@ -57,7 +103,7 @@ final class DialogAPIService {
         }
     }
 
-    func sendMessage(_ text: String, language: String? = nil, baseURL: String? = nil) async throws -> String {
+    func sendMessage(_ text: String, language: String? = nil, baseURL: String? = nil) async throws -> DialogQueryResult {
         let normalizedText = sanitizeQueryText(text)
         guard !normalizedText.isEmpty else {
             throw DialogAPIError.serverError("Please say or type a message.")
@@ -65,8 +111,15 @@ final class DialogAPIService {
 
         guard let token = auth.token() else { throw DialogAPIError.notAuthenticated }
 
+        if let stub = stubCameraIntentResult(for: normalizedText) {
+            return stub
+        }
+
         if APIConfig.useDemoMode {
-            return "You said: \"\(normalizedText)\". (Demo mode.)"
+            return DialogQueryResult(
+                queryResponse: "You said: \"\(normalizedText)\". (Demo mode.)",
+                videoUrl: nil
+            )
         }
 
         let lang = language ?? DialogAPIService.getDeviceLanguage()
@@ -95,7 +148,7 @@ final class DialogAPIService {
         isSupportRequest: Bool,
         maxRetries: Int,
         normalizedText: String
-    ) async throws -> String {
+    ) async throws -> DialogQueryResult {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -133,7 +186,7 @@ final class DialogAPIService {
                     throw lastError!
                 }
 
-                return try parseQueryResponse(data: data)
+                return try parseQueryResult(data: data)
             } catch let urlErr as URLError {
                 let retryableCodes: [URLError.Code] = [
                     .networkConnectionLost, .notConnectedToInternet,
@@ -160,22 +213,26 @@ final class DialogAPIService {
         throw lastError ?? .serverError("Voice server is temporarily unavailable. Tap Try again or send another message.")
     }
 
-    private func parseQueryResponse(data: Data) throws -> String {
+    private func parseQueryResult(data: Data) throws -> DialogQueryResult {
         if let decoded = try? JSONDecoder().decode(InangoQueryResponse.self, from: data), !decoded.queryResponse.isEmpty {
-            return decoded.queryResponse
+            return DialogQueryResult(queryResponse: decoded.queryResponse, videoUrl: decoded.videoUrl)
         }
         struct FlexibleResponse: Decodable {
             let queryResponse: String?
             let response: String?
             let message: String?
             let text: String?
+            let videoUrl: String?
         }
         if let flex = try? JSONDecoder().decode(FlexibleResponse.self, from: data) {
             let text = flex.queryResponse ?? flex.response ?? flex.message ?? flex.text ?? ""
-            if !text.isEmpty { return text }
+            if !text.isEmpty {
+                let v = flex.videoUrl.flatMap { $0.isEmpty ? nil : $0 }
+                return DialogQueryResult(queryResponse: text, videoUrl: v)
+            }
         }
         if let raw = String(data: data, encoding: .utf8), !raw.isEmpty {
-            return raw
+            return DialogQueryResult(queryResponse: raw, videoUrl: nil)
         }
         throw DialogAPIError.decodingFailed("empty or unexpected format")
     }
@@ -243,15 +300,22 @@ final class DialogAPIService {
         _ text: String,
         language: String? = nil,
         onKeepAlive: @Sendable @escaping (String) async -> Void
-    ) async throws -> String {
+    ) async throws -> DialogQueryResult {
         let normalizedText = sanitizeQueryText(text)
         guard !normalizedText.isEmpty else {
             throw DialogAPIError.serverError("Please say or type a message.")
         }
         guard let token = auth.token() else { throw DialogAPIError.notAuthenticated }
 
+        if let stub = stubCameraIntentResult(for: normalizedText) {
+            return stub
+        }
+
         if APIConfig.useDemoMode {
-            return "You said: \"\(normalizedText)\". (Demo mode.)"
+            return DialogQueryResult(
+                queryResponse: "You said: \"\(normalizedText)\". (Demo mode.)",
+                videoUrl: nil
+            )
         }
 
         let lang   = language ?? DialogAPIService.getDeviceLanguage()
@@ -297,6 +361,7 @@ final class DialogAPIService {
 
         var lineBuffer = ""
         var finalText: String?
+        var finalVideoUrl: String?
         var keepAliveStreamBuffer = ""
 
         for try await byte in asyncBytes {
@@ -331,6 +396,7 @@ final class DialogAPIService {
                         handled = true
                     } else if !r.isEmpty, !r.lowercased().contains("<keep-alive>") {
                         finalText = r
+                        finalVideoUrl = obj.videoUrl
                         break
                     } else if r.lowercased().contains("<keep-alive>"), !r.lowercased().contains("</keep-alive>") {
                         keepAliveStreamBuffer = trimmed
@@ -348,8 +414,9 @@ final class DialogAPIService {
                         await onKeepAlive(kaText)
                     } else if lower.contains("<keep-alive>") {
                         keepAliveStreamBuffer = trimmed
-                    } else if let final_ = extractFinalResponseText(from: trimmed) {
-                        finalText = final_
+                    } else if let finalPayload = extractFinalQueryResult(from: trimmed) {
+                        finalText = finalPayload.queryResponse
+                        finalVideoUrl = finalPayload.videoUrl
                         break
                     } else {
                         AppLogger.dialog.notice("Unrecognized streaming line: \(String(trimmed.prefix(120)), privacy: .public)")
@@ -379,15 +446,16 @@ final class DialogAPIService {
             let trimmed = lineBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
             if let kaText = extractKeepAliveInner(from: trimmed) {
                 await onKeepAlive(kaText)
-            } else {
-                finalText = extractFinalResponseText(from: trimmed)
+            } else if let finalPayload = extractFinalQueryResult(from: trimmed) {
+                finalText = finalPayload.queryResponse
+                finalVideoUrl = finalPayload.videoUrl
             }
         }
 
         guard let result = finalText, !result.isEmpty else {
             throw DialogAPIError.noData
         }
-        return result
+        return DialogQueryResult(queryResponse: result, videoUrl: finalVideoUrl)
     }
 
     /// Emit complete keep-alive segments as soon as the closing tag appears (no newline required).
@@ -433,16 +501,16 @@ final class DialogAPIService {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func extractFinalResponseText(from line: String) -> String? {
+    private func extractFinalQueryResult(from line: String) -> DialogQueryResult? {
         if let data = line.data(using: .utf8),
            let obj = try? JSONDecoder().decode(InangoQueryResponse.self, from: data) {
             let r = obj.queryResponse
             guard !r.lowercased().contains("<keep-alive>"), !r.isEmpty else { return nil }
-            return r
+            return DialogQueryResult(queryResponse: r, videoUrl: obj.videoUrl)
         }
         let t = line.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty, !t.lowercased().contains("<keep-alive>") else { return nil }
-        return t
+        return DialogQueryResult(queryResponse: t, videoUrl: nil)
     }
 
     private func isSupportURL(_ url: URL) -> Bool {
