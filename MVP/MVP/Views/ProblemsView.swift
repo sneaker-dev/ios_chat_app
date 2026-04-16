@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Opacity tokens (Problems tab)
 
-/// Shared fill opacities so problem rows and the help tooltip read as one visual system; backdrop stays visible.
+/// Shared fill opacities for problem rows; backdrop stays visible.
 private enum ProblemsTabOpacity {
     /// Inactive problem row: `Color.white.opacity(problemRowInactiveFill)`.
     static let problemRowInactiveFill: Double = 0.10
@@ -10,8 +10,6 @@ private enum ProblemsTabOpacity {
     static let problemRowActiveFill: Double = 0.22
     /// Subtle edge for problem rows (inactive row overlay).
     static let chromeStroke: Double = 0.12
-    /// Help speech bubble: more opaque than inactive rows so row copy does not read through the tooltip.
-    static let helpTooltipFill: Double = 0.50
 }
 
 // MARK: - Color constants (Problems screen)
@@ -156,7 +154,7 @@ struct ProblemsView: View {
     }
 }
 
-// MARK: - Help tooltip (overlay; speech-bubble shape; higher-opacity gray than row chrome)
+// MARK: - Help tooltip (overlay; speech-bubble shape; opaque assistant bubble colors from Chat)
 
 /// Rounded body with a small tail on the **top** edge so it reads as a callout toward the help control above.
 private struct ProblemsHelpBubbleShape: Shape {
@@ -233,7 +231,7 @@ private struct ProblemsHelpTooltipPanel: View {
     var body: some View {
         Text(text)
             .font(.system(size: 13))
-            .foregroundColor(.black)
+            .foregroundColor(.white)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 16)
@@ -242,13 +240,13 @@ private struct ProblemsHelpTooltipPanel: View {
             .frame(maxWidth: 280, alignment: .leading)
             .background(
                 ProblemsHelpBubbleShape(tailCenterFraction: 0.82)
-                    .fill(Color.white.opacity(ProblemsTabOpacity.helpTooltipFill))
+                    .fill(Color.chatAssistantBubbleOpaque)
             )
             .overlay(
                 ProblemsHelpBubbleShape(tailCenterFraction: 0.82)
-                    .stroke(Color.white.opacity(ProblemsTabOpacity.chromeStroke), lineWidth: 1)
+                    .stroke(Color.chatAssistantBubbleStrokeOpaque, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
+            .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
     }
 }
 
