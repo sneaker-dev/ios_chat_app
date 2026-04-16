@@ -11,7 +11,7 @@ private enum ProblemsTabOpacity {
     /// Subtle edge for problem rows (inactive row overlay).
     static let chromeStroke: Double = 0.12
     /// Help speech bubble: more opaque than inactive rows so row copy does not read through the tooltip.
-    static let helpTooltipFill: Double = 0.42
+    static let helpTooltipFill: Double = 0.50
 }
 
 // MARK: - Color constants (Problems screen)
