@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Opacity tokens (Problems tab)
 
-/// Shared fill opacities so problem rows and the help tooltip read as one visual system; backdrop stays visible.
+/// Shared fill opacities for problem rows; backdrop stays visible.
 private enum ProblemsTabOpacity {
     /// Inactive problem row: `Color.white.opacity(problemRowInactiveFill)`.
     static let problemRowInactiveFill: Double = 0.10
@@ -10,8 +10,6 @@ private enum ProblemsTabOpacity {
     static let problemRowActiveFill: Double = 0.22
     /// Subtle edge for problem rows (inactive row overlay).
     static let chromeStroke: Double = 0.12
-    /// Help speech bubble: more opaque than inactive rows so row copy does not read through the tooltip.
-    static let helpTooltipFill: Double = 0.50
 }
 
 // MARK: - Color constants (Problems screen)
@@ -23,6 +21,26 @@ private extension Color {
     static let statusOrange     = Color(red: 1.0,   green: 0.596, blue: 0.0)    // #FF9800
     static let statusGray       = Color(red: 0.62,  green: 0.62,  blue: 0.62)
     static let problemsTextSecondary = Color.white.opacity(0.85)
+
+    // MARK: Chat assistant bubble (keep in sync with `RootView` / `ChatBubbleView`: `appPrimary`, `aiBubble = appPrimary.opacity(0.90)`)
+
+    private static let chatAppPrimaryR = Double(0xE5) / 255.0
+    private static let chatAppPrimaryG = Double(0x5C) / 255.0
+    private static let chatAppPrimaryB = Double(0x38) / 255.0
+
+    /// Opaque sRGB equivalent of `appPrimary.opacity(0.90)` over **black** (assistant bubble fill in chat).
+    static let chatAssistantBubbleOpaque = Color(
+        red: chatAppPrimaryR * 0.9,
+        green: chatAppPrimaryG * 0.9,
+        blue: chatAppPrimaryB * 0.9
+    )
+
+    /// Slightly darker edge in the same family as `appPrimaryPressed` composited at 0.9 on black.
+    static let chatAssistantBubbleStrokeOpaque = Color(
+        red: Double(0xCF) / 255.0 * 0.9,
+        green: Double(0x4F) / 255.0 * 0.9,
+        blue: Double(0x2F) / 255.0 * 0.9
+    )
 }
 
 // MARK: - ProblemsView
@@ -156,7 +174,7 @@ struct ProblemsView: View {
     }
 }
 
-// MARK: - Help tooltip (overlay; speech-bubble shape; higher-opacity gray than row chrome)
+// MARK: - Help tooltip (overlay; speech-bubble shape; opaque assistant bubble colors from Chat)
 
 /// Rounded body with a small tail on the **top** edge so it reads as a callout toward the help control above.
 private struct ProblemsHelpBubbleShape: Shape {
@@ -233,7 +251,7 @@ private struct ProblemsHelpTooltipPanel: View {
     var body: some View {
         Text(text)
             .font(.system(size: 13))
-            .foregroundColor(.black)
+            .foregroundColor(.white)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 16)
@@ -242,13 +260,13 @@ private struct ProblemsHelpTooltipPanel: View {
             .frame(maxWidth: 280, alignment: .leading)
             .background(
                 ProblemsHelpBubbleShape(tailCenterFraction: 0.82)
-                    .fill(Color.white.opacity(ProblemsTabOpacity.helpTooltipFill))
+                    .fill(Color.chatAssistantBubbleOpaque)
             )
             .overlay(
                 ProblemsHelpBubbleShape(tailCenterFraction: 0.82)
-                    .stroke(Color.white.opacity(ProblemsTabOpacity.chromeStroke), lineWidth: 1)
+                    .stroke(Color.chatAssistantBubbleStrokeOpaque, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
+            .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
     }
 }
 
