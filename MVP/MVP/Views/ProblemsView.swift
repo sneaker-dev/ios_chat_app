@@ -1,5 +1,19 @@
 import SwiftUI
 
+// MARK: - Opacity tokens (Problems tab)
+
+/// Shared fill opacities so problem rows and the help tooltip read as one visual system; backdrop stays visible.
+private enum ProblemsTabOpacity {
+    /// Inactive problem row: `Color.white.opacity(problemRowInactiveFill)`.
+    static let problemRowInactiveFill: Double = 0.10
+    /// Enabled problem row tint: `Color.problemsRed.opacity(problemRowActiveFill)`.
+    static let problemRowActiveFill: Double = 0.22
+    /// Subtle edge for problem rows (inactive row overlay).
+    static let chromeStroke: Double = 0.12
+    /// Help speech bubble: more opaque than inactive rows so row copy does not read through the tooltip.
+    static let helpTooltipFill: Double = 0.50
+}
+
 // MARK: - Color constants (Problems screen)
 
 private extension Color {
@@ -8,12 +22,15 @@ private extension Color {
     static let statusGreen      = Color(red: 0.298, green: 0.686, blue: 0.314)  // #4CAF50
     static let statusOrange     = Color(red: 1.0,   green: 0.596, blue: 0.0)    // #FF9800
     static let statusGray       = Color(red: 0.62,  green: 0.62,  blue: 0.62)
+    static let problemsTextSecondary = Color.white.opacity(0.85)
 }
 
 // MARK: - ProblemsView
 
 struct ProblemsView: View {
     @StateObject private var viewModel = ProblemsViewModel()
+    /// Which row shows catalog help; `nil` when closed. Tap outside the tooltip dismisses.
+    @State private var helpExpandedProblemKey: String?
 
     var body: some View {
         ZStack {
@@ -24,10 +41,48 @@ struct ProblemsView: View {
             } else if !viewModel.isLoading && viewModel.problems.isEmpty && viewModel.error != nil {
                 errorView
             } else {
-                contentList
+                problemsContentWithHelpDismiss
             }
         }
         .onAppear { viewModel.load() }
+    }
+
+    /// Scroll list with catalog help: tap outside the tooltip hits a full-screen clear layer *behind* the list while
+    /// the list ignores taps, so any non-tooltip tap dismisses (and `?` still works when help is closed).
+    private var problemsContentWithHelpDismiss: some View {
+        ZStack {
+            if helpExpandedProblemKey != nil {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
+                    .onTapGesture { helpExpandedProblemKey = nil }
+            }
+
+            ScrollView {
+                LazyVStack(spacing: 10) {
+                    headerView
+
+                    if let err = viewModel.error {
+                        inlineErrorBanner(err)
+                    }
+
+                    ForEach(viewModel.problems) { problem in
+                        ProblemCard(
+                            problem: problem,
+                            helpExpandedKey: $helpExpandedProblemKey
+                        ) { enable in
+                            viewModel.toggleProblem(key: problem.key, enable: enable)
+                        }
+                    }
+
+                    Spacer().frame(height: 20)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+            }
+            .allowsHitTesting(helpExpandedProblemKey == nil)
+        }
+        .animation(.easeOut(duration: 0.18), value: helpExpandedProblemKey)
     }
 
     // MARK: - Loading
@@ -69,40 +124,11 @@ struct ProblemsView: View {
         }
     }
 
-    // MARK: - Content list
-
-    private var contentList: some View {
-        ScrollView {
-            LazyVStack(spacing: 10) {
-                headerView
-
-                if let err = viewModel.error {
-                    inlineErrorBanner(err)
-                }
-
-                ForEach(viewModel.problems) { problem in
-                    ProblemCard(problem: problem) { enable in
-                        viewModel.toggleProblem(key: problem.key, enable: enable)
-                    }
-                }
-
-                Spacer().frame(height: 20)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-        }
-    }
-
     private var headerView: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Device Problems")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
-                Text("Emulate hardware & network issues")
-                    .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.55))
-            }
+        HStack(alignment: .center) {
+            Text("Board Problem Emulation")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundColor(.white.opacity(0.92))
             Spacer()
             if viewModel.isLoading {
                 ProgressView()
@@ -130,61 +156,199 @@ struct ProblemsView: View {
     }
 }
 
+// MARK: - Help tooltip (overlay; speech-bubble shape; higher-opacity gray than row chrome)
+
+/// Rounded body with a small tail on the **top** edge so it reads as a callout toward the help control above.
+private struct ProblemsHelpBubbleShape: Shape {
+    /// Tail tip X as a fraction of width from **leading** (0…1); default sits toward trailing for the `?` anchor.
+    var tailCenterFraction: CGFloat = 0.82
+
+    func path(in rect: CGRect) -> Path {
+        let tailHeight: CGFloat = 7
+        let tailWidth: CGFloat = 12
+        let r = min(
+            CGFloat(10),
+            max(3, (rect.width - tailWidth) * 0.06),
+            max(3, (rect.height - tailHeight) * 0.18)
+        )
+        let bodyTop = rect.minY + tailHeight
+        let left = rect.minX
+        let right = rect.maxX
+        let bottom = rect.maxY
+
+        var cx = left + rect.width * tailCenterFraction
+        let minTailX = left + r + tailWidth * 0.5 + 2
+        let maxTailX = right - r - tailWidth * 0.5 - 2
+        cx = min(max(cx, minTailX), maxTailX)
+        let tLeft = cx - tailWidth / 2
+        let tRight = cx + tailWidth / 2
+
+        var p = Path()
+        p.move(to: CGPoint(x: left + r, y: bottom))
+        p.addArc(
+            center: CGPoint(x: left + r, y: bottom - r),
+            radius: r,
+            startAngle: Angle(degrees: 90),
+            endAngle: Angle(degrees: 180),
+            clockwise: false
+        )
+        p.addLine(to: CGPoint(x: left, y: bodyTop + r))
+        p.addArc(
+            center: CGPoint(x: left + r, y: bodyTop + r),
+            radius: r,
+            startAngle: Angle(degrees: 180),
+            endAngle: Angle(degrees: 270),
+            clockwise: false
+        )
+        p.addLine(to: CGPoint(x: tLeft, y: bodyTop))
+        p.addLine(to: CGPoint(x: cx, y: rect.minY))
+        p.addLine(to: CGPoint(x: tRight, y: bodyTop))
+        p.addLine(to: CGPoint(x: right - r, y: bodyTop))
+        p.addArc(
+            center: CGPoint(x: right - r, y: bodyTop + r),
+            radius: r,
+            startAngle: Angle(degrees: 270),
+            endAngle: Angle(degrees: 0),
+            clockwise: false
+        )
+        p.addLine(to: CGPoint(x: right, y: bottom - r))
+        p.addArc(
+            center: CGPoint(x: right - r, y: bottom - r),
+            radius: r,
+            startAngle: Angle(degrees: 0),
+            endAngle: Angle(degrees: 90),
+            clockwise: false
+        )
+        p.addLine(to: CGPoint(x: left + r, y: bottom))
+        p.closeSubpath()
+        return p
+    }
+}
+
+private struct ProblemsHelpTooltipPanel: View {
+    let text: String
+
+    private let tailReserve: CGFloat = 7
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 13))
+            .foregroundColor(.black)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 16)
+            .padding(.top, 6 + tailReserve)
+            .padding(.bottom, 12)
+            .frame(maxWidth: 280, alignment: .leading)
+            .background(
+                ProblemsHelpBubbleShape(tailCenterFraction: 0.82)
+                    .fill(Color.white.opacity(ProblemsTabOpacity.helpTooltipFill))
+            )
+            .overlay(
+                ProblemsHelpBubbleShape(tailCenterFraction: 0.82)
+                    .stroke(Color.white.opacity(ProblemsTabOpacity.chromeStroke), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
+    }
+}
+
 // MARK: - ProblemCard
 
 private struct ProblemCard: View {
     let problem: ProblemUiItem
+    @Binding var helpExpandedKey: String?
     let onToggle: (Bool) -> Void
 
+    private var helpText: String? {
+        guard let s = problem.endUserDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !s.isEmpty else { return nil }
+        return s
+    }
+
+    private var isHelpExpanded: Bool {
+        helpExpandedKey == problem.key
+    }
+
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(problem.title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(problem.enabled ? .white : .white.opacity(0.9))
+                HStack(alignment: .center, spacing: 4) {
+                    Text(problem.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if helpText != nil {
+                        Button {
+                            if isHelpExpanded {
+                                helpExpandedKey = nil
+                            } else {
+                                helpExpandedKey = problem.key
+                            }
+                        } label: {
+                            Image(systemName: "questionmark.circle")
+                                .font(.system(size: 20))
+                                .foregroundColor(.problemsTextSecondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Problem description help")
+                    }
+                }
 
                 Text(problem.summary)
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.65))
-                    .lineLimit(3)
+                    .foregroundColor(.problemsTextSecondary)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 StatusBadge(status: problem.implementationStatus)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 8) {
-                if problem.isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .problemsRedLight))
-                        .frame(width: 32, height: 32)
-                } else {
-                    Toggle("", isOn: Binding(
-                        get: { problem.enabled },
-                        set: { onToggle($0) }
-                    ))
-                    .labelsHidden()
-                    .tint(.problemsRed)
-                    .frame(width: 51, height: 32)
-                }
+            if problem.isLoading {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .problemsRedLight))
+                    .frame(width: 32, height: 32)
+            } else {
+                Toggle("", isOn: Binding(
+                    get: { problem.enabled },
+                    set: { onToggle($0) }
+                ))
+                .labelsHidden()
+                .tint(.problemsRed)
+                .frame(width: 51, height: 32)
             }
         }
-        .padding(14)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .animation(.easeOut(duration: 0.18), value: isHelpExpanded)
+        .zIndex(isHelpExpanded ? 2 : 0)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 10)
                 .fill(
                     problem.enabled
-                        ? Color.problemsRed.opacity(0.22)
-                        : Color.white.opacity(0.10)
+                        ? Color.problemsRed.opacity(ProblemsTabOpacity.problemRowActiveFill)
+                        : Color.white.opacity(ProblemsTabOpacity.problemRowInactiveFill)
                 )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 10)
                 .stroke(
-                    problem.enabled ? Color.problemsRed.opacity(0.6) : Color.white.opacity(0.12),
+                    problem.enabled ? Color.problemsRed.opacity(0.6) : Color.white.opacity(ProblemsTabOpacity.chromeStroke),
                     lineWidth: 1
                 )
         )
+        /// Tooltip is an overlay so it does not participate in row layout (no card height jump).
+        .overlay(alignment: .topTrailing) {
+            if isHelpExpanded, let hint = helpText {
+                ProblemsHelpTooltipPanel(text: hint)
+                    .transition(.opacity)
+                    .padding(.top, 30)
+                    .padding(.trailing, 56)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 }
 
