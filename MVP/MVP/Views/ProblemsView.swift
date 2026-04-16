@@ -233,7 +233,7 @@ private struct ProblemsHelpTooltipPanel: View {
     var body: some View {
         Text(text)
             .font(.system(size: 13))
-            .foregroundColor(.white.opacity(0.95))
+            .foregroundColor(.black)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 16)
