@@ -10,6 +10,8 @@ private enum ProblemsTabOpacity {
     static let problemRowActiveFill: Double = 0.22
     /// Subtle edge for problem rows (inactive row overlay).
     static let chromeStroke: Double = 0.12
+    /// Help speech bubble: more opaque than inactive rows so row copy does not read through the tooltip.
+    static let helpTooltipFill: Double = 0.34
 }
 
 // MARK: - Color constants (Problems screen)
@@ -154,7 +156,7 @@ struct ProblemsView: View {
     }
 }
 
-// MARK: - Help tooltip (overlay; speech-bubble shape; same gray chrome as problem rows)
+// MARK: - Help tooltip (overlay; speech-bubble shape; higher-opacity gray than row chrome)
 
 /// Rounded body with a small tail on the **top** edge so it reads as a callout toward the help control above.
 private struct ProblemsHelpBubbleShape: Shape {
@@ -240,7 +242,7 @@ private struct ProblemsHelpTooltipPanel: View {
             .frame(maxWidth: 280, alignment: .leading)
             .background(
                 ProblemsHelpBubbleShape(tailCenterFraction: 0.82)
-                    .fill(Color.white.opacity(ProblemsTabOpacity.problemRowInactiveFill))
+                    .fill(Color.white.opacity(ProblemsTabOpacity.helpTooltipFill))
             )
             .overlay(
                 ProblemsHelpBubbleShape(tailCenterFraction: 0.82)
