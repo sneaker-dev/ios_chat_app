@@ -135,15 +135,13 @@ final class DialogAPIService {
 
                 return try parseQueryResponse(data: data)
             } catch let urlErr as URLError {
-                let isRetryableConnection = [
-                    URLError.networkConnectionLost,
-                    URLError.notConnectedToInternet,
-                    URLError.cannotConnectToHost,
-                    URLError.cannotFindHost,
-                    URLError.timedOut
-                ].contains(urlErr.code)
-                AppLogger.dialog.error("sendMessage URLError code=\(urlErr.code.rawValue, privacy: .public) attempt=\(attempt, privacy: .public)")
-                if isRetryableConnection && attempt < maxRetries {
+                let retryableCodes: [URLError.Code] = [
+                    .networkConnectionLost, .notConnectedToInternet,
+                    .timedOut, .cannotConnectToHost, .cannotFindHost,
+                    .dnsLookupFailed, .resourceUnavailable
+                ]
+                AppLogger.dialog.error("sendMessage URLError code=\(urlErr.code.rawValue, privacy: .public) attempt=\(attempt, privacy: .public) msg=\(urlErr.localizedDescription, privacy: .public)")
+                if retryableCodes.contains(urlErr.code) && attempt < maxRetries {
                     let delayNs = UInt64(1 + attempt) * 1_000_000_000
                     try? await Task.sleep(nanoseconds: delayNs)
                     lastError = .serverError("Connection interrupted. Retrying…")

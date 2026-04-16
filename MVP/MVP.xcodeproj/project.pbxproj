@@ -33,6 +33,7 @@
 		AA44992005000000000001 /* BaseTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992005000000000002 /* BaseTTSService.swift */; };
 		AA44992006000000000001 /* CloudTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992006000000000002 /* CloudTTSService.swift */; };
 		AA44992007000000000001 /* ProblemsAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992007000000000002 /* ProblemsAPIService.swift */; };
+		AA45088001000000000001 /* ServerConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA45088001000000000002 /* ServerConfigStore.swift */; };
 		AA44992008000000000001 /* ProblemsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992008000000000002 /* ProblemsModels.swift */; };
 		AA44992009000000000001 /* ProblemsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992009000000000002 /* ProblemsView.swift */; };
 		AA44992010000000000001 /* ProblemsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44992010000000000002 /* ProblemsViewModel.swift */; };
@@ -93,6 +94,7 @@
 		AA44992005000000000002 /* BaseTTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseTTSService.swift; sourceTree = "<group>"; };
 		AA44992006000000000002 /* CloudTTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudTTSService.swift; sourceTree = "<group>"; };
 		AA44992007000000000002 /* ProblemsAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProblemsAPIService.swift; sourceTree = "<group>"; };
+		AA45088001000000000002 /* ServerConfigStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfigStore.swift; sourceTree = "<group>"; };
 		AA44992008000000000002 /* ProblemsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProblemsModels.swift; sourceTree = "<group>"; };
 		AA44992009000000000002 /* ProblemsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProblemsView.swift; sourceTree = "<group>"; };
 		AA44992010000000000002 /* ProblemsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProblemsViewModel.swift; sourceTree = "<group>"; };
@@ -219,6 +221,7 @@
 				AA44992005000000000002 /* BaseTTSService.swift */,
 				AA44992006000000000002 /* CloudTTSService.swift */,
 				AA44992007000000000002 /* ProblemsAPIService.swift */,
+				AA45088001000000000002 /* ServerConfigStore.swift */,
 				7E00062F311B1E00C0017D /* DialogAPIService.swift */,
 				7E00032F311B1E00C0017D /* KeychainService.swift */,
 				AA44992001000000000002 /* GatewayService.swift */,
@@ -401,6 +404,7 @@
 				AA44992005000000000001 /* BaseTTSService.swift in Sources */,
 				AA44992006000000000001 /* CloudTTSService.swift in Sources */,
 				AA44992007000000000001 /* ProblemsAPIService.swift in Sources */,
+				AA45088001000000000001 /* ServerConfigStore.swift in Sources */,
 				AA44992008000000000001 /* ProblemsModels.swift in Sources */,
 				AA44992009000000000001 /* ProblemsView.swift in Sources */,
 				AA44992010000000000001 /* ProblemsViewModel.swift in Sources */,
