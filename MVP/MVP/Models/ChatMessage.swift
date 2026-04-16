@@ -8,6 +8,8 @@ struct ChatMessage: Identifiable, Equatable, Codable {
     var wasVoiceInput: Bool
     var language: String?
     var suppressTTS: Bool
+    /// Optional HLS/file URL from intent response (Redmine #45268).
+    var videoUrl: String?
 
     init(
         id: UUID = UUID(),
@@ -16,7 +18,8 @@ struct ChatMessage: Identifiable, Equatable, Codable {
         timestamp: Date = Date(),
         wasVoiceInput: Bool = false,
         language: String? = nil,
-        suppressTTS: Bool = false
+        suppressTTS: Bool = false,
+        videoUrl: String? = nil
     ) {
         self.id = id
         self.text = text
@@ -25,5 +28,6 @@ struct ChatMessage: Identifiable, Equatable, Codable {
         self.wasVoiceInput = wasVoiceInput
         self.language = language
         self.suppressTTS = suppressTTS
+        self.videoUrl = videoUrl
     }
 }
