@@ -174,7 +174,10 @@ final class DialogAPIService {
                     }
                     let msg = userFacingMessage(from: data, statusCode: http.statusCode)
                     if token.hasPrefix("demo-token-") {
-                        return "You said: \"\(normalizedText)\". (Need real login to get answers from voice-demo.inango.com.)"
+                        return DialogQueryResult(
+                            queryResponse: "You said: \"\(normalizedText)\". (Need real login to get answers from voice-demo.inango.com.)",
+                            videoUrl: nil
+                        )
                     }
                     lastError = .serverError(msg)
                     let isRetryable = http.statusCode >= 500 || http.statusCode == 421

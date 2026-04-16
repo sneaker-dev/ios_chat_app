@@ -251,6 +251,7 @@
 			children = (
 				7E000C2F311B1E00C0017D /* AvatarView.swift */,
 				7E000D2F311B1E00C0017D /* ChatBubbleView.swift */,
+				AA44992011000000000002 /* ChatAssistantInlineVideo.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
