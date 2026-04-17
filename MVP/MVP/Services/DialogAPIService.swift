@@ -66,9 +66,9 @@ final class DialogAPIService {
     // MARK: - TEMP camera IoT client stub (parity with Android #45268; remove when backend serves this intent)
 
     private static let stubCameraVideoURL =
-        "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4"
+        "https://usp-test.inango.com:8081/629f0c78040a/api/stream.m3u8?src=camera.ty1_bc6239671&video=h264&audio=aac"
     private static let stubCameraQueryResponse =
-        "Here is a sample stream (temporary in-app stub until chat supports this intent)."
+        "Playing the USP test camera stream (temporary client stub until the backend returns videoUrl)."
 
     private static let cameraIntentStubRegexes: [NSRegularExpression] = {
         let patterns = [
