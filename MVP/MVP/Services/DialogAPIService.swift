@@ -63,36 +63,6 @@ final class DialogAPIService {
 
     private init() {}
 
-    // MARK: - TEMP camera IoT client stub (remove when backend returns videoUrl on generic/support)
-
-    private static let stubCameraVideoURL =
-        "https://usp-test.inango.com:8081/629f0c78040a/api/stream.m3u8?src=camera.ty1_bc6239671&video=h264&audio=aac"
-    private static let stubCameraQueryResponse =
-        "Playing the USP test camera stream (temporary client stub until the backend returns videoUrl)."
-
-    private static let cameraIntentStubRegexes: [NSRegularExpression] = {
-        let patterns = [
-            "^stub\\s+camera\\s+stream\\s*$",
-            "^__stub_camera_stream__\\s*$",
-            "^show\\s+(me\\s+)?the\\s+camera\\b",
-            "^display\\s+the\\s+camera\\b",
-        ]
-        return patterns.compactMap { try? NSRegularExpression(pattern: $0, options: .caseInsensitive) }
-    }()
-
-    private func matchesCameraIntentStub(_ trimmed: String) -> Bool {
-        let ns = trimmed as NSString
-        let full = NSRange(location: 0, length: ns.length)
-        return Self.cameraIntentStubRegexes.contains { $0.firstMatch(in: trimmed, options: [], range: full) != nil }
-    }
-
-    private func stubCameraIntentResult(for normalizedText: String) -> DialogQueryResult? {
-        let t = normalizedText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard matchesCameraIntentStub(t) else { return nil }
-        AppLogger.dialog.warning("TEMP camera IoT stub: bypassing API for query=\(t, privacy: .public)")
-        return DialogQueryResult(queryResponse: Self.stubCameraQueryResponse, videoUrl: Self.stubCameraVideoURL)
-    }
-
     static func getDeviceLanguage() -> String {
         let rawLanguage = Locale.current.languageCode ?? "en"
         switch rawLanguage {
@@ -305,10 +275,6 @@ final class DialogAPIService {
             throw DialogAPIError.serverError("Please say or type a message.")
         }
         guard let token = auth.token() else { throw DialogAPIError.notAuthenticated }
-
-        if let stub = stubCameraIntentResult(for: normalizedText) {
-            return stub
-        }
 
         if APIConfig.useDemoMode {
             return DialogQueryResult(
