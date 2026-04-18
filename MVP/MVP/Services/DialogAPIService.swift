@@ -63,36 +63,6 @@ final class DialogAPIService {
 
     private init() {}
 
-    // MARK: - TEMP camera IoT client stub (parity with Android #45268; remove when backend serves this intent)
-
-    private static let stubCameraVideoURL =
-        "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4"
-    private static let stubCameraQueryResponse =
-        "Here is a sample stream (temporary in-app stub until chat supports this intent)."
-
-    private static let cameraIntentStubRegexes: [NSRegularExpression] = {
-        let patterns = [
-            "^stub\\s+camera\\s+stream\\s*$",
-            "^__stub_camera_stream__\\s*$",
-            "^show\\s+(me\\s+)?the\\s+camera\\b",
-            "^display\\s+the\\s+camera\\b",
-        ]
-        return patterns.compactMap { try? NSRegularExpression(pattern: $0, options: .caseInsensitive) }
-    }()
-
-    private func matchesCameraIntentStub(_ trimmed: String) -> Bool {
-        let ns = trimmed as NSString
-        let full = NSRange(location: 0, length: ns.length)
-        return Self.cameraIntentStubRegexes.contains { $0.firstMatch(in: trimmed, options: [], range: full) != nil }
-    }
-
-    private func stubCameraIntentResult(for normalizedText: String) -> DialogQueryResult? {
-        let t = normalizedText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard matchesCameraIntentStub(t) else { return nil }
-        AppLogger.dialog.warning("TEMP camera IoT stub: bypassing API for query=\(t, privacy: .public) (remove with backend #45268)")
-        return DialogQueryResult(queryResponse: Self.stubCameraQueryResponse, videoUrl: Self.stubCameraVideoURL)
-    }
-
     static func getDeviceLanguage() -> String {
         let rawLanguage = Locale.current.languageCode ?? "en"
         switch rawLanguage {
@@ -110,10 +80,6 @@ final class DialogAPIService {
         }
 
         guard let token = auth.token() else { throw DialogAPIError.notAuthenticated }
-
-        if let stub = stubCameraIntentResult(for: normalizedText) {
-            return stub
-        }
 
         if APIConfig.useDemoMode {
             return DialogQueryResult(
@@ -306,10 +272,6 @@ final class DialogAPIService {
             throw DialogAPIError.serverError("Please say or type a message.")
         }
         guard let token = auth.token() else { throw DialogAPIError.notAuthenticated }
-
-        if let stub = stubCameraIntentResult(for: normalizedText) {
-            return stub
-        }
 
         if APIConfig.useDemoMode {
             return DialogQueryResult(
